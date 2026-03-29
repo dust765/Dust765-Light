@@ -8,7 +8,22 @@
 
 </div>
 
-## Dust765 Light
+## 🎭 **The Dust765 Project**
+
+> **"This project was created to address a problem constructed within the toxicity of this community. This is to show the community that open source projects are not meant for cliques and high school drama but rather the expansion of something greater: innovation."**
+>
+> *- A penny for your thoughts, the adder that prays beneath the rose.*
+
+### 🌑 **The Dark Truth**
+
+Welcome to the **Dust765** project - where we don't just break barriers, we **obliterate them**. While others play nice in their little sandboxes, we're here to remind everyone that **true innovation doesn't come from playing favorites**.
+
+[**Discord**](https://discord.gg/9Vh7aqqX) – We're on our own Discord server, join and have fun!
+
+Dust765: 7 Link, 6 Gaechti, 5 Syrupz and jsebold666 (astraroth)
+
+
+## Dust765 Light Version
 
 A lightweight fork of [Dust765](https://github.com/dust765/ClassicUO) focused exclusively on **PvP gameplay**. This version strips down the full Dust765 feature set to only what matters in combat, keeping the client lean and easy to maintain.
 
@@ -70,8 +85,7 @@ dotnet build src/ClassicUO.Client/ClassicUO.Client.csproj -c Release
 ## Credits
 
 - **andreakarasho** — original ClassicUO creator
-- **Dust765 team** — Gaechti, Syrupz, jsebold666 (astraroth)
-- Support: Marcos Guerine and Lissandro
+- **Dust765 team** — Gaechti, Syrupz, Link, Astraroth
 
 ---
 
