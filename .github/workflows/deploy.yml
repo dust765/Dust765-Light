@@ -9,7 +9,7 @@ on:
       - completed
 
 env:
-  CUO_ASSEMBLY_VERSION: "1.1.0.${{ github.run_number }}"
+  CUO_ASSEMBLY_VERSION: "3.0.0.${{ github.run_number }}"
   CUO_OUTPUT_PATH: "dist"
   CUO_PROJECT_PATH: "src/ClassicUO.Client/ClassicUO.Client.csproj"
   BOOT_PROJECT_PATH: "src/ClassicUO.Bootstrap/src/ClassicUO.Bootstrap.csproj"
@@ -26,7 +26,7 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     env:
-      CUO_ZIP_NAME: "ClassicUO-${{ matrix.target }}-release.zip"
+      CUO_ZIP_NAME: "Dust765-Light-${{ matrix.target }}-release.zip"
       # Branch/commit detection: use triggering run for workflow_run, otherwise current ref for manual dispatch
       BRANCH_NAME: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || github.ref_name }}
       COMMIT_SHA:  ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha    || github.sha }}
