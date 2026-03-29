@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet build:*)",
+      "Bash(dotnet restore:*)",
+      "Bash(git checkout:*)",
+      "Bash(python3:*)",
+      "Bash(awk:*)",
+      "Bash(git add:*)",
+      "Bash(find /c/dev/cuo/xxx/ClassicUO/src -type f -name \"*.cs\" | xargs grep -l \"ASCIIFont\\\\|UniFont\\\\|UOFont\" | head -20)",
+      "Bash(find /c/dev/cuo/xxx/ClassicUO/src -type f -name \"*.cs\" | xargs grep -l \"class.*Font\" | grep -v \".Renderer\" | head -20)",
+      "Bash(grep:*)",
+      "Bash(cd:*)",
+      "Bash(bash build-naot.sh)",
+      "Bash(find '/c/Program Files/Microsoft Visual Studio' -name link.exe -path */Hostx64/x64/*)",
+      "Bash(export PATH=\"$PATH:/c/Program Files \\(x86\\)/Microsoft Visual Studio/Installer\")",
+      "Bash(dotnet publish:*)",
+      "Bash(find D:/workspace/2025/novo/ClassicUO/src/ClassicUO.Client -name *Path* -o -name *Walk* -o -name *Nav*)",
+      "Bash(xargs wc:*)",
+      "Read(//c/Program Files \\(x86\\)/Microsoft Visual Studio/Installer/**)",
+      "Read(//c/Program Files/Microsoft Visual Studio/Installer/**)"
+    ]
+  }
+}
