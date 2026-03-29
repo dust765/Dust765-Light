@@ -266,3 +266,5 @@ __pycache__/
 *.pyc
 /.svn
 Data
+!src/**/Game/Data/
+!src/**/Game/Data/**
