@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 using ClassicUO.Configuration;
+using ClassicUO.Dust765;
 using ClassicUO.Game.Data;
 using ClassicUO.Game.Scenes;
 using ClassicUO.IO;
@@ -57,6 +58,12 @@ namespace ClassicUO.Game.GameObjects
             else if (World.Player.IsDead && ProfileManager.CurrentProfile.EnableBlackWhiteEffect)
             {
                 hue = Constants.DEAD_RANGE_COLOR;
+                partial = false;
+            }
+
+            if (ProfileManager.CurrentProfile.PreviewFields && CombatCollection.ObjectFieldPreview(World, this))
+            {
+                hue = 0x0040;
                 partial = false;
             }
 

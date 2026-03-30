@@ -1,7 +1,8 @@
-﻿// SPDX-License-Identifier: BSD-2-Clause
+// SPDX-License-Identifier: BSD-2-Clause
 
 using ClassicUO.Assets;
 using ClassicUO.Configuration;
+using ClassicUO.Game;
 using ClassicUO.Game.Data;
 using ClassicUO.Game.GameObjects;
 using ClassicUO.Game.UI.Controls;
@@ -154,35 +155,64 @@ namespace ClassicUO.Game.Managers
 
                 case MessageType.Spell:
                 {
-                    //server hue color per default
-                    if (!string.IsNullOrEmpty(text) && SpellDefinition.WordToTargettype.TryGetValue(text, out SpellDefinition spell))
+                    SpellDefinition spellFromWord = null;
+
+                    if (!string.IsNullOrEmpty(text))
+                    {
+                        if (SpellDefinition.WordToTargettype.TryGetValue(text, out SpellDefinition spellExact))
+                        {
+                            spellFromWord = spellExact;
+                        }
+                        else
+                        {
+                            foreach (string key in SpellDefinition.WordToTargettype.Keys)
+                            {
+                                if (text.Contains(key))
+                                {
+                                    spellFromWord = SpellDefinition.WordToTargettype[key];
+                                }
+                            }
+                        }
+                    }
+
+                    if (spellFromWord != null)
                     {
                         if (currentProfile != null && currentProfile.EnabledSpellFormat && !string.IsNullOrWhiteSpace(currentProfile.SpellDisplayFormat))
                         {
                             ValueStringBuilder sb = new ValueStringBuilder(currentProfile.SpellDisplayFormat.AsSpan());
                             {
-                                sb.Replace("{power}".AsSpan(), spell.PowerWords.AsSpan());
-                                sb.Replace("{spell}".AsSpan(), spell.Name.AsSpan());
+                                sb.Replace("{power}".AsSpan(), spellFromWord.PowerWords.AsSpan());
+                                sb.Replace("{spell}".AsSpan(), spellFromWord.Name.AsSpan());
 
                                 text = sb.ToString().Trim();
                             }
                             sb.Dispose();
                         }
 
-                        //server hue color per default if not enabled
                         if (currentProfile != null && currentProfile.EnabledSpellHue)
                         {
-                            if (spell.TargetType == TargetType.Beneficial)
+                            if (spellFromWord.TargetType == TargetType.Beneficial)
                             {
                                 hue = currentProfile.BeneficHue;
                             }
-                            else if (spell.TargetType == TargetType.Harmful)
+                            else if (spellFromWord.TargetType == TargetType.Harmful)
                             {
                                 hue = currentProfile.HarmfulHue;
                             }
                             else
                             {
                                 hue = currentProfile.NeutralHue;
+                            }
+                        }
+
+                        if (currentProfile != null && currentProfile.OnCastingGump)
+                        {
+                            GameActions.LastSpellIndex = spellFromWord.ID;
+                            PlayerMobile player = _world.Player;
+
+                            if (player?.OnCasting != null && !GameActions.iscasting)
+                            {
+                                player.OnCasting.Start();
                             }
                         }
                     }

@@ -1,4 +1,4 @@
-﻿// SPDX-License-Identifier: BSD-2-Clause
+// SPDX-License-Identifier: BSD-2-Clause
 
 using System;
 using ClassicUO.Configuration;
@@ -644,7 +644,6 @@ namespace ClassicUO.Game
                     var player = Client.Game.UO.World.Player;
                     if (player?.OnCasting != null && !iscasting)
                     {
-                        iscasting = true;
                         player.OnCasting.Start();
                     }
                 }
@@ -663,7 +662,6 @@ namespace ClassicUO.Game
                     var player = Client.Game.UO.World.Player;
                     if (player?.OnCasting != null && !iscasting)
                     {
-                        iscasting = true;
                         player.OnCasting.Start();
                     }
                 }

@@ -2,6 +2,7 @@
 
 using ClassicUO.Configuration;
 using ClassicUO.Assets;
+using ClassicUO.Dust765;
 using ClassicUO.Renderer;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -36,6 +37,11 @@ namespace ClassicUO.Game.GameObjects
             else if (World.Player.IsDead && ProfileManager.CurrentProfile.EnableBlackWhiteEffect)
             {
                 hue = Constants.DEAD_RANGE_COLOR;
+            }
+
+            if (ProfileManager.CurrentProfile.PreviewFields && CombatCollection.ObjectFieldPreview(World, this))
+            {
+                hue = 0x0040;
             }
 
             Vector3 hueVec;

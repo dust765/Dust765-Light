@@ -1,4 +1,4 @@
-﻿// SPDX-License-Identifier: BSD-2-Clause
+// SPDX-License-Identifier: BSD-2-Clause
 
 using System;
 using System.IO;
@@ -23,7 +23,12 @@ namespace ClassicUO
         public static readonly bool IsWindows = Environment.OSVersion.Platform == PlatformID.Win32NT || Environment.OSVersion.Platform == PlatformID.Win32Windows || Environment.OSVersion.Platform == PlatformID.Win32S || Environment.OSVersion.Platform == PlatformID.WinCE;
         public static readonly bool IsUnix = !IsWindows;
 
-        public static readonly string Version = Assembly.GetExecutingAssembly()?.GetName()?.Version?.ToString() ?? "0.0.0.0";
+        public const string ProductTitle = "Dust765 - Light";
+
+        public static readonly string Version =
+            Assembly.GetExecutingAssembly()?.GetName()?.Version is System.Version ver
+                ? ver.ToString(3)
+                : "1.0.0";
         public static readonly string ExecutablePath =
 #if NETFRAMEWORK
            AppContext.BaseDirectory; // Path.GetDirectoryName(Assembly.GetEntryAssembly()?.Location);

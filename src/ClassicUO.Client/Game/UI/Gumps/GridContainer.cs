@@ -281,6 +281,7 @@ namespace ClassicUO.Game.UI.Gumps
 
             BuildBorder();
             ResizeWindow(savedSize);
+            OnResize();
             BringResizeButtonToFront();
         }
 
