@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using ClassicUO.Configuration;
+using ClassicUO.Dust765;
 using ClassicUO.Game.Data;
 using ClassicUO.Game.Managers;
 using ClassicUO.Game.Scenes;
@@ -129,6 +130,45 @@ namespace ClassicUO.Game.GameObjects
                 else if (IsHidden)
                 {
                     hue = 0x038E;
+                }
+            }
+
+            // ## BEGIN - END ## // ART / HUE CHANGES
+            if (CombatCollection.IsStealthArt(graphic))
+            {
+                var p = ProfileManager.CurrentProfile;
+                if (p != null && (p.ColorStealth || p.StealthNeonType != 0))
+                    hue = CombatCollection.StealthHue(hue);
+            }
+            // ## BEGIN - END ## // ART / HUE CHANGES
+
+            ushort tileGraphic = Graphic;
+            Profile profileBlock = ProfileManager.CurrentProfile;
+            if (profileBlock != null && profileBlock.BlockWoS)
+            {
+                if (
+                    StaticFilters.IsWallOfStone(tileGraphic)
+                    || tileGraphic == profileBlock.BlockWoSArt
+                )
+                {
+                    bool impassable = !(
+                        profileBlock.BlockWoSFelOnly && World.MapIndex != 0
+                    );
+                    FieldBlockTileData.SetImpassable(tileGraphic, impassable);
+                }
+            }
+
+            if (profileBlock != null && profileBlock.BlockEnergyF)
+            {
+                if (
+                    StaticFilters.IsEnergyField(tileGraphic)
+                    || tileGraphic == profileBlock.BlockEnergyFArt
+                )
+                {
+                    bool impassable = !(
+                        profileBlock.BlockEnergyFFelOnly && World.MapIndex != 0
+                    );
+                    FieldBlockTileData.SetImpassable(tileGraphic, impassable);
                 }
             }
 

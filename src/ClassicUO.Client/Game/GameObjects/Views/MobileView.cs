@@ -2,6 +2,8 @@
 
 using ClassicUO.Assets;
 using ClassicUO.Configuration;
+using ClassicUO.Dust765;
+using ClassicUO.Game;
 using ClassicUO.Game.Data;
 using ClassicUO.Game.Scenes;
 using ClassicUO.Renderer;
@@ -133,6 +135,12 @@ namespace ClassicUO.Game.GameObjects
                             overridedHue = ProfileManager.CurrentProfile.InvulnerableHue;
                         }
                     }
+
+                    if (World.Player != null && Serial == World.Player.Serial && GameActions.iscasting)
+                    {
+                        overridedHue = 0x0023;
+                        hueVec.Y = 1;
+                    }
                 }
             }
 
@@ -147,6 +155,25 @@ namespace ClassicUO.Game.GameObjects
                     overridedHue = Notoriety.GetHue(NotorietyFlag);
                 }
             }
+
+            // ## BEGIN - END ## // VISUAL HELPERS
+            var _profile = ProfileManager.CurrentProfile;
+            if (_profile != null && Serial != World.Player.Serial)
+            {
+                bool isLastTarget = World.Get(World.TargetManager.LastTargetInfo.Serial) == this;
+                if (isLastTarget || isAttack)
+                {
+                    overridedHue = CombatCollection.LastTargetHue(this, overridedHue);
+                    hueVec.Y = 1;
+                }
+
+                if (_profile.PreviewFields && CombatCollection.MobileFieldPreview(World, this))
+                {
+                    overridedHue = 0x0040;
+                    hueVec.Y = 1;
+                }
+            }
+            // ## BEGIN - END ## // VISUAL HELPERS
 
             ProcessSteps(out byte dir);
             byte layerDir = dir;

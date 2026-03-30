@@ -364,6 +364,8 @@ namespace ClassicUO.Network
                 (TargetType)p.ReadUInt8()
             );
 
+            GameActions.iscasting = false;
+
             if (world.Party.PartyHealTimer < Time.Ticks && world.Party.PartyHealTarget != 0)
             {
                 world.TargetManager.Target(world.Party.PartyHealTarget);
@@ -475,6 +477,11 @@ namespace ClassicUO.Network
 
                 if (damage > 0)
                 {
+                    if (entity == world.Player)
+                    {
+                        GameActions.iscasting = false;
+                    }
+
                     world.WorldTextManager.AddDamage(entity, damage);
                 }
             }
@@ -5746,6 +5753,31 @@ namespace ClassicUO.Network
             Flags flags = (Flags)p.ReadUInt8();
             ushort unk2 = p.ReadUInt16BE();
 
+            Profile optProf = ProfileManager.CurrentProfile;
+            if (optProf != null)
+            {
+                if (graphic == 130 && optProf.BlockWoSArtForceAoS)
+                {
+                    graphic = (ushort)optProf.BlockWoSArt;
+                    hue = 945;
+                }
+
+                if (optProf.BlockEnergyFArtForceAoS)
+                {
+                    if (graphic >= 0x3946 && graphic <= 0x3964)
+                    {
+                        graphic = (ushort)optProf.BlockEnergyFArt;
+                        hue = 293;
+                    }
+
+                    if (graphic == 10408 && hue == 0x0125)
+                    {
+                        graphic = (ushort)optProf.BlockEnergyFArt;
+                        hue = 293;
+                    }
+                }
+            }
+
             if (serial != world.Player)
             {
                 UpdateGameObject(
@@ -6500,6 +6532,7 @@ namespace ClassicUO.Network
                 world.Player.Walker.ResendPacketResync = false;
                 world.Player.CloseRangedGumps();
                 world.Player.SetInWorldTile(x, y, z);
+
                 world.Player.UpdateAbilities();
             }
         }

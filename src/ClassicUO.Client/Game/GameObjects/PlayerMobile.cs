@@ -3,6 +3,7 @@
 using ClassicUO.Assets;
 using ClassicUO.Configuration;
 using ClassicUO.Dust765.External;
+using ClassicUO.Game;
 using ClassicUO.Game.Data;
 using ClassicUO.Game.Managers;
 using ClassicUO.Game.UI.Gumps;
@@ -594,6 +595,11 @@ namespace ClassicUO.Game.GameObjects
 
             if ((oldDirection & Direction.Mask) == (direction & Direction.Mask))
             {
+                if (GameActions.iscasting)
+                {
+                    return false;
+                }
+
                 Direction newDir = direction;
                 int newX = x;
                 int newY = y;
