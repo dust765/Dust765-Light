@@ -419,6 +419,23 @@ namespace ClassicUO.Configuration
         public bool GridEnableContPreview { get; set; } = true;
         public bool GridHighlight_CorpseOnly { get; set; } = false;
         public bool PvM_LootHighlightOnCorpse { get; set; } = false;
+
+        // Color Stealth art
+        public bool ColorStealth { get; set; } = false;
+        public ushort StealthHue { get; set; } = 0x0044;
+        public int StealthNeonType { get; set; } = 0; // 0=off 1=white 2=pink 3=ice 4=fire
+
+        // Preview Fields
+        public bool PreviewFields { get; set; } = false;
+
+        // Highlight Last Target
+        public int HighlightLastTargetType { get; set; } = 0; // 0=off 1=white 2=pink 3=ice 4=fire 5=custom
+        public ushort HighlightLastTargetTypeHue { get; set; } = 0x0044;
+        public int HighlightLastTargetTypePoison { get; set; } = 0; // same scale, 6=special poison green
+        public ushort HighlightLastTargetTypePoisonHue { get; set; } = 0x0044;
+        public int HighlightLastTargetTypePara { get; set; } = 0; // same scale, 6=special para purple
+        public ushort HighlightLastTargetTypeParaHue { get; set; } = 0x0044;
+
         // ---- /Dust765 ----
 
         public void Save(World world, string path)
