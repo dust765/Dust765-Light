@@ -2,6 +2,7 @@
 
 using ClassicUO.Assets;
 using ClassicUO.Configuration;
+using ClassicUO.Dust765;
 using ClassicUO.Game.Data;
 using ClassicUO.Game.Scenes;
 using ClassicUO.Renderer;
@@ -147,6 +148,27 @@ namespace ClassicUO.Game.GameObjects
                     overridedHue = Notoriety.GetHue(NotorietyFlag);
                 }
             }
+
+            // ## BEGIN - END ## // VISUAL HELPERS
+            var _profile = ProfileManager.CurrentProfile;
+            if (_profile != null && Serial != World.Player.Serial)
+            {
+                // Highlight last target
+                if (World.TargetManager.LastTargetInfo.Serial == Serial &&
+                    _profile.HighlightLastTargetType != 0)
+                {
+                    overridedHue = CombatCollection.LastTargetHue(this, overridedHue);
+                    hueVec.Y = 1;
+                }
+
+                // Preview fields (highlight mobiles in path of field spell on cursor)
+                if (_profile.PreviewFields && CombatCollection.MobileFieldPreview(World, this))
+                {
+                    overridedHue = 0x0040;
+                    hueVec.Y = 1;
+                }
+            }
+            // ## BEGIN - END ## // VISUAL HELPERS
 
             ProcessSteps(out byte dir);
             byte layerDir = dir;
