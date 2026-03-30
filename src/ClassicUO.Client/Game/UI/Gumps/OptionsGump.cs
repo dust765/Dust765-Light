@@ -151,6 +151,16 @@ namespace ClassicUO.Game.UI.Gumps
         private HSliderBar _dust765InvisibleHousesZ;
         private HSliderBar _dust765DontRemoveHouseBelowZ;
 
+        // Dust765 — Art / Hue Changes
+        private Checkbox _dust765ColorStealth;
+        private Combobox _dust765StealthNeonType;
+
+        // Dust765 — Visual Helpers
+        private Checkbox _dust765PreviewFields;
+        private Combobox _dust765HighlightLastTargetType;
+        private Combobox _dust765HighlightLastTargetPoison;
+        private Combobox _dust765HighlightLastTargetPara;
+
         // general
         private HSliderBar _sliderFPS, _circleOfTranspRadius;
         private HSliderBar _sliderSpeechDelay;
@@ -3598,6 +3608,98 @@ namespace ClassicUO.Game.UI.Gumps
                 )
             );
 
+            // ---- Art / Hue Changes ----
+            SettingsSection sectionArt = AddSettingsSection(box, "Art / Hue Changes");
+            sectionArt.Y = sectionGrid.Bounds.Bottom + 40;
+
+            sectionArt.Add
+            (
+                _dust765ColorStealth = AddCheckBox
+                (
+                    null,
+                    "Color stealth walk art ON / OFF",
+                    _currentProfile.ColorStealth,
+                    startX,
+                    startY
+                )
+            );
+
+            sectionArt.Add(AddLabel(null, "Stealth neon effect", startX, startY));
+            sectionArt.AddRight
+            (
+                _dust765StealthNeonType = AddCombobox
+                (
+                    null,
+                    new[] { "Off", "White", "Pink", "Ice", "Fire" },
+                    _currentProfile.StealthNeonType,
+                    startX,
+                    startY,
+                    150
+                ),
+                2
+            );
+
+            // ---- Visual Helpers ----
+            SettingsSection sectionVisual = AddSettingsSection(box, "Visual Helpers");
+            sectionVisual.Y = sectionArt.Bounds.Bottom + 40;
+
+            sectionVisual.Add
+            (
+                _dust765PreviewFields = AddCheckBox
+                (
+                    null,
+                    "Preview field spells (highlight tiles on cursor)",
+                    _currentProfile.PreviewFields,
+                    startX,
+                    startY
+                )
+            );
+
+            sectionVisual.Add(AddLabel(null, "Highlight last target", startX, startY));
+            sectionVisual.AddRight
+            (
+                _dust765HighlightLastTargetType = AddCombobox
+                (
+                    null,
+                    new[] { "Off", "White", "Pink", "Ice", "Fire", "Custom" },
+                    _currentProfile.HighlightLastTargetType,
+                    startX,
+                    startY,
+                    150
+                ),
+                2
+            );
+
+            sectionVisual.Add(AddLabel(null, "Highlight last target - poisoned", startX, startY));
+            sectionVisual.AddRight
+            (
+                _dust765HighlightLastTargetPoison = AddCombobox
+                (
+                    null,
+                    new[] { "Off", "White", "Pink", "Ice", "Fire", "Custom", "Special (green)" },
+                    _currentProfile.HighlightLastTargetTypePoison,
+                    startX,
+                    startY,
+                    180
+                ),
+                2
+            );
+
+            sectionVisual.Add(AddLabel(null, "Highlight last target - paralyzed", startX, startY));
+            sectionVisual.AddRight
+            (
+                _dust765HighlightLastTargetPara = AddCombobox
+                (
+                    null,
+                    new[] { "Off", "White", "Pink", "Ice", "Fire", "Custom", "Special (purple)" },
+                    _currentProfile.HighlightLastTargetTypePara,
+                    startX,
+                    startY,
+                    180
+                ),
+                2
+            );
+
             Add(rightArea, PAGE);
         }
 
@@ -4796,6 +4898,16 @@ namespace ClassicUO.Game.UI.Gumps
             _currentProfile.DontRemoveHouseBelowZ = Math.Clamp(_dust765DontRemoveHouseBelowZ.Value, 1, 100);
             _currentProfile.ShowDeathOnWorldmap = _dust765ShowDeathOnWorldmap.IsChecked;
             _currentProfile.GridContainerEnabled = _dust765GridContainer.IsChecked;
+
+            // Art / Hue Changes
+            _currentProfile.ColorStealth = _dust765ColorStealth.IsChecked;
+            _currentProfile.StealthNeonType = _dust765StealthNeonType.SelectedIndex;
+
+            // Visual Helpers
+            _currentProfile.PreviewFields = _dust765PreviewFields.IsChecked;
+            _currentProfile.HighlightLastTargetType = _dust765HighlightLastTargetType.SelectedIndex;
+            _currentProfile.HighlightLastTargetTypePoison = _dust765HighlightLastTargetPoison.SelectedIndex;
+            _currentProfile.HighlightLastTargetTypePara = _dust765HighlightLastTargetPara.SelectedIndex;
 
             _currentProfile?.Save(World, ProfileManager.ProfilePath);
         }
