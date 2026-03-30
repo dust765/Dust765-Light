@@ -428,6 +428,16 @@ namespace ClassicUO.Configuration
         // Preview Fields
         public bool PreviewFields { get; set; } = false;
 
+        // Field pathing (client tiledata): WoS / Energy Field
+        public bool BlockWoS { get; set; } = false;
+        public bool BlockWoSFelOnly { get; set; } = false;
+        public uint BlockWoSArt { get; set; } = 1872;
+        public bool BlockWoSArtForceAoS { get; set; } = false;
+        public bool BlockEnergyF { get; set; } = false;
+        public bool BlockEnergyFFelOnly { get; set; } = false;
+        public uint BlockEnergyFArt { get; set; } = 1872;
+        public bool BlockEnergyFArtForceAoS { get; set; } = false;
+
         // Highlight Last Target
         public int HighlightLastTargetType { get; set; } = 0; // 0=off 1=white 2=pink 3=ice 4=fire 5=custom
         public ushort HighlightLastTargetTypeHue { get; set; } = 0x0044;

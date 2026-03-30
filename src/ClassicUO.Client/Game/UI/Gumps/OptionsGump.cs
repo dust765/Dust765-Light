@@ -2,6 +2,7 @@
 
 using ClassicUO.Assets;
 using ClassicUO.Configuration;
+using ClassicUO.Dust765;
 using ClassicUO.Game.Data;
 using ClassicUO.Game.GameObjects;
 using ClassicUO.Game.Managers;
@@ -157,6 +158,13 @@ namespace ClassicUO.Game.UI.Gumps
 
         // Dust765 — Visual Helpers
         private Checkbox _dust765PreviewFields;
+        private Checkbox _dust765BlockWoS,
+            _dust765BlockWoSFelOnly,
+            _dust765BlockWoSArtForceAoS,
+            _dust765BlockEnergyF,
+            _dust765BlockEnergyFFelOnly,
+            _dust765BlockEnergyFArtForceAoS;
+        private InputField _dust765BlockWoSArt, _dust765BlockEnergyFArt;
         private Combobox _dust765HighlightLastTargetType;
         private Combobox _dust765HighlightLastTargetPoison;
         private Combobox _dust765HighlightLastTargetPara;
@@ -3542,7 +3550,7 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765InvisibleHouses = AddCheckBox
                 (
                     null,
-                    "Invisible houses and items (Z level)",
+                    "Invisible houses and items (hides statics by Z; not transparency)",
                     _currentProfile.InvisibleHousesEnabled,
                     startX,
                     startY
@@ -3550,8 +3558,8 @@ namespace ClassicUO.Game.UI.Gumps
             );
 
             sectionHouse.PushIndent();
-            sectionHouse.Add(AddLabel(null, "Z above player (hide height)", startX, startY));
-            sectionHouse.AddRight
+            sectionHouse.Add(AddLabel(null, "Invisible: Z delta above player (1–100)", 0, 0));
+            sectionHouse.Add
             (
                 _dust765InvisibleHousesZ = AddHSlider
                 (
@@ -3559,13 +3567,22 @@ namespace ClassicUO.Game.UI.Gumps
                     1,
                     100,
                     Math.Clamp(_currentProfile.InvisibleHousesZ, 1, 100),
-                    startX,
-                    startY,
+                    0,
+                    0,
                     200
                 )
             );
-            sectionHouse.Add(AddLabel(null, "Do not make invisible/transparent below (ground clearance Z)", startX, startY));
-            sectionHouse.AddRight
+            sectionHouse.Add
+            (
+                AddLabel
+                (
+                    null,
+                    "Ground clearance: min (static Z − land Z) before hiding (both house modes)",
+                    0,
+                    0
+                )
+            );
+            sectionHouse.Add
             (
                 _dust765DontRemoveHouseBelowZ = AddHSlider
                 (
@@ -3573,8 +3590,8 @@ namespace ClassicUO.Game.UI.Gumps
                     1,
                     100,
                     Math.Clamp(_currentProfile.DontRemoveHouseBelowZ, 1, 100),
-                    startX,
-                    startY,
+                    0,
+                    0,
                     200
                 )
             );
@@ -3698,6 +3715,126 @@ namespace ClassicUO.Game.UI.Gumps
                     180
                 ),
                 2
+            );
+
+            SettingsSection sectionFieldBlock = AddSettingsSection(
+                box,
+                "Wall of Stone / Energy Field (client pathfinding)"
+            );
+            sectionFieldBlock.Y = sectionVisual.Bounds.Bottom + 40;
+
+            sectionFieldBlock.Add
+            (
+                _dust765BlockWoS = AddCheckBox
+                (
+                    null,
+                    "Block Wall of Stone (mark tile as impassable)",
+                    _currentProfile.BlockWoS,
+                    startX,
+                    startY
+                )
+            );
+
+            sectionFieldBlock.Add
+            (
+                _dust765BlockWoSFelOnly = AddCheckBox
+                (
+                    null,
+                    "Wall of Stone: Felucca only (map 0)",
+                    _currentProfile.BlockWoSFelOnly,
+                    startX,
+                    startY
+                )
+            );
+
+            sectionFieldBlock.Add(AddLabel(null, "WoS tile id (graphic)", 0, 0));
+            sectionFieldBlock.AddRight
+            (
+                _dust765BlockWoSArt = new InputField
+                (
+                    0x0BB8,
+                    FONT,
+                    HUE_FONT,
+                    true,
+                    50,
+                    TEXTBOX_HEIGHT,
+                    80,
+                    50000
+                )
+                {
+                    NumbersOnly = true
+                },
+                2
+            );
+            _dust765BlockWoSArt.SetText(_currentProfile.BlockWoSArt.ToString());
+
+            sectionFieldBlock.Add
+            (
+                _dust765BlockWoSArtForceAoS = AddCheckBox
+                (
+                    null,
+                    "Force WoS from art 130 (AoS) to tile id above, hue 945",
+                    _currentProfile.BlockWoSArtForceAoS,
+                    startX,
+                    startY
+                )
+            );
+
+            sectionFieldBlock.Add
+            (
+                _dust765BlockEnergyF = AddCheckBox
+                (
+                    null,
+                    "Block Energy Field (mark tile as impassable)",
+                    _currentProfile.BlockEnergyF,
+                    startX,
+                    startY
+                )
+            );
+
+            sectionFieldBlock.Add
+            (
+                _dust765BlockEnergyFFelOnly = AddCheckBox
+                (
+                    null,
+                    "Energy Field: Felucca only (map 0)",
+                    _currentProfile.BlockEnergyFFelOnly,
+                    startX,
+                    startY
+                )
+            );
+
+            sectionFieldBlock.Add(AddLabel(null, "Energy Field tile id (graphic)", 0, 0));
+            sectionFieldBlock.AddRight
+            (
+                _dust765BlockEnergyFArt = new InputField
+                (
+                    0x0BB8,
+                    FONT,
+                    HUE_FONT,
+                    true,
+                    50,
+                    TEXTBOX_HEIGHT,
+                    80,
+                    50000
+                )
+                {
+                    NumbersOnly = true
+                },
+                2
+            );
+            _dust765BlockEnergyFArt.SetText(_currentProfile.BlockEnergyFArt.ToString());
+
+            sectionFieldBlock.Add
+            (
+                _dust765BlockEnergyFArtForceAoS = AddCheckBox
+                (
+                    null,
+                    "Force Energy Field (shard/Razor CE arts) to tile id above, hue 293",
+                    _currentProfile.BlockEnergyFArtForceAoS,
+                    startX,
+                    startY
+                )
             );
 
             Add(rightArea, PAGE);
@@ -4905,6 +5042,79 @@ namespace ClassicUO.Game.UI.Gumps
 
             // Visual Helpers
             _currentProfile.PreviewFields = _dust765PreviewFields.IsChecked;
+
+            _currentProfile.BlockWoSArtForceAoS = _dust765BlockWoSArtForceAoS.IsChecked;
+            if (uint.TryParse(_dust765BlockWoSArt.Text, out uint wosArtId))
+            {
+                _currentProfile.BlockWoSArt = wosArtId;
+            }
+
+            ushort wosGraphic = (ushort)Math.Min(_currentProfile.BlockWoSArt, ushort.MaxValue);
+
+            if (_currentProfile.BlockWoS != _dust765BlockWoS.IsChecked)
+            {
+                if (_dust765BlockWoS.IsChecked)
+                {
+                    FieldBlockTileData.SetImpassable(wosGraphic, true);
+                }
+                else
+                {
+                    FieldBlockTileData.SetImpassable(wosGraphic, false);
+                }
+
+                _currentProfile.BlockWoS = _dust765BlockWoS.IsChecked;
+            }
+
+            if (_currentProfile.BlockWoSFelOnly != _dust765BlockWoSFelOnly.IsChecked)
+            {
+                if (_dust765BlockWoSFelOnly.IsChecked && World.MapIndex == 0)
+                {
+                    FieldBlockTileData.SetImpassable(wosGraphic, true);
+                }
+                else
+                {
+                    FieldBlockTileData.SetImpassable(wosGraphic, false);
+                }
+
+                _currentProfile.BlockWoSFelOnly = _dust765BlockWoSFelOnly.IsChecked;
+            }
+
+            _currentProfile.BlockEnergyFArtForceAoS = _dust765BlockEnergyFArtForceAoS.IsChecked;
+            if (uint.TryParse(_dust765BlockEnergyFArt.Text, out uint eFieldArtId))
+            {
+                _currentProfile.BlockEnergyFArt = eFieldArtId;
+            }
+
+            ushort eFieldGraphic = (ushort)Math.Min(_currentProfile.BlockEnergyFArt, ushort.MaxValue);
+
+            if (_currentProfile.BlockEnergyF != _dust765BlockEnergyF.IsChecked)
+            {
+                if (_dust765BlockEnergyF.IsChecked)
+                {
+                    FieldBlockTileData.SetImpassable(eFieldGraphic, true);
+                }
+                else
+                {
+                    FieldBlockTileData.SetImpassable(eFieldGraphic, false);
+                }
+
+                _currentProfile.BlockEnergyF = _dust765BlockEnergyF.IsChecked;
+            }
+
+            if (_currentProfile.BlockEnergyFFelOnly != _dust765BlockEnergyFFelOnly.IsChecked)
+            {
+                if (_dust765BlockEnergyFFelOnly.IsChecked && World.MapIndex == 0)
+                {
+                    FieldBlockTileData.SetImpassable(eFieldGraphic, true);
+                }
+                else
+                {
+                    FieldBlockTileData.SetImpassable(eFieldGraphic, false);
+                }
+
+                _currentProfile.BlockEnergyFFelOnly = _dust765BlockEnergyFFelOnly.IsChecked;
+            }
+
             _currentProfile.HighlightLastTargetType = _dust765HighlightLastTargetType.SelectedIndex;
             _currentProfile.HighlightLastTargetTypePoison = _dust765HighlightLastTargetPoison.SelectedIndex;
             _currentProfile.HighlightLastTargetTypePara = _dust765HighlightLastTargetPara.SelectedIndex;

@@ -1,4 +1,4 @@
-﻿// SPDX-License-Identifier: BSD-2-Clause
+// SPDX-License-Identifier: BSD-2-Clause
 
 using System;
 using System.Collections.Generic;
@@ -325,7 +325,7 @@ namespace ClassicUO.Game.Data
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsWallOfStone(ushort g)
         {
-            return g == 0x82;
+            return g == 0x038A || g == 0x82;
         }
     }
 }

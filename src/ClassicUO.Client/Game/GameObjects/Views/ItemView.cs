@@ -142,6 +142,36 @@ namespace ClassicUO.Game.GameObjects
             }
             // ## BEGIN - END ## // ART / HUE CHANGES
 
+            ushort tileGraphic = Graphic;
+            Profile profileBlock = ProfileManager.CurrentProfile;
+            if (profileBlock != null && profileBlock.BlockWoS)
+            {
+                if (
+                    StaticFilters.IsWallOfStone(tileGraphic)
+                    || tileGraphic == profileBlock.BlockWoSArt
+                )
+                {
+                    bool impassable = !(
+                        profileBlock.BlockWoSFelOnly && World.MapIndex != 0
+                    );
+                    FieldBlockTileData.SetImpassable(tileGraphic, impassable);
+                }
+            }
+
+            if (profileBlock != null && profileBlock.BlockEnergyF)
+            {
+                if (
+                    StaticFilters.IsEnergyField(tileGraphic)
+                    || tileGraphic == profileBlock.BlockEnergyFArt
+                )
+                {
+                    bool impassable = !(
+                        profileBlock.BlockEnergyFFelOnly && World.MapIndex != 0
+                    );
+                    FieldBlockTileData.SetImpassable(tileGraphic, impassable);
+                }
+            }
+
             hueVec = ShaderHueTranslator.GetHueVector(hue, partial, alpha);
 
             if (!IsMulti && !IsCoin && Amount > 1 && ItemData.IsStackable)

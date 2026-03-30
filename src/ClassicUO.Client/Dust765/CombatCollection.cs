@@ -58,13 +58,18 @@ namespace ClassicUO.Dust765
             Profile profile = ProfileManager.CurrentProfile;
             if (profile == null) return hue;
 
-            // Base highlight
+            if (profile.HighlightLastTargetType == 0)
+            {
+                return Notoriety.GetHue(mobile.NotorietyFlag);
+            }
+            
+
+
             hue = ApplyNeonOrCustomHue(
                 hue,
                 profile.HighlightLastTargetType,
                 profile.HighlightLastTargetTypeHue);
 
-            // Poisoned override
             if (mobile.IsPoisoned)
             {
                 hue = profile.HighlightLastTargetTypePoison == 6
@@ -73,7 +78,6 @@ namespace ClassicUO.Dust765
                           profile.HighlightLastTargetTypePoisonHue);
             }
 
-            // Paralyzed override
             if (mobile.IsParalyzed && mobile.NotorietyFlag != NotorietyFlag.Invulnerable)
             {
                 hue = profile.HighlightLastTargetTypePara == 6
@@ -93,36 +97,68 @@ namespace ClassicUO.Dust765
         /// 47=Poison Field, 50=Paralyze Field.</summary>
         public static bool MobileFieldPreview(World world, Mobile mobile)
         {
-            if (world == null || !world.TargetManager.IsTargeting)
+            if (!TryGetFieldPreviewState(world, out int targetX, out int targetY, out bool fieldEastToWest))
+            {
                 return false;
-
-            int spellIndex = GameActions.LastSpellIndex;
-            if (spellIndex != 24 && spellIndex != 28 &&
-                spellIndex != 39 && spellIndex != 47 && spellIndex != 50)
-                return false;
-
-            // Get the tile the cursor is over
-            if (SelectedObject.Object is not GameObject target)
-                return false;
-
-            int targetX = target.X;
-            int targetY = target.Y;
-            int dx = targetX - world.Player.X;
-            int dy = targetY - world.Player.Y;
-
-            // If more north-south offset than east-west, field runs east-west (perpendicular to approach)
-            bool fieldEastToWest = Math.Abs(dx) <= Math.Abs(dy);
+            }
 
             if (fieldEastToWest)
             {
                 return mobile.Y == targetY &&
                        mobile.X >= targetX - 2 && mobile.X <= targetX + 2;
             }
-            else
+
+            return mobile.X == targetX &&
+                   mobile.Y >= targetY - 2 && mobile.Y <= targetY + 2;
+        }
+
+        public static bool ObjectFieldPreview(World world, GameObject gameObject)
+        {
+            if (!TryGetFieldPreviewState(world, out int targetX, out int targetY, out bool fieldEastToWest))
             {
-                return mobile.X == targetX &&
-                       mobile.Y >= targetY - 2 && mobile.Y <= targetY + 2;
+                return false;
             }
+
+            if (fieldEastToWest)
+            {
+                return gameObject.Y == targetY &&
+                       gameObject.X >= targetX - 2 && gameObject.X <= targetX + 2;
+            }
+
+            return gameObject.X == targetX &&
+                   gameObject.Y >= targetY - 2 && gameObject.Y <= targetY + 2;
+        }
+
+        private static bool TryGetFieldPreviewState(World world, out int targetX, out int targetY, out bool fieldEastToWest)
+        {
+            targetX = 0;
+            targetY = 0;
+            fieldEastToWest = false;
+
+            if (world == null || !world.TargetManager.IsTargeting)
+            {
+                return false;
+            }
+
+            int spellIndex = GameActions.LastSpellIndex;
+            if (spellIndex != 24 && spellIndex != 28 &&
+                spellIndex != 39 && spellIndex != 47 && spellIndex != 50)
+            {
+                return false;
+            }
+
+            if (SelectedObject.Object is not GameObject target)
+            {
+                return false;
+            }
+
+            targetX = target.X;
+            targetY = target.Y;
+            int dx = targetX - world.Player.X;
+            int dy = targetY - world.Player.Y;
+            fieldEastToWest = Math.Abs(dx) <= Math.Abs(dy);
+
+            return true;
         }
 
         // ------- Private helpers -------
