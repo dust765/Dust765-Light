@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using ClassicUO.Configuration;
+using ClassicUO.Dust765;
 using ClassicUO.Game.Data;
 using ClassicUO.Game.Managers;
 using ClassicUO.Game.Scenes;
@@ -131,6 +132,15 @@ namespace ClassicUO.Game.GameObjects
                     hue = 0x038E;
                 }
             }
+
+            // ## BEGIN - END ## // ART / HUE CHANGES
+            if (CombatCollection.IsStealthArt(graphic))
+            {
+                var p = ProfileManager.CurrentProfile;
+                if (p != null && (p.ColorStealth || p.StealthNeonType != 0))
+                    hue = CombatCollection.StealthHue(hue);
+            }
+            // ## BEGIN - END ## // ART / HUE CHANGES
 
             hueVec = ShaderHueTranslator.GetHueVector(hue, partial, alpha);
 
