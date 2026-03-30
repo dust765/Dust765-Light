@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//d/workspace/2026/Dust765-light/Dust765-Light//**)",
+      "Read(//d/workspace/2026/Dust765-light/Dust765-Light/**)"
+    ]
+  }
+}
