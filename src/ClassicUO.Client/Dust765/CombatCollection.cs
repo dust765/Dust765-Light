@@ -110,7 +110,7 @@ namespace ClassicUO.Dust765
             int dx = targetX - world.Player.X;
             int dy = targetY - world.Player.Y;
 
-            // If more east-west than north-south, field runs east-west
+            // If more north-south offset than east-west, field runs east-west (perpendicular to approach)
             bool fieldEastToWest = Math.Abs(dx) <= Math.Abs(dy);
 
             if (fieldEastToWest)
