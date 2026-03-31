@@ -117,13 +117,13 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git remote set-url origin "https://x-access-token:${TOKEN}@github.com/${{ github.repository }}.git"
           git fetch --no-tags --prune --depth=1 origin "${{ env.BRANCH_NAME }}"
-          if [ "${{ env.RELEASE_FORCE_TAG }}" = "true" ]; then
+          if ("${{ env.RELEASE_FORCE_TAG }}" -eq "true") {
             git tag -f "${{ env.RELEASE_TAG }}" "${{ env.COMMIT_SHA }}"
             git push -f origin "${{ env.RELEASE_TAG }}"
-          else
+          } else {
             git tag "${{ env.RELEASE_TAG }}" "${{ env.COMMIT_SHA }}"
             git push origin "${{ env.RELEASE_TAG }}"
-          fi
+          }
 
       - name: Upload Release
         uses: ncipollo/release-action@v1
