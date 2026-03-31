@@ -3,7 +3,7 @@ name: Deploy
 on:
   workflow_dispatch: {}
   workflow_run:
-    branches: [main, beta]
+    branches: [main, develop]
     workflows: [Build-Test]
     types:
       - completed
@@ -29,11 +29,9 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     env:
-      CUO_ZIP_NAME: "Dust765-Light-${{ matrix.target }}-release.zip"
       # Branch/commit detection: use triggering run for workflow_run, otherwise current ref for manual dispatch
       BRANCH_NAME: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || github.ref_name }}
       COMMIT_SHA:  ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha    || github.sha }}
-      RELEASE_TAG: Dust765-Light-${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || github.ref_name }}-release
 
     strategy:
       matrix:
@@ -61,6 +59,21 @@ jobs:
         with:
           dotnet-version: 10.0.x
           include-prerelease: false
+
+      - name: Set release metadata
+        shell: bash
+        run: |
+          if [[ "${BRANCH_NAME}" == "main" ]]; then
+            echo "CUO_ZIP_NAME=Dust765-Light-${{ matrix.target }}-release.zip" >> "$GITHUB_ENV"
+            echo "RELEASE_TAG=Dust765-Light-main-release" >> "$GITHUB_ENV"
+            echo "RELEASE_NAME=Dust765-Light main release" >> "$GITHUB_ENV"
+            echo "RELEASE_PRERELEASE=false" >> "$GITHUB_ENV"
+          else
+            echo "CUO_ZIP_NAME=Dust765-Light-${{ matrix.target }}-dev.zip" >> "$GITHUB_ENV"
+            echo "RELEASE_TAG=Dust765-Light-${BRANCH_NAME}-prerelease" >> "$GITHUB_ENV"
+            echo "RELEASE_NAME=Dust765-Light ${BRANCH_NAME} prerelease" >> "$GITHUB_ENV"
+            echo "RELEASE_PRERELEASE=true" >> "$GITHUB_ENV"
+          fi
 
       - name: Build Bootstrap app
         run: dotnet publish "${{ env.BOOT_PROJECT_PATH }}" -c Release -o "${{ env.CUO_OUTPUT_PATH }}" /p:AssemblyVersion=${{ env.CUO_ASSEMBLY_VERSION }} /p:FileVersion=${{ env.CUO_ASSEMBLY_VERSION }} /p:OutputType=WinExe
@@ -102,10 +115,11 @@ jobs:
         uses: ncipollo/release-action@v1
         with:
           artifacts: "upload/${{ env.CUO_ZIP_NAME }}"
-          name: "Dust765-Light ${{ env.BRANCH_NAME }} release"
+          name: "${{ env.RELEASE_NAME }}"
           body: "This build may not be safe: use it at your own risk."
           draft: false
-          prerelease: true
+          prerelease: ${{ env.RELEASE_PRERELEASE }}
+          makeLatest: ${{ env.RELEASE_PRERELEASE == 'false' && 'true' || 'false' }}
           allowUpdates: true
           tag: "${{ env.RELEASE_TAG }}"
           token: ${{ secrets.GITHUB_TOKEN }}
