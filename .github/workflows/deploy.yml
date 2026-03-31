@@ -65,14 +65,23 @@ jobs:
         run: |
           if [[ "${BRANCH_NAME}" == "main" ]]; then
             echo "CUO_ZIP_NAME=Dust765-Light-${{ matrix.target }}-release.zip" >> "$GITHUB_ENV"
-            echo "RELEASE_TAG=Dust765-Light-main-release" >> "$GITHUB_ENV"
-            echo "RELEASE_NAME=Dust765-Light main release" >> "$GITHUB_ENV"
+            echo "RELEASE_TAG=Dust765-Light-main-${CUO_ASSEMBLY_VERSION}" >> "$GITHUB_ENV"
+            echo "RELEASE_NAME=Dust765-Light main ${CUO_ASSEMBLY_VERSION}" >> "$GITHUB_ENV"
             echo "RELEASE_PRERELEASE=false" >> "$GITHUB_ENV"
-          else
+            echo "RELEASE_ALLOW_UPDATES=false" >> "$GITHUB_ENV"
+            echo "RELEASE_MAKE_LATEST=true" >> "$GITHUB_ENV"
+            echo "RELEASE_FORCE_TAG=false" >> "$GITHUB_ENV"
+          elif [[ "${BRANCH_NAME}" == "develop" ]]; then
             echo "CUO_ZIP_NAME=Dust765-Light-${{ matrix.target }}-dev.zip" >> "$GITHUB_ENV"
-            echo "RELEASE_TAG=Dust765-Light-${BRANCH_NAME}-prerelease" >> "$GITHUB_ENV"
-            echo "RELEASE_NAME=Dust765-Light ${BRANCH_NAME} prerelease" >> "$GITHUB_ENV"
+            echo "RELEASE_TAG=Dust765-Light-develop-prerelease" >> "$GITHUB_ENV"
+            echo "RELEASE_NAME=Dust765-Light develop prerelease" >> "$GITHUB_ENV"
             echo "RELEASE_PRERELEASE=true" >> "$GITHUB_ENV"
+            echo "RELEASE_ALLOW_UPDATES=true" >> "$GITHUB_ENV"
+            echo "RELEASE_MAKE_LATEST=false" >> "$GITHUB_ENV"
+            echo "RELEASE_FORCE_TAG=true" >> "$GITHUB_ENV"
+          else
+            echo "Unsupported branch for deploy: ${BRANCH_NAME}"
+            exit 1
           fi
 
       - name: Build Bootstrap app
@@ -108,8 +117,13 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git remote set-url origin "https://x-access-token:${TOKEN}@github.com/${{ github.repository }}.git"
           git fetch --no-tags --prune --depth=1 origin "${{ env.BRANCH_NAME }}"
-          git tag -f "${{ env.RELEASE_TAG }}" "${{ env.COMMIT_SHA }}"
-          git push -f origin "${{ env.RELEASE_TAG }}"
+          if [ "${{ env.RELEASE_FORCE_TAG }}" = "true" ]; then
+            git tag -f "${{ env.RELEASE_TAG }}" "${{ env.COMMIT_SHA }}"
+            git push -f origin "${{ env.RELEASE_TAG }}"
+          else
+            git tag "${{ env.RELEASE_TAG }}" "${{ env.COMMIT_SHA }}"
+            git push origin "${{ env.RELEASE_TAG }}"
+          fi
 
       - name: Upload Release
         uses: ncipollo/release-action@v1
@@ -119,8 +133,8 @@ jobs:
           body: "This build may not be safe: use it at your own risk."
           draft: false
           prerelease: ${{ env.RELEASE_PRERELEASE }}
-          makeLatest: ${{ env.RELEASE_PRERELEASE == 'false' && 'true' || 'false' }}
-          allowUpdates: true
+          makeLatest: ${{ env.RELEASE_MAKE_LATEST }}
+          allowUpdates: ${{ env.RELEASE_ALLOW_UPDATES }}
           tag: "${{ env.RELEASE_TAG }}"
           token: ${{ secrets.GITHUB_TOKEN }}
           commit: ${{ env.COMMIT_SHA }}
