@@ -155,6 +155,7 @@ namespace ClassicUO.Game.UI.Gumps
         // Dust765 — Art / Hue Changes
         private Checkbox _dust765ColorStealth;
         private Combobox _dust765StealthNeonType;
+        private ClickableColorBox _dust765StealthHueBox;
 
         // Dust765 — Visual Helpers
         private Checkbox _dust765PreviewFields;
@@ -168,6 +169,17 @@ namespace ClassicUO.Game.UI.Gumps
         private Combobox _dust765HighlightLastTargetType;
         private Combobox _dust765HighlightLastTargetPoison;
         private Combobox _dust765HighlightLastTargetPara;
+        private ClickableColorBox _dust765HighlightLastTargetHue;
+        private ClickableColorBox _dust765HighlightLastTargetPoisonHue;
+        private ClickableColorBox _dust765HighlightLastTargetParaHue;
+
+        private NameOverheadAssignControl _nameOverheadControl;
+
+        // Dust765 — Nameplate hover header
+        private Checkbox _dust765ShowHPLineInNOH;
+        private Checkbox _dust765NameOverheadBgToggled;
+        private Checkbox _dust765NamePlateHideAtFullHealth;
+        private HSliderBar _dust765NamePlateBgOpacity;
 
         // general
         private HSliderBar _sliderFPS, _circleOfTranspRadius;
@@ -391,6 +403,19 @@ namespace ClassicUO.Game.UI.Gumps
                     10 + 30 * i++,
                     140,
                     25,
+                    ButtonAction.SwitchPage,
+                    "Overheads"
+                ) { ButtonParameter = 14 }
+            );
+
+            Add
+            (
+                new NiceButton
+                (
+                    10,
+                    10 + 30 * i++,
+                    140,
+                    25,
                     ButtonAction.Activate,
                     ResGumps.IgnoreListManager
                 )
@@ -475,6 +500,7 @@ namespace ClassicUO.Game.UI.Gumps
             BuildContainers();
             BuildExperimental();
             BuildDust765();
+            BuildNameOverheadPage();
 
             ChangePage(1);
         }
@@ -3295,7 +3321,6 @@ namespace ClassicUO.Game.UI.Gumps
             box.WantUpdateSize = true;
             rightArea.Add(box);
 
-            // ---- Avoid Obstacles ----
             SettingsSection sectionMove = AddSettingsSection(box, "Movement");
 
             sectionMove.Add
@@ -3303,14 +3328,14 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765AvoidObstacles = AddCheckBox
                 (
                     null,
-                    "Automatically avoid obstacles while moving",
+                    "Avoid obstacles",
                     _currentProfile.AvoidObstacles,
                     startX,
                     startY
                 )
             );
 
-            SettingsSection sectionCombatUi = AddSettingsSection(box, "UO Classic Combat (swing)");
+            SettingsSection sectionCombatUi = AddSettingsSection(box, "UOCC swing");
             sectionCombatUi.Y = sectionMove.Bounds.Bottom + 40;
 
             sectionCombatUi.Add
@@ -3318,7 +3343,7 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765UccBuffbar = AddCheckBox
                 (
                     null,
-                    "Enable UO Classic Combat UI (swing bar)",
+                    "Show UOCC gump",
                     _currentProfile.UOClassicCombatBuffbar,
                     startX,
                     startY
@@ -3330,7 +3355,7 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765UccSwing = AddCheckBox
                 (
                     null,
-                    "Show swing timer bar",
+                    "Show swing timer",
                     _currentProfile.UOClassicCombatBuffbar_SwingEnabled,
                     startX,
                     startY
@@ -3342,15 +3367,14 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765UccLocked = AddCheckBox
                 (
                     null,
-                    "Lock swing bar position (no drag)",
+                    "Lock combat bar",
                     _currentProfile.UOClassicCombatBuffbar_Locked,
                     startX,
                     startY
                 )
             );
 
-            // ---- HP/Mana/Stamina bars ----
-            SettingsSection sectionBars = AddSettingsSection(box, "HP / Mana / Stamina Bars");
+            SettingsSection sectionBars = AddSettingsSection(box, "HP bars & names");
             sectionBars.Y = sectionCombatUi.Bounds.Bottom + 40;
 
             sectionBars.Add
@@ -3358,14 +3382,14 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765NamePlateHealthBar = AddCheckBox
                 (
                     null,
-                    "Show HP/Mana/Stamina bars below own character nameplate",
+                    "HP/Mana/Stam under your name",
                     _currentProfile.NamePlateHealthBar,
                     startX,
                     startY
                 )
             );
 
-            sectionBars.Add(AddLabel(null, "Nameplate bar opacity", startX, startY));
+            sectionBars.Add(AddLabel(null, "Bar opacity (0–100)", startX, startY));
             sectionBars.AddRight
             (
                 _dust765NamePlateOpacity = AddHSlider
@@ -3385,10 +3409,65 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765UseOldHealthBars = AddCheckBox
                 (
                     null,
-                    "Use old-style mobile HP lines (underfoot)",
+                    "Thin HP lines under mobiles",
                     _currentProfile.UseOldHealthBars,
                     startX,
                     startY
+                )
+            );
+
+            sectionBars.Add(AddLabel(null, "Floating names", startX, startY));
+
+            sectionBars.Add
+            (
+                _dust765ShowHPLineInNOH = AddCheckBox
+                (
+                    null,
+                    "HP line on names",
+                    _currentProfile.ShowHPLineInNOH,
+                    startX,
+                    startY
+                )
+            );
+            sectionBars.Add(AddLabel(null, string.Empty, startX, startY));
+
+            sectionBars.Add
+            (
+                _dust765NameOverheadBgToggled = AddCheckBox
+                (
+                    null,
+                    "Name bg on hover only",
+                    _currentProfile.NameOverheadBackgroundToggled,
+                    startX,
+                    startY
+                )
+            );
+            sectionBars.Add(AddLabel(null, string.Empty, startX, startY));
+
+            sectionBars.Add
+            (
+                _dust765NamePlateHideAtFullHealth = AddCheckBox
+                (
+                    null,
+                    "Hide name at full HP (war)",
+                    _currentProfile.NamePlateHideAtFullHealth,
+                    startX,
+                    startY
+                )
+            );
+
+            sectionBars.Add(AddLabel(null, "Name bg opacity (0–100)", startX, startY));
+            sectionBars.AddRight
+            (
+                _dust765NamePlateBgOpacity = AddHSlider
+                (
+                    null,
+                    0,
+                    100,
+                    Math.Clamp(_currentProfile.NamePlateOpacity, (byte)0, (byte)100),
+                    startX,
+                    startY,
+                    200
                 )
             );
 
@@ -3397,7 +3476,7 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765MultiUnderlinesParty = AddCheckBox
                 (
                     null,
-                    "HP / Mana / Stamina underlines (self and party)",
+                    "Stam underlines (you/party)",
                     _currentProfile.MultipleUnderlinesSelfParty,
                     startX,
                     startY
@@ -3409,14 +3488,14 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765MultiUnderlinesBigBars = AddCheckBox
                 (
                     null,
-                    "Larger underlines for self/party",
+                    "Bigger underlines",
                     _currentProfile.MultipleUnderlinesSelfPartyBigBars,
                     startX,
                     startY
                 )
             );
 
-            sectionBars.Add(AddLabel(null, "Underline transparency (1–10)", startX, startY));
+            sectionBars.Add(AddLabel(null, "Underline fade (1–10)", startX, startY));
             sectionBars.AddRight
             (
                 _dust765MultiUnderlinesTransparency = AddHSlider
@@ -3431,8 +3510,7 @@ namespace ClassicUO.Game.UI.Gumps
                 )
             );
 
-            // ---- Bandage Gump ----
-            SettingsSection sectionBandage = AddSettingsSection(box, "Bandage Timer");
+            SettingsSection sectionBandage = AddSettingsSection(box, "Bandage");
             sectionBandage.Y = sectionBars.Bounds.Bottom + 40;
 
             sectionBandage.Add
@@ -3440,7 +3518,7 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765BandageGump = AddCheckBox
                 (
                     null,
-                    "Show bandage timer gump",
+                    "Bandage timer gump",
                     _currentProfile.BandageGump,
                     startX,
                     startY
@@ -3452,15 +3530,14 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765BandageGumpUpDown = AddCheckBox
                 (
                     null,
-                    "Count up instead of count down",
+                    "Count up",
                     _currentProfile.BandageGumpUpDownToggle,
                     startX,
                     startY
                 )
             );
 
-            // ---- OnCasting Gump ----
-            SettingsSection sectionCasting = AddSettingsSection(box, "Casting Timer (OnCasting)");
+            SettingsSection sectionCasting = AddSettingsSection(box, "Casting");
             sectionCasting.Y = sectionBandage.Bounds.Bottom + 40;
 
             sectionCasting.Add
@@ -3468,7 +3545,7 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765OnCastingGump = AddCheckBox
                 (
                     null,
-                    "Show casting timer gump",
+                    "Casting timer gump",
                     _currentProfile.OnCastingGump,
                     startX,
                     startY
@@ -3480,7 +3557,7 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765OnCastingGumpHidden = AddCheckBox
                 (
                     null,
-                    "Hide gump (keep internal tracking only)",
+                    "Hidden (track only)",
                     _currentProfile.OnCastingGump_hidden,
                     startX,
                     startY
@@ -3492,14 +3569,14 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765OnCastingUnderPlayerBar = AddCheckBox
                 (
                     null,
-                    "Position below player status bar",
+                    "Below status bar",
                     _currentProfile.OnCastingUnderPlayerBar,
                     startX,
                     startY
                 )
             );
 
-            SettingsSection sectionHouse = AddSettingsSection(box, "Houses & world map");
+            SettingsSection sectionHouse = AddSettingsSection(box, "Houses & map");
             sectionHouse.Y = sectionCasting.Bounds.Bottom + 40;
 
             sectionHouse.Add
@@ -3507,7 +3584,7 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765TransparentHouses = AddCheckBox
                 (
                     null,
-                    "Transparent houses and items (Z level)",
+                    "Transparent roofs (Z)",
                     _currentProfile.TransparentHousesEnabled,
                     startX,
                     startY
@@ -3515,7 +3592,7 @@ namespace ClassicUO.Game.UI.Gumps
             );
 
             sectionHouse.PushIndent();
-            sectionHouse.Add(AddLabel(null, "Transparent above player Z", startX, startY));
+            sectionHouse.Add(AddLabel(null, "Transparent Z range", startX, startY));
             sectionHouse.AddRight
             (
                 _dust765TransparentHousesZ = AddHSlider
@@ -3529,7 +3606,7 @@ namespace ClassicUO.Game.UI.Gumps
                     200
                 )
             );
-            sectionHouse.Add(AddLabel(null, "Transparency (1–9)", startX, startY));
+            sectionHouse.Add(AddLabel(null, "See-through amount (1–9)", startX, startY));
             sectionHouse.AddRight
             (
                 _dust765TransparentHousesTransparency = AddHSlider
@@ -3550,7 +3627,7 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765InvisibleHouses = AddCheckBox
                 (
                     null,
-                    "Invisible houses and items (hides statics by Z; not transparency)",
+                    "Hide statics above (Z)",
                     _currentProfile.InvisibleHousesEnabled,
                     startX,
                     startY
@@ -3558,7 +3635,7 @@ namespace ClassicUO.Game.UI.Gumps
             );
 
             sectionHouse.PushIndent();
-            sectionHouse.Add(AddLabel(null, "Invisible: Z delta above player (1–100)", 0, 0));
+            sectionHouse.Add(AddLabel(null, "Invisible Z range", 0, 0));
             sectionHouse.Add
             (
                 _dust765InvisibleHousesZ = AddHSlider
@@ -3577,7 +3654,7 @@ namespace ClassicUO.Game.UI.Gumps
                 AddLabel
                 (
                     null,
-                    "Ground clearance: min (static Z − land Z) before hiding (both house modes)",
+                    "Min floor Z gap (1–100)",
                     0,
                     0
                 )
@@ -3602,15 +3679,14 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765ShowDeathOnWorldmap = AddCheckBox
                 (
                     null,
-                    "Show death location on world map for 5 min",
+                    "Death on map (~5 min)",
                     _currentProfile.ShowDeathOnWorldmap,
                     startX,
                     startY
                 )
             );
 
-            // ---- Grid Container ----
-            SettingsSection sectionGrid = AddSettingsSection(box, "Grid Container");
+            SettingsSection sectionGrid = AddSettingsSection(box, "Grid");
             sectionGrid.Y = sectionHouse.Bounds.Bottom + 40;
 
             sectionGrid.Add
@@ -3618,15 +3694,14 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765GridContainer = AddCheckBox
                 (
                     null,
-                    "Enable Grid Container (opens containers as item grid)",
+                    "Grid containers",
                     _currentProfile.GridContainerEnabled,
                     startX,
                     startY
                 )
             );
 
-            // ---- Art / Hue Changes ----
-            SettingsSection sectionArt = AddSettingsSection(box, "Art / Hue Changes");
+            SettingsSection sectionArt = AddSettingsSection(box, "Stealth");
             sectionArt.Y = sectionGrid.Bounds.Bottom + 40;
 
             sectionArt.Add
@@ -3634,14 +3709,14 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765ColorStealth = AddCheckBox
                 (
                     null,
-                    "Color stealth walk art ON / OFF",
+                    "Tint stealth sprite",
                     _currentProfile.ColorStealth,
                     startX,
                     startY
                 )
             );
 
-            sectionArt.Add(AddLabel(null, "Stealth neon effect", startX, startY));
+            sectionArt.Add(AddLabel(null, "Neon style", startX, startY));
             sectionArt.AddRight
             (
                 _dust765StealthNeonType = AddCombobox
@@ -3655,9 +3730,21 @@ namespace ClassicUO.Game.UI.Gumps
                 ),
                 2
             );
+            sectionArt.Add(AddLabel(null, "Stealth hue", startX, startY));
+            sectionArt.AddRight
+            (
+                _dust765StealthHueBox = AddColorBox
+                (
+                    null,
+                    startX,
+                    startY,
+                    _currentProfile.StealthHue,
+                    string.Empty
+                ),
+                2
+            );
 
-            // ---- Visual Helpers ----
-            SettingsSection sectionVisual = AddSettingsSection(box, "Visual Helpers");
+            SettingsSection sectionVisual = AddSettingsSection(box, "Fields & target");
             sectionVisual.Y = sectionArt.Bounds.Bottom + 40;
 
             sectionVisual.Add
@@ -3665,14 +3752,14 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765PreviewFields = AddCheckBox
                 (
                     null,
-                    "Preview field spells (highlight tiles on cursor)",
+                    "Preview field tiles",
                     _currentProfile.PreviewFields,
                     startX,
                     startY
                 )
             );
 
-            sectionVisual.Add(AddLabel(null, "Highlight last target", startX, startY));
+            sectionVisual.Add(AddLabel(null, "Last target", startX, startY));
             sectionVisual.AddRight
             (
                 _dust765HighlightLastTargetType = AddCombobox
@@ -3686,8 +3773,21 @@ namespace ClassicUO.Game.UI.Gumps
                 ),
                 2
             );
+            sectionVisual.Add(AddLabel(null, "Custom hue", startX, startY));
+            sectionVisual.AddRight
+            (
+                _dust765HighlightLastTargetHue = AddColorBox
+                (
+                    null,
+                    startX,
+                    startY,
+                    _currentProfile.HighlightLastTargetTypeHue,
+                    string.Empty
+                ),
+                2
+            );
 
-            sectionVisual.Add(AddLabel(null, "Highlight last target - poisoned", startX, startY));
+            sectionVisual.Add(AddLabel(null, "Target (poison)", startX, startY));
             sectionVisual.AddRight
             (
                 _dust765HighlightLastTargetPoison = AddCombobox
@@ -3701,8 +3801,21 @@ namespace ClassicUO.Game.UI.Gumps
                 ),
                 2
             );
+            sectionVisual.Add(AddLabel(null, "Poison hue", startX, startY));
+            sectionVisual.AddRight
+            (
+                _dust765HighlightLastTargetPoisonHue = AddColorBox
+                (
+                    null,
+                    startX,
+                    startY,
+                    _currentProfile.HighlightLastTargetTypePoisonHue,
+                    string.Empty
+                ),
+                2
+            );
 
-            sectionVisual.Add(AddLabel(null, "Highlight last target - paralyzed", startX, startY));
+            sectionVisual.Add(AddLabel(null, "Target (para)", startX, startY));
             sectionVisual.AddRight
             (
                 _dust765HighlightLastTargetPara = AddCombobox
@@ -3716,10 +3829,23 @@ namespace ClassicUO.Game.UI.Gumps
                 ),
                 2
             );
+            sectionVisual.Add(AddLabel(null, "Para hue", startX, startY));
+            sectionVisual.AddRight
+            (
+                _dust765HighlightLastTargetParaHue = AddColorBox
+                (
+                    null,
+                    startX,
+                    startY,
+                    _currentProfile.HighlightLastTargetTypeParaHue,
+                    string.Empty
+                ),
+                2
+            );
 
             SettingsSection sectionFieldBlock = AddSettingsSection(
                 box,
-                "Wall of Stone / Energy Field (client pathfinding)"
+                "WoS & Energy Field"
             );
             sectionFieldBlock.Y = sectionVisual.Bounds.Bottom + 40;
 
@@ -3728,7 +3854,7 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765BlockWoS = AddCheckBox
                 (
                     null,
-                    "Block Wall of Stone (mark tile as impassable)",
+                    "Block WoS",
                     _currentProfile.BlockWoS,
                     startX,
                     startY
@@ -3740,14 +3866,14 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765BlockWoSFelOnly = AddCheckBox
                 (
                     null,
-                    "Wall of Stone: Felucca only (map 0)",
+                    "WoS Fel only",
                     _currentProfile.BlockWoSFelOnly,
                     startX,
                     startY
                 )
             );
 
-            sectionFieldBlock.Add(AddLabel(null, "WoS tile id (graphic)", 0, 0));
+            sectionFieldBlock.Add(AddLabel(null, "WoS graphic id", 0, 0));
             sectionFieldBlock.AddRight
             (
                 _dust765BlockWoSArt = new InputField
@@ -3773,7 +3899,7 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765BlockWoSArtForceAoS = AddCheckBox
                 (
                     null,
-                    "Force WoS from art 130 (AoS) to tile id above, hue 945",
+                    "Remap AoS WoS (945)",
                     _currentProfile.BlockWoSArtForceAoS,
                     startX,
                     startY
@@ -3785,7 +3911,7 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765BlockEnergyF = AddCheckBox
                 (
                     null,
-                    "Block Energy Field (mark tile as impassable)",
+                    "Block Energy Field",
                     _currentProfile.BlockEnergyF,
                     startX,
                     startY
@@ -3797,14 +3923,14 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765BlockEnergyFFelOnly = AddCheckBox
                 (
                     null,
-                    "Energy Field: Felucca only (map 0)",
+                    "EF Fel only",
                     _currentProfile.BlockEnergyFFelOnly,
                     startX,
                     startY
                 )
             );
 
-            sectionFieldBlock.Add(AddLabel(null, "Energy Field tile id (graphic)", 0, 0));
+            sectionFieldBlock.Add(AddLabel(null, "EF graphic id", 0, 0));
             sectionFieldBlock.AddRight
             (
                 _dust765BlockEnergyFArt = new InputField
@@ -3830,7 +3956,7 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765BlockEnergyFArtForceAoS = AddCheckBox
                 (
                     null,
-                    "Force Energy Field (shard/Razor CE arts) to tile id above, hue 293",
+                    "Remap EF arts (293)",
                     _currentProfile.BlockEnergyFArtForceAoS,
                     startX,
                     startY
@@ -3838,6 +3964,245 @@ namespace ClassicUO.Game.UI.Gumps
             );
 
             Add(rightArea, PAGE);
+        }
+
+        private void BuildNameOverheadPage()
+        {
+            const int PAGE = 14;
+
+            Add(
+                new Line(190, 52 + 25 + 2, 150, 1, Color.Gray.PackedValue),
+                PAGE
+            );
+
+            NiceButton addButton = new NiceButton(
+                190,
+                20,
+                130,
+                20,
+                ButtonAction.Activate,
+                "New"
+            )
+            {
+                IsSelectable = false
+            };
+
+            Add(addButton, PAGE);
+
+            NiceButton delButton = new NiceButton(
+                190,
+                52,
+                130,
+                20,
+                ButtonAction.Activate,
+                "Delete"
+            )
+            {
+                IsSelectable = false
+            };
+
+            Add(delButton, PAGE);
+
+            ScrollArea listScroll = new ScrollArea(190, 52 + 25 + 4, 150, 320, true);
+
+            int startX = 5;
+            int startY = 5;
+
+            DataBox databox = new DataBox(startX, startY, 1, 1);
+            databox.WantUpdateSize = true;
+            listScroll.Add(databox);
+
+            addButton.MouseUp += (_, _) =>
+            {
+                EntryDialog dialog = new EntryDialog(
+                    World,
+                    250,
+                    150,
+                    "Preset name",
+                    name =>
+                    {
+                        if (string.IsNullOrWhiteSpace(name))
+                        {
+                            return;
+                        }
+
+                        if (World.NameOverHeadManager.FindOption(name) != null)
+                        {
+                            return;
+                        }
+
+                        NiceButton nb;
+
+                        databox.Add(
+                            nb = new NiceButton(
+                                0,
+                                0,
+                                130,
+                                25,
+                                ButtonAction.Activate,
+                                name
+                            )
+                            {
+                                Tag = new NameOverheadOption(name)
+                            }
+                        );
+
+                        databox.WantUpdateSize = true;
+                        databox.ReArrangeChildren();
+
+                        nb.IsSelected = true;
+
+                        NameOverheadOption newOpt = (NameOverheadOption)nb.Tag;
+                        World.NameOverHeadManager.AddOption(newOpt);
+
+                        _nameOverheadControl?.Dispose();
+
+                        _nameOverheadControl = new NameOverheadAssignControl(World, newOpt)
+                        {
+                            X = 360,
+                            Y = 20
+                        };
+
+                        Add(_nameOverheadControl, PAGE);
+
+                        nb.MouseUp += (s, _) =>
+                        {
+                            if (s is not NiceButton mupNiceButton)
+                            {
+                                return;
+                            }
+
+                            NameOverheadOption option = mupNiceButton.Tag as NameOverheadOption;
+
+                            if (option == null)
+                            {
+                                return;
+                            }
+
+                            _nameOverheadControl?.Dispose();
+
+                            _nameOverheadControl = new NameOverheadAssignControl(World, option)
+                            {
+                                X = 360,
+                                Y = 20
+                            };
+
+                            Add(_nameOverheadControl, PAGE);
+                        };
+                    }
+                )
+                {
+                    CanCloseWithRightClick = true
+                };
+
+                UIManager.Add(dialog);
+            };
+
+            delButton.MouseUp += (_, _) =>
+            {
+                NiceButton nb = databox.FindControls<NiceButton>().SingleOrDefault(a => a.IsSelected);
+
+                if (nb != null)
+                {
+                    UIManager.Add(
+                        new QuestionGump(
+                            World,
+                            ResGumps.MacroDeleteConfirmation,
+                            b =>
+                            {
+                                if (!b)
+                                {
+                                    return;
+                                }
+
+                                if (_nameOverheadControl != null
+                                    && ReferenceEquals(_nameOverheadControl.Option, nb.Tag))
+                                {
+                                    World.NameOverHeadManager.RemoveOption(_nameOverheadControl.Option);
+
+                                    _nameOverheadControl.Dispose();
+                                    _nameOverheadControl = null;
+                                }
+                                else if (nb.Tag is NameOverheadOption opt)
+                                {
+                                    World.NameOverHeadManager.RemoveOption(opt);
+                                }
+
+                                nb.Dispose();
+                                databox.WantUpdateSize = true;
+                                databox.ReArrangeChildren();
+                            }
+                        )
+                    );
+                }
+            };
+
+            NiceButton firstNb = null;
+
+            foreach (NameOverheadOption option in World.NameOverHeadManager.GetAllOptions())
+            {
+                NiceButton nb;
+
+                databox.Add(
+                    nb = new NiceButton(
+                        0,
+                        0,
+                        130,
+                        25,
+                        ButtonAction.Activate,
+                        option.Name
+                    )
+                    {
+                        Tag = option
+                    }
+                );
+
+                firstNb ??= nb;
+
+                nb.MouseUp += (s, _) =>
+                {
+                    if (s is not NiceButton mupNiceButton)
+                    {
+                        return;
+                    }
+
+                    NameOverheadOption opt = mupNiceButton.Tag as NameOverheadOption;
+
+                    if (opt == null)
+                    {
+                        return;
+                    }
+
+                    _nameOverheadControl?.Dispose();
+
+                    _nameOverheadControl = new NameOverheadAssignControl(World, opt)
+                    {
+                        X = 360,
+                        Y = 20
+                    };
+
+                    Add(_nameOverheadControl, PAGE);
+                };
+            }
+
+            databox.ReArrangeChildren();
+
+            IReadOnlyList<NameOverheadOption> opts = World.NameOverHeadManager.GetAllOptions();
+
+            if (opts.Count > 0 && firstNb != null)
+            {
+                firstNb.IsSelected = true;
+
+                _nameOverheadControl = new NameOverheadAssignControl(World, opts[0])
+                {
+                    X = 360,
+                    Y = 20
+                };
+
+                Add(_nameOverheadControl, PAGE);
+            }
+
+            Add(listScroll, PAGE);
         }
 
         private void BuildInfoBar()
@@ -5039,6 +5404,7 @@ namespace ClassicUO.Game.UI.Gumps
             // Art / Hue Changes
             _currentProfile.ColorStealth = _dust765ColorStealth.IsChecked;
             _currentProfile.StealthNeonType = _dust765StealthNeonType.SelectedIndex;
+            _currentProfile.StealthHue = _dust765StealthHueBox.Hue;
 
             // Visual Helpers
             _currentProfile.PreviewFields = _dust765PreviewFields.IsChecked;
@@ -5116,8 +5482,19 @@ namespace ClassicUO.Game.UI.Gumps
             }
 
             _currentProfile.HighlightLastTargetType = _dust765HighlightLastTargetType.SelectedIndex;
+            _currentProfile.HighlightLastTargetTypeHue = _dust765HighlightLastTargetHue.Hue;
             _currentProfile.HighlightLastTargetTypePoison = _dust765HighlightLastTargetPoison.SelectedIndex;
+            _currentProfile.HighlightLastTargetTypePoisonHue = _dust765HighlightLastTargetPoisonHue.Hue;
             _currentProfile.HighlightLastTargetTypePara = _dust765HighlightLastTargetPara.SelectedIndex;
+            _currentProfile.HighlightLastTargetTypeParaHue = _dust765HighlightLastTargetParaHue.Hue;
+
+            // Nameplate hover header
+            _currentProfile.ShowHPLineInNOH = _dust765ShowHPLineInNOH.IsChecked;
+            _currentProfile.NameOverheadBackgroundToggled = _dust765NameOverheadBgToggled.IsChecked;
+            _currentProfile.NamePlateHideAtFullHealth = _dust765NamePlateHideAtFullHealth.IsChecked;
+            _currentProfile.NamePlateOpacity = (byte)Math.Clamp(_dust765NamePlateBgOpacity.Value, 0, 100);
+
+            World.NameOverHeadManager.Save();
 
             _currentProfile?.Save(World, ProfileManager.ProfilePath);
         }
