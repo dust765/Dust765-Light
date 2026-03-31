@@ -100,6 +100,14 @@ namespace ClassicUO.Game.GameObjects
             else if (IsHidden)
             {
                 overridedHue = 0x038E;
+                // ## BEGIN - END ## // ART / HUE CHANGES
+                if (Serial == World.Player.Serial)
+                {
+                    var _sp = ProfileManager.CurrentProfile;
+                    if (_sp != null && (_sp.ColorStealth || _sp.StealthNeonType != 0))
+                        overridedHue = CombatCollection.StealthHue(overridedHue);
+                }
+                // ## BEGIN - END ## // ART / HUE CHANGES
             }
             else
             {

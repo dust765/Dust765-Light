@@ -205,7 +205,9 @@ namespace ClassicUO.Game.Managers
                             }
                         }
 
-                        if (currentProfile != null && currentProfile.OnCastingGump)
+                        // Only start OnCasting timer when the local player is the caster
+                        if (currentProfile != null && currentProfile.OnCastingGump
+                            && parent == _world.Player)
                         {
                             GameActions.LastSpellIndex = spellFromWord.ID;
                             PlayerMobile player = _world.Player;

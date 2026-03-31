@@ -2,6 +2,9 @@
 
 set -e
 
+# Ensure vswhere.exe is in PATH (required for NativeAOT linker on Windows)
+export PATH="$PATH:/c/Program Files (x86)/Microsoft Visual Studio/Installer"
+
 # Define paths and project details
 bootstrap_project="../src/ClassicUO.Bootstrap/src/ClassicUO.Bootstrap.csproj"
 client_project="../src/ClassicUO.Client"

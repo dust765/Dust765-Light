@@ -2,7 +2,25 @@
   "permissions": {
     "allow": [
       "Read(//d/workspace/2026/Dust765-light/Dust765-Light//**)",
-      "Read(//d/workspace/2026/Dust765-light/Dust765-Light/**)"
+      "Read(//d/workspace/2026/Dust765-light/Dust765-Light/**)",
+      "Bash(xargs grep:*)",
+      "Bash(gh api:*)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:github.com)",
+      "Bash(curl -s \"https://raw.githubusercontent.com/dust765/ClassicUO_old/dev_dust765_x_tazuo/src/ClassicUO.Client/Game/UI/Gumps/NameOverheadGump.cs\")",
+      "Bash(curl -s \"https://raw.githubusercontent.com/dust765/ClassicUO_old/dev_dust765_x_tazuo/src/ClassicUO.Client/Configuration/Profile.cs\")",
+      "Bash(curl -s \"https://raw.githubusercontent.com/dust765/ClassicUO_old/dev_dust765_x_tazuo/src/ClassicUO.Client/Game/UI/Gumps/OptionsGump.cs\")",
+      "Bash(dotnet build:*)",
+      "Bash(curl -s \"https://raw.githubusercontent.com/dust765/ClassicUO_old/dev_dust765_x_tazuo/src/ClassicUO.Client/Game/GameActions.cs\")",
+      "Bash(curl:*)",
+      "Bash(find D:/workspace/2026/Dust765-light/Dust765-Light -name *NameOverhead* -o -name *nameoverhead*)",
+      "Read(//d/workspace/2026/**)",
+      "Bash(find /d/workspace/2026 -type d -name *ClassicUO*)",
+      "Bash(find /d/workspace/2026/Dust765-light/Dust765-Light/estudo/ClassicUO_old-dev_dust765_x_tazuo/src/ClassicUO.Client -name *Overhead* -o -name *Plate*)",
+      "Bash(bash build-naot.sh)",
+      "Read(//c/Program Files \\(x86\\)/Microsoft Visual Studio/Installer/**)",
+      "Read(//c/Program Files/Microsoft Visual Studio/Installer/**)",
+      "Bash(PATH=\"$PATH:/c/Program Files \\(x86\\)/Microsoft Visual Studio/Installer\" bash build-naot.sh)"
     ]
   }
 }
