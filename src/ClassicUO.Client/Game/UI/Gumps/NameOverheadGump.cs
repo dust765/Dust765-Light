@@ -522,11 +522,6 @@ namespace ClassicUO.Game.UI.Gumps
 
         protected override void OnMouseOver(int x, int y)
         {
-            if (ProfileManager.CurrentProfile?.NameOverheadBackgroundToggled == true)
-            {
-                _background.IsVisible = true;
-            }
-
             if (_leftMouseIsDown)
             {
                 DoDrag();
@@ -584,11 +579,6 @@ namespace ClassicUO.Game.UI.Gumps
         {
             _positionLocked = false;
 
-            if (ProfileManager.CurrentProfile?.NameOverheadBackgroundToggled == true)
-            {
-                _background.IsVisible = false;
-            }
-
             base.OnMouseExit(x, y);
         }
 
@@ -613,7 +603,12 @@ namespace ClassicUO.Game.UI.Gumps
                 {
                     _background.Alpha = ProfileManager.CurrentProfile.NamePlateOpacity / 100f;
 
-                    if (!ProfileManager.CurrentProfile.NameOverheadBackgroundToggled)
+                    if (ProfileManager.CurrentProfile.NameOverheadBackgroundToggled)
+                    {
+                        Control mo = UIManager.MouseOverControl;
+                        _background.IsVisible = mo != null && mo.RootParent == this;
+                    }
+                    else
                     {
                         _background.IsVisible = true;
                     }
@@ -644,10 +639,19 @@ namespace ClassicUO.Game.UI.Gumps
                             _hpLineRed.X = _hpLine.X = _background.X;
                             _hpLineBorder.Y = _background.Y - 8;
                             _hpLineRed.Y = _hpLine.Y = _background.Y - 7;
-                            _hpLineBorder.LineWidth = _background.Width + 2;
-                            _hpLineRed.LineWidth = _background.Width;
 
-                            int hits = CalculatePercents(entity.HitsMax, entity.Hits, _background.Width);
+                            int bgW = Math.Max(_background.Width, Width);
+                            if (bgW <= 0)
+                            {
+                                bgW = 60;
+                            }
+
+                            _hpLineBorder.LineWidth = bgW + 2;
+                            _hpLineRed.LineWidth = bgW;
+
+                            int hits = mobile.HitsMax > 0
+                                ? CalculatePercents(mobile.HitsMax, mobile.Hits, bgW)
+                                : bgW;
                             if (hits != _hpLine.LineWidth)
                             {
                                 _hpLine.LineWidth = hits;
@@ -704,9 +708,9 @@ namespace ClassicUO.Game.UI.Gumps
                 // ## BEGIN - END ## // NAMEOVERHEAD
                 if (ProfileManager.CurrentProfile?.NamePlateHideAtFullHealth == true
                     && _hpPercent >= 1
-                    && World.Player.InWarMode)
+                    && World.Player.InWarMode
+                    && m != World.Player)
                 {
-                    Dispose();
                     return false;
                 }
                 // ## BEGIN - END ## // NAMEOVERHEAD
