@@ -307,6 +307,7 @@ namespace ClassicUO.Game.UI.Gumps
             openRegularGump.X = background.Width - 25 - borderWidth;
             setLootBag.Y = Height - 20;
             BuildBorder();
+            UpdateItems();
         }
 
         private static int GetWidth(int columns = -1)

@@ -111,6 +111,7 @@ namespace ClassicUO.Game.Scenes
             _animatedStaticsManager = new AnimatedStaticsManager();
             _animatedStaticsManager.Initialize();
             _world.InfoBars.Load();
+            _world.NameOverHeadManager.Load();
             _healthLinesManager = new HealthLinesManager(_world);
 
             _world.CommandManager.Initialize();
@@ -600,7 +601,7 @@ namespace ClassicUO.Game.Scenes
             GetViewPort();
 
             var ctrlShiftHeld = Keyboard.Ctrl && Keyboard.Shift;
-            var useObjectHandles = _world.NameOverHeadManager.IsToggled || ctrlShiftHeld;
+            var useObjectHandles = _world.NameOverHeadManager.IsShowing;
             if (useObjectHandles != _useObjectHandles)
             {
                 _useObjectHandles = useObjectHandles;

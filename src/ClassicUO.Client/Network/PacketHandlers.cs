@@ -1076,6 +1076,7 @@ namespace ClassicUO.Network
                     }
 
                     UIManager.GetGump<ContainerGump>(cont)?.RequestUpdateContents();
+                    UIManager.GetGump<GridContainer>(cont)?.RequestUpdateContents();
 
                     if (
                         top != null
@@ -6218,6 +6219,8 @@ namespace ClassicUO.Network
 
                         gump.RequestUpdateContents();
                     }
+
+                    UIManager.GetGump<GridContainer>(containerSerial)?.RequestUpdateContents();
                 }
             }
 
@@ -6256,6 +6259,9 @@ namespace ClassicUO.Network
                     {
                         UIManager
                             .GetGump<ContainerGump>(Client.Game.UO.GameCursor.ItemHold.Container)
+                            ?.RequestUpdateContents();
+                        UIManager
+                            .GetGump<GridContainer>(Client.Game.UO.GameCursor.ItemHold.Container)
                             ?.RequestUpdateContents();
                     }
                     else

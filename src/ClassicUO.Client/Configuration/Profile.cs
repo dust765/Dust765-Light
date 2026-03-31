@@ -214,6 +214,8 @@ namespace ClassicUO.Configuration
         public bool NameOverheadToggled { get; set; } = false;
         public bool NameOverheadShowGump { get; set; } = true;
         public bool NameOverheadShowHpBar { get; set; } = true;
+        public string LastActiveNameOverheadOption { get; set; } = "All";
+        public bool NameOverheadPinnedToggled { get; set; }
         public bool ShowTargetRangeIndicator { get; set; }
         public bool PartyInviteGump { get; set; }
         public bool CustomBarsToggled { get; set; }
@@ -364,6 +366,12 @@ namespace ClassicUO.Configuration
         // Barras HP/Mana/Stamina abaixo do char
         public bool NamePlateHealthBar { get; set; } = false;
         public byte NamePlateHealthBarOpacity { get; set; } = 50;
+
+        // NameOverhead / Nameplate hover header
+        public bool ShowHPLineInNOH { get; set; } = false;
+        public bool NameOverheadBackgroundToggled { get; set; } = false;
+        public bool NamePlateHideAtFullHealth { get; set; } = false;
+        public byte NamePlateOpacity { get; set; } = 70;
 
         public bool UOClassicCombatBuffbar { get; set; } = true;
         public bool UOClassicCombatBuffbar_SwingEnabled { get; set; } = true;

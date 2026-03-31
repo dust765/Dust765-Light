@@ -155,6 +155,7 @@ namespace ClassicUO.Game.UI.Gumps
         // Dust765 — Art / Hue Changes
         private Checkbox _dust765ColorStealth;
         private Combobox _dust765StealthNeonType;
+        private ClickableColorBox _dust765StealthHueBox;
 
         // Dust765 — Visual Helpers
         private Checkbox _dust765PreviewFields;
@@ -168,6 +169,17 @@ namespace ClassicUO.Game.UI.Gumps
         private Combobox _dust765HighlightLastTargetType;
         private Combobox _dust765HighlightLastTargetPoison;
         private Combobox _dust765HighlightLastTargetPara;
+        private ClickableColorBox _dust765HighlightLastTargetHue;
+        private ClickableColorBox _dust765HighlightLastTargetPoisonHue;
+        private ClickableColorBox _dust765HighlightLastTargetParaHue;
+
+        private NameOverheadAssignControl _nameOverheadControl;
+
+        // Dust765 — Nameplate hover header
+        private Checkbox _dust765ShowHPLineInNOH;
+        private Checkbox _dust765NameOverheadBgToggled;
+        private Checkbox _dust765NamePlateHideAtFullHealth;
+        private HSliderBar _dust765NamePlateBgOpacity;
 
         // general
         private HSliderBar _sliderFPS, _circleOfTranspRadius;
@@ -391,6 +403,19 @@ namespace ClassicUO.Game.UI.Gumps
                     10 + 30 * i++,
                     140,
                     25,
+                    ButtonAction.SwitchPage,
+                    "Name overhead"
+                ) { ButtonParameter = 14 }
+            );
+
+            Add
+            (
+                new NiceButton
+                (
+                    10,
+                    10 + 30 * i++,
+                    140,
+                    25,
                     ButtonAction.Activate,
                     ResGumps.IgnoreListManager
                 )
@@ -475,6 +500,7 @@ namespace ClassicUO.Game.UI.Gumps
             BuildContainers();
             BuildExperimental();
             BuildDust765();
+            BuildNameOverheadPage();
 
             ChangePage(1);
         }
@@ -3392,6 +3418,59 @@ namespace ClassicUO.Game.UI.Gumps
                 )
             );
 
+            sectionBars.Add(AddLabel(null, "-----NAMEOVERHEAD-----", startX, startY));
+
+            sectionBars.Add
+            (
+                _dust765ShowHPLineInNOH = AddCheckBox
+                (
+                    null,
+                    "Show HPLine in NameOverheadGump:",
+                    _currentProfile.ShowHPLineInNOH,
+                    startX,
+                    startY
+                )
+            );
+
+            sectionBars.Add
+            (
+                _dust765NameOverheadBgToggled = AddCheckBox
+                (
+                    null,
+                    "Nameplate background only on mouse hover",
+                    _currentProfile.NameOverheadBackgroundToggled,
+                    startX,
+                    startY
+                )
+            );
+
+            sectionBars.Add
+            (
+                _dust765NamePlateHideAtFullHealth = AddCheckBox
+                (
+                    null,
+                    "Auto-close nameplate at 100% HP (war mode only)",
+                    _currentProfile.NamePlateHideAtFullHealth,
+                    startX,
+                    startY
+                )
+            );
+
+            sectionBars.Add(AddLabel(null, "Nameplate background opacity", startX, startY));
+            sectionBars.AddRight
+            (
+                _dust765NamePlateBgOpacity = AddHSlider
+                (
+                    null,
+                    0,
+                    100,
+                    Math.Clamp(_currentProfile.NamePlateOpacity, (byte)0, (byte)100),
+                    startX,
+                    startY,
+                    200
+                )
+            );
+
             sectionBars.Add
             (
                 _dust765MultiUnderlinesParty = AddCheckBox
@@ -3655,6 +3734,19 @@ namespace ClassicUO.Game.UI.Gumps
                 ),
                 2
             );
+            sectionArt.Add(AddLabel(null, "Stealth custom color", startX, startY));
+            sectionArt.AddRight
+            (
+                _dust765StealthHueBox = AddColorBox
+                (
+                    null,
+                    startX,
+                    startY,
+                    _currentProfile.StealthHue,
+                    string.Empty
+                ),
+                2
+            );
 
             // ---- Visual Helpers ----
             SettingsSection sectionVisual = AddSettingsSection(box, "Visual Helpers");
@@ -3686,6 +3778,19 @@ namespace ClassicUO.Game.UI.Gumps
                 ),
                 2
             );
+            sectionVisual.Add(AddLabel(null, "Custom color", startX, startY));
+            sectionVisual.AddRight
+            (
+                _dust765HighlightLastTargetHue = AddColorBox
+                (
+                    null,
+                    startX,
+                    startY,
+                    _currentProfile.HighlightLastTargetTypeHue,
+                    string.Empty
+                ),
+                2
+            );
 
             sectionVisual.Add(AddLabel(null, "Highlight last target - poisoned", startX, startY));
             sectionVisual.AddRight
@@ -3701,6 +3806,19 @@ namespace ClassicUO.Game.UI.Gumps
                 ),
                 2
             );
+            sectionVisual.Add(AddLabel(null, "Custom color", startX, startY));
+            sectionVisual.AddRight
+            (
+                _dust765HighlightLastTargetPoisonHue = AddColorBox
+                (
+                    null,
+                    startX,
+                    startY,
+                    _currentProfile.HighlightLastTargetTypePoisonHue,
+                    string.Empty
+                ),
+                2
+            );
 
             sectionVisual.Add(AddLabel(null, "Highlight last target - paralyzed", startX, startY));
             sectionVisual.AddRight
@@ -3713,6 +3831,19 @@ namespace ClassicUO.Game.UI.Gumps
                     startX,
                     startY,
                     180
+                ),
+                2
+            );
+            sectionVisual.Add(AddLabel(null, "Custom color", startX, startY));
+            sectionVisual.AddRight
+            (
+                _dust765HighlightLastTargetParaHue = AddColorBox
+                (
+                    null,
+                    startX,
+                    startY,
+                    _currentProfile.HighlightLastTargetTypeParaHue,
+                    string.Empty
                 ),
                 2
             );
@@ -3838,6 +3969,245 @@ namespace ClassicUO.Game.UI.Gumps
             );
 
             Add(rightArea, PAGE);
+        }
+
+        private void BuildNameOverheadPage()
+        {
+            const int PAGE = 14;
+
+            Add(
+                new Line(190, 52 + 25 + 2, 150, 1, Color.Gray.PackedValue),
+                PAGE
+            );
+
+            NiceButton addButton = new NiceButton(
+                190,
+                20,
+                130,
+                20,
+                ButtonAction.Activate,
+                "New entry"
+            )
+            {
+                IsSelectable = false
+            };
+
+            Add(addButton, PAGE);
+
+            NiceButton delButton = new NiceButton(
+                190,
+                52,
+                130,
+                20,
+                ButtonAction.Activate,
+                "Delete entry"
+            )
+            {
+                IsSelectable = false
+            };
+
+            Add(delButton, PAGE);
+
+            ScrollArea listScroll = new ScrollArea(190, 52 + 25 + 4, 150, 320, true);
+
+            int startX = 5;
+            int startY = 5;
+
+            DataBox databox = new DataBox(startX, startY, 1, 1);
+            databox.WantUpdateSize = true;
+            listScroll.Add(databox);
+
+            addButton.MouseUp += (_, _) =>
+            {
+                EntryDialog dialog = new EntryDialog(
+                    World,
+                    250,
+                    150,
+                    "Name overhead entry name",
+                    name =>
+                    {
+                        if (string.IsNullOrWhiteSpace(name))
+                        {
+                            return;
+                        }
+
+                        if (World.NameOverHeadManager.FindOption(name) != null)
+                        {
+                            return;
+                        }
+
+                        NiceButton nb;
+
+                        databox.Add(
+                            nb = new NiceButton(
+                                0,
+                                0,
+                                130,
+                                25,
+                                ButtonAction.Activate,
+                                name
+                            )
+                            {
+                                Tag = new NameOverheadOption(name)
+                            }
+                        );
+
+                        databox.WantUpdateSize = true;
+                        databox.ReArrangeChildren();
+
+                        nb.IsSelected = true;
+
+                        NameOverheadOption newOpt = (NameOverheadOption)nb.Tag;
+                        World.NameOverHeadManager.AddOption(newOpt);
+
+                        _nameOverheadControl?.Dispose();
+
+                        _nameOverheadControl = new NameOverheadAssignControl(World, newOpt)
+                        {
+                            X = 360,
+                            Y = 20
+                        };
+
+                        Add(_nameOverheadControl, PAGE);
+
+                        nb.MouseUp += (s, _) =>
+                        {
+                            if (s is not NiceButton mupNiceButton)
+                            {
+                                return;
+                            }
+
+                            NameOverheadOption option = mupNiceButton.Tag as NameOverheadOption;
+
+                            if (option == null)
+                            {
+                                return;
+                            }
+
+                            _nameOverheadControl?.Dispose();
+
+                            _nameOverheadControl = new NameOverheadAssignControl(World, option)
+                            {
+                                X = 360,
+                                Y = 20
+                            };
+
+                            Add(_nameOverheadControl, PAGE);
+                        };
+                    }
+                )
+                {
+                    CanCloseWithRightClick = true
+                };
+
+                UIManager.Add(dialog);
+            };
+
+            delButton.MouseUp += (_, _) =>
+            {
+                NiceButton nb = databox.FindControls<NiceButton>().SingleOrDefault(a => a.IsSelected);
+
+                if (nb != null)
+                {
+                    UIManager.Add(
+                        new QuestionGump(
+                            World,
+                            ResGumps.MacroDeleteConfirmation,
+                            b =>
+                            {
+                                if (!b)
+                                {
+                                    return;
+                                }
+
+                                if (_nameOverheadControl != null
+                                    && ReferenceEquals(_nameOverheadControl.Option, nb.Tag))
+                                {
+                                    World.NameOverHeadManager.RemoveOption(_nameOverheadControl.Option);
+
+                                    _nameOverheadControl.Dispose();
+                                    _nameOverheadControl = null;
+                                }
+                                else if (nb.Tag is NameOverheadOption opt)
+                                {
+                                    World.NameOverHeadManager.RemoveOption(opt);
+                                }
+
+                                nb.Dispose();
+                                databox.WantUpdateSize = true;
+                                databox.ReArrangeChildren();
+                            }
+                        )
+                    );
+                }
+            };
+
+            NiceButton firstNb = null;
+
+            foreach (NameOverheadOption option in World.NameOverHeadManager.GetAllOptions())
+            {
+                NiceButton nb;
+
+                databox.Add(
+                    nb = new NiceButton(
+                        0,
+                        0,
+                        130,
+                        25,
+                        ButtonAction.Activate,
+                        option.Name
+                    )
+                    {
+                        Tag = option
+                    }
+                );
+
+                firstNb ??= nb;
+
+                nb.MouseUp += (s, _) =>
+                {
+                    if (s is not NiceButton mupNiceButton)
+                    {
+                        return;
+                    }
+
+                    NameOverheadOption opt = mupNiceButton.Tag as NameOverheadOption;
+
+                    if (opt == null)
+                    {
+                        return;
+                    }
+
+                    _nameOverheadControl?.Dispose();
+
+                    _nameOverheadControl = new NameOverheadAssignControl(World, opt)
+                    {
+                        X = 360,
+                        Y = 20
+                    };
+
+                    Add(_nameOverheadControl, PAGE);
+                };
+            }
+
+            databox.ReArrangeChildren();
+
+            IReadOnlyList<NameOverheadOption> opts = World.NameOverHeadManager.GetAllOptions();
+
+            if (opts.Count > 0 && firstNb != null)
+            {
+                firstNb.IsSelected = true;
+
+                _nameOverheadControl = new NameOverheadAssignControl(World, opts[0])
+                {
+                    X = 360,
+                    Y = 20
+                };
+
+                Add(_nameOverheadControl, PAGE);
+            }
+
+            Add(listScroll, PAGE);
         }
 
         private void BuildInfoBar()
@@ -5039,6 +5409,7 @@ namespace ClassicUO.Game.UI.Gumps
             // Art / Hue Changes
             _currentProfile.ColorStealth = _dust765ColorStealth.IsChecked;
             _currentProfile.StealthNeonType = _dust765StealthNeonType.SelectedIndex;
+            _currentProfile.StealthHue = _dust765StealthHueBox.Hue;
 
             // Visual Helpers
             _currentProfile.PreviewFields = _dust765PreviewFields.IsChecked;
@@ -5116,8 +5487,19 @@ namespace ClassicUO.Game.UI.Gumps
             }
 
             _currentProfile.HighlightLastTargetType = _dust765HighlightLastTargetType.SelectedIndex;
+            _currentProfile.HighlightLastTargetTypeHue = _dust765HighlightLastTargetHue.Hue;
             _currentProfile.HighlightLastTargetTypePoison = _dust765HighlightLastTargetPoison.SelectedIndex;
+            _currentProfile.HighlightLastTargetTypePoisonHue = _dust765HighlightLastTargetPoisonHue.Hue;
             _currentProfile.HighlightLastTargetTypePara = _dust765HighlightLastTargetPara.SelectedIndex;
+            _currentProfile.HighlightLastTargetTypeParaHue = _dust765HighlightLastTargetParaHue.Hue;
+
+            // Nameplate hover header
+            _currentProfile.ShowHPLineInNOH = _dust765ShowHPLineInNOH.IsChecked;
+            _currentProfile.NameOverheadBackgroundToggled = _dust765NameOverheadBgToggled.IsChecked;
+            _currentProfile.NamePlateHideAtFullHealth = _dust765NamePlateHideAtFullHealth.IsChecked;
+            _currentProfile.NamePlateOpacity = (byte)Math.Clamp(_dust765NamePlateBgOpacity.Value, 0, 100);
+
+            World.NameOverHeadManager.Save();
 
             _currentProfile?.Save(World, ProfileManager.ProfilePath);
         }
