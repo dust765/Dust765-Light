@@ -30,7 +30,7 @@ namespace ClassicUO.Game.UI.Controls
 
             CanMove = true;
 
-            AddLabel("Set hotkey:", 0, 0);
+            AddLabel("Hotkey:", 0, 0);
 
             _hotkeyBox = new HotkeyBox
             {
@@ -49,7 +49,7 @@ namespace ClassicUO.Game.UI.Controls
                     100,
                     25,
                     ButtonAction.Activate,
-                    "Uncheck all",
+                    "None",
                     0,
                     TEXT_ALIGN_TYPE.TS_LEFT
                 )
@@ -66,7 +66,7 @@ namespace ClassicUO.Game.UI.Controls
                     100,
                     25,
                     ButtonAction.Activate,
-                    "Check all",
+                    "All",
                     0,
                     TEXT_ALIGN_TYPE.TS_LEFT
                 )
@@ -86,51 +86,53 @@ namespace ClassicUO.Game.UI.Controls
 
         private void SetupOptionCheckboxes()
         {
-            int y = 60;
+            const int row = 21;
+            const int head = 26;
+            int y = 58;
             AddLabel("Items", 75, y);
-            y += 28;
+            y += head;
 
             AddCheckbox("Containers", NameOverheadOptions.Containers, 0, y);
             AddCheckbox("Gold", NameOverheadOptions.Gold, 150, y);
-            y += 22;
+            y += row;
             AddCheckbox("Stackable", NameOverheadOptions.Stackable, 0, y);
-            AddCheckbox("Locked down", NameOverheadOptions.LockedDown, 150, y);
-            y += 22;
-            AddCheckbox("Propertys", NameOverheadOptions.Properties, 0, y);
-            AddCheckbox("Name List", NameOverheadOptions.Nameslist, 150, y);
-            y += 28;
+            AddCheckbox("Locked", NameOverheadOptions.LockedDown, 150, y);
+            y += row;
+            AddCheckbox("Props", NameOverheadOptions.Properties, 0, y);
+            AddCheckbox("Name list", NameOverheadOptions.Nameslist, 150, y);
+            y += head;
 
             AddLabel("Corpses", 75, y);
-            y += 28;
+            y += head;
 
-            AddCheckbox("Monster corpses", NameOverheadOptions.MonsterCorpses, 0, y);
-            AddCheckbox("Humanoid corpses", NameOverheadOptions.HumanoidCorpses, 150, y);
-            y += 22;
-            AddCheckbox("Own corpses", NameOverheadOptions.OwnCorpses, 0, y);
-            y += 28;
+            AddCheckbox("Mob corpses", NameOverheadOptions.MonsterCorpses, 0, y);
+            AddCheckbox("Human corpses", NameOverheadOptions.HumanoidCorpses, 150, y);
+            y += row;
+            AddCheckbox("Your corpses", NameOverheadOptions.OwnCorpses, 0, y);
+            y += head;
 
-            AddLabel("Mobiles by type", 75, y);
-            y += 28;
+            AddLabel("By type", 75, y);
+            y += head;
 
             AddCheckbox("Humanoid", NameOverheadOptions.Humanoid, 0, y);
             AddCheckbox("Monster", NameOverheadOptions.Monster, 150, y);
-            y += 22;
-            AddCheckbox("Own Followes", NameOverheadOptions.OwnFollowers, 0, y);
-            y += 28;
+            y += row;
+            AddCheckbox("Own followers", NameOverheadOptions.OwnFollowers, 0, y);
+            y += head;
 
-            AddLabel("Mobiles by notoriety", 75, y);
-            y += 28;
+            AddLabel("By noto", 75, y);
+            y += head;
 
-            AddCheckbox("Innocent (blue)", NameOverheadOptions.Innocent, 0, y);
-            AddCheckbox("Allied (green)", NameOverheadOptions.Ally, 150, y);
-            y += 22;
-            AddCheckbox("Attackable (gray)", NameOverheadOptions.Gray, 0, y);
-            AddCheckbox("Criminal (gray)", NameOverheadOptions.Criminal, 150, y);
-            y += 22;
-            AddCheckbox("Enemy (orange)", NameOverheadOptions.Enemy, 0, y);
-            AddCheckbox("Murderer (red)", NameOverheadOptions.Murderer, 150, y);
-            y += 22;
-            AddCheckbox("Invulnerable (yellow)", NameOverheadOptions.Invulnerable, 0, y);
+            AddCheckbox("Innocent", NameOverheadOptions.Innocent, 0, y);
+            AddCheckbox("Ally", NameOverheadOptions.Ally, 150, y);
+            y += row;
+            AddCheckbox("Gray", NameOverheadOptions.Gray, 0, y);
+            AddCheckbox("Criminal", NameOverheadOptions.Criminal, 150, y);
+            y += row;
+            AddCheckbox("Enemy", NameOverheadOptions.Enemy, 0, y);
+            AddCheckbox("Murderer", NameOverheadOptions.Murderer, 150, y);
+            y += row;
+            AddCheckbox("Invuln", NameOverheadOptions.Invulnerable, 0, y);
         }
 
         private void AddLabel(string name, int x, int y)

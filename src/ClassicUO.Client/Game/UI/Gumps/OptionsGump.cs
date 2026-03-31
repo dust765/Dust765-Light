@@ -404,7 +404,7 @@ namespace ClassicUO.Game.UI.Gumps
                     140,
                     25,
                     ButtonAction.SwitchPage,
-                    "Name overhead"
+                    "Overheads"
                 ) { ButtonParameter = 14 }
             );
 
@@ -3321,7 +3321,6 @@ namespace ClassicUO.Game.UI.Gumps
             box.WantUpdateSize = true;
             rightArea.Add(box);
 
-            // ---- Avoid Obstacles ----
             SettingsSection sectionMove = AddSettingsSection(box, "Movement");
 
             sectionMove.Add
@@ -3329,14 +3328,14 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765AvoidObstacles = AddCheckBox
                 (
                     null,
-                    "Automatically avoid obstacles while moving",
+                    "Avoid obstacles",
                     _currentProfile.AvoidObstacles,
                     startX,
                     startY
                 )
             );
 
-            SettingsSection sectionCombatUi = AddSettingsSection(box, "UO Classic Combat (swing)");
+            SettingsSection sectionCombatUi = AddSettingsSection(box, "UOCC swing");
             sectionCombatUi.Y = sectionMove.Bounds.Bottom + 40;
 
             sectionCombatUi.Add
@@ -3344,7 +3343,7 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765UccBuffbar = AddCheckBox
                 (
                     null,
-                    "Enable UO Classic Combat UI (swing bar)",
+                    "Show UOCC gump",
                     _currentProfile.UOClassicCombatBuffbar,
                     startX,
                     startY
@@ -3356,7 +3355,7 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765UccSwing = AddCheckBox
                 (
                     null,
-                    "Show swing timer bar",
+                    "Show swing timer",
                     _currentProfile.UOClassicCombatBuffbar_SwingEnabled,
                     startX,
                     startY
@@ -3368,15 +3367,14 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765UccLocked = AddCheckBox
                 (
                     null,
-                    "Lock swing bar position (no drag)",
+                    "Lock combat bar",
                     _currentProfile.UOClassicCombatBuffbar_Locked,
                     startX,
                     startY
                 )
             );
 
-            // ---- HP/Mana/Stamina bars ----
-            SettingsSection sectionBars = AddSettingsSection(box, "HP / Mana / Stamina Bars");
+            SettingsSection sectionBars = AddSettingsSection(box, "HP bars & names");
             sectionBars.Y = sectionCombatUi.Bounds.Bottom + 40;
 
             sectionBars.Add
@@ -3384,14 +3382,14 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765NamePlateHealthBar = AddCheckBox
                 (
                     null,
-                    "Show HP/Mana/Stamina bars below own character nameplate",
+                    "HP/Mana/Stam under your name",
                     _currentProfile.NamePlateHealthBar,
                     startX,
                     startY
                 )
             );
 
-            sectionBars.Add(AddLabel(null, "Nameplate bar opacity", startX, startY));
+            sectionBars.Add(AddLabel(null, "Bar opacity (0–100)", startX, startY));
             sectionBars.AddRight
             (
                 _dust765NamePlateOpacity = AddHSlider
@@ -3411,52 +3409,54 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765UseOldHealthBars = AddCheckBox
                 (
                     null,
-                    "Use old-style mobile HP lines (underfoot)",
+                    "Thin HP lines under mobiles",
                     _currentProfile.UseOldHealthBars,
                     startX,
                     startY
                 )
             );
 
-            sectionBars.Add(AddLabel(null, "-----NAMEOVERHEAD-----", startX, startY));
+            sectionBars.Add(AddLabel(null, "Floating names", startX, startY));
 
             sectionBars.Add
             (
                 _dust765ShowHPLineInNOH = AddCheckBox
                 (
                     null,
-                    "Show HPLine in NameOverheadGump:",
+                    "HP line on names",
                     _currentProfile.ShowHPLineInNOH,
                     startX,
                     startY
                 )
             );
+            sectionBars.Add(AddLabel(null, string.Empty, startX, startY));
 
             sectionBars.Add
             (
                 _dust765NameOverheadBgToggled = AddCheckBox
                 (
                     null,
-                    "Nameplate background only on mouse hover",
+                    "Name bg on hover only",
                     _currentProfile.NameOverheadBackgroundToggled,
                     startX,
                     startY
                 )
             );
+            sectionBars.Add(AddLabel(null, string.Empty, startX, startY));
 
             sectionBars.Add
             (
                 _dust765NamePlateHideAtFullHealth = AddCheckBox
                 (
                     null,
-                    "Auto-close nameplate at 100% HP (war mode only)",
+                    "Hide name at full HP (war)",
                     _currentProfile.NamePlateHideAtFullHealth,
                     startX,
                     startY
                 )
             );
 
-            sectionBars.Add(AddLabel(null, "Nameplate background opacity", startX, startY));
+            sectionBars.Add(AddLabel(null, "Name bg opacity (0–100)", startX, startY));
             sectionBars.AddRight
             (
                 _dust765NamePlateBgOpacity = AddHSlider
@@ -3476,7 +3476,7 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765MultiUnderlinesParty = AddCheckBox
                 (
                     null,
-                    "HP / Mana / Stamina underlines (self and party)",
+                    "Stam underlines (you/party)",
                     _currentProfile.MultipleUnderlinesSelfParty,
                     startX,
                     startY
@@ -3488,14 +3488,14 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765MultiUnderlinesBigBars = AddCheckBox
                 (
                     null,
-                    "Larger underlines for self/party",
+                    "Bigger underlines",
                     _currentProfile.MultipleUnderlinesSelfPartyBigBars,
                     startX,
                     startY
                 )
             );
 
-            sectionBars.Add(AddLabel(null, "Underline transparency (1–10)", startX, startY));
+            sectionBars.Add(AddLabel(null, "Underline fade (1–10)", startX, startY));
             sectionBars.AddRight
             (
                 _dust765MultiUnderlinesTransparency = AddHSlider
@@ -3510,8 +3510,7 @@ namespace ClassicUO.Game.UI.Gumps
                 )
             );
 
-            // ---- Bandage Gump ----
-            SettingsSection sectionBandage = AddSettingsSection(box, "Bandage Timer");
+            SettingsSection sectionBandage = AddSettingsSection(box, "Bandage");
             sectionBandage.Y = sectionBars.Bounds.Bottom + 40;
 
             sectionBandage.Add
@@ -3519,7 +3518,7 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765BandageGump = AddCheckBox
                 (
                     null,
-                    "Show bandage timer gump",
+                    "Bandage timer gump",
                     _currentProfile.BandageGump,
                     startX,
                     startY
@@ -3531,15 +3530,14 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765BandageGumpUpDown = AddCheckBox
                 (
                     null,
-                    "Count up instead of count down",
+                    "Count up",
                     _currentProfile.BandageGumpUpDownToggle,
                     startX,
                     startY
                 )
             );
 
-            // ---- OnCasting Gump ----
-            SettingsSection sectionCasting = AddSettingsSection(box, "Casting Timer (OnCasting)");
+            SettingsSection sectionCasting = AddSettingsSection(box, "Casting");
             sectionCasting.Y = sectionBandage.Bounds.Bottom + 40;
 
             sectionCasting.Add
@@ -3547,7 +3545,7 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765OnCastingGump = AddCheckBox
                 (
                     null,
-                    "Show casting timer gump",
+                    "Casting timer gump",
                     _currentProfile.OnCastingGump,
                     startX,
                     startY
@@ -3559,7 +3557,7 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765OnCastingGumpHidden = AddCheckBox
                 (
                     null,
-                    "Hide gump (keep internal tracking only)",
+                    "Hidden (track only)",
                     _currentProfile.OnCastingGump_hidden,
                     startX,
                     startY
@@ -3571,14 +3569,14 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765OnCastingUnderPlayerBar = AddCheckBox
                 (
                     null,
-                    "Position below player status bar",
+                    "Below status bar",
                     _currentProfile.OnCastingUnderPlayerBar,
                     startX,
                     startY
                 )
             );
 
-            SettingsSection sectionHouse = AddSettingsSection(box, "Houses & world map");
+            SettingsSection sectionHouse = AddSettingsSection(box, "Houses & map");
             sectionHouse.Y = sectionCasting.Bounds.Bottom + 40;
 
             sectionHouse.Add
@@ -3586,7 +3584,7 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765TransparentHouses = AddCheckBox
                 (
                     null,
-                    "Transparent houses and items (Z level)",
+                    "Transparent roofs (Z)",
                     _currentProfile.TransparentHousesEnabled,
                     startX,
                     startY
@@ -3594,7 +3592,7 @@ namespace ClassicUO.Game.UI.Gumps
             );
 
             sectionHouse.PushIndent();
-            sectionHouse.Add(AddLabel(null, "Transparent above player Z", startX, startY));
+            sectionHouse.Add(AddLabel(null, "Transparent Z range", startX, startY));
             sectionHouse.AddRight
             (
                 _dust765TransparentHousesZ = AddHSlider
@@ -3608,7 +3606,7 @@ namespace ClassicUO.Game.UI.Gumps
                     200
                 )
             );
-            sectionHouse.Add(AddLabel(null, "Transparency (1–9)", startX, startY));
+            sectionHouse.Add(AddLabel(null, "See-through amount (1–9)", startX, startY));
             sectionHouse.AddRight
             (
                 _dust765TransparentHousesTransparency = AddHSlider
@@ -3629,7 +3627,7 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765InvisibleHouses = AddCheckBox
                 (
                     null,
-                    "Invisible houses and items (hides statics by Z; not transparency)",
+                    "Hide statics above (Z)",
                     _currentProfile.InvisibleHousesEnabled,
                     startX,
                     startY
@@ -3637,7 +3635,7 @@ namespace ClassicUO.Game.UI.Gumps
             );
 
             sectionHouse.PushIndent();
-            sectionHouse.Add(AddLabel(null, "Invisible: Z delta above player (1–100)", 0, 0));
+            sectionHouse.Add(AddLabel(null, "Invisible Z range", 0, 0));
             sectionHouse.Add
             (
                 _dust765InvisibleHousesZ = AddHSlider
@@ -3656,7 +3654,7 @@ namespace ClassicUO.Game.UI.Gumps
                 AddLabel
                 (
                     null,
-                    "Ground clearance: min (static Z − land Z) before hiding (both house modes)",
+                    "Min floor Z gap (1–100)",
                     0,
                     0
                 )
@@ -3681,15 +3679,14 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765ShowDeathOnWorldmap = AddCheckBox
                 (
                     null,
-                    "Show death location on world map for 5 min",
+                    "Death on map (~5 min)",
                     _currentProfile.ShowDeathOnWorldmap,
                     startX,
                     startY
                 )
             );
 
-            // ---- Grid Container ----
-            SettingsSection sectionGrid = AddSettingsSection(box, "Grid Container");
+            SettingsSection sectionGrid = AddSettingsSection(box, "Grid");
             sectionGrid.Y = sectionHouse.Bounds.Bottom + 40;
 
             sectionGrid.Add
@@ -3697,15 +3694,14 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765GridContainer = AddCheckBox
                 (
                     null,
-                    "Enable Grid Container (opens containers as item grid)",
+                    "Grid containers",
                     _currentProfile.GridContainerEnabled,
                     startX,
                     startY
                 )
             );
 
-            // ---- Art / Hue Changes ----
-            SettingsSection sectionArt = AddSettingsSection(box, "Art / Hue Changes");
+            SettingsSection sectionArt = AddSettingsSection(box, "Stealth");
             sectionArt.Y = sectionGrid.Bounds.Bottom + 40;
 
             sectionArt.Add
@@ -3713,14 +3709,14 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765ColorStealth = AddCheckBox
                 (
                     null,
-                    "Color stealth walk art ON / OFF",
+                    "Tint stealth sprite",
                     _currentProfile.ColorStealth,
                     startX,
                     startY
                 )
             );
 
-            sectionArt.Add(AddLabel(null, "Stealth neon effect", startX, startY));
+            sectionArt.Add(AddLabel(null, "Neon style", startX, startY));
             sectionArt.AddRight
             (
                 _dust765StealthNeonType = AddCombobox
@@ -3734,7 +3730,7 @@ namespace ClassicUO.Game.UI.Gumps
                 ),
                 2
             );
-            sectionArt.Add(AddLabel(null, "Stealth custom color", startX, startY));
+            sectionArt.Add(AddLabel(null, "Stealth hue", startX, startY));
             sectionArt.AddRight
             (
                 _dust765StealthHueBox = AddColorBox
@@ -3748,8 +3744,7 @@ namespace ClassicUO.Game.UI.Gumps
                 2
             );
 
-            // ---- Visual Helpers ----
-            SettingsSection sectionVisual = AddSettingsSection(box, "Visual Helpers");
+            SettingsSection sectionVisual = AddSettingsSection(box, "Fields & target");
             sectionVisual.Y = sectionArt.Bounds.Bottom + 40;
 
             sectionVisual.Add
@@ -3757,14 +3752,14 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765PreviewFields = AddCheckBox
                 (
                     null,
-                    "Preview field spells (highlight tiles on cursor)",
+                    "Preview field tiles",
                     _currentProfile.PreviewFields,
                     startX,
                     startY
                 )
             );
 
-            sectionVisual.Add(AddLabel(null, "Highlight last target", startX, startY));
+            sectionVisual.Add(AddLabel(null, "Last target", startX, startY));
             sectionVisual.AddRight
             (
                 _dust765HighlightLastTargetType = AddCombobox
@@ -3778,7 +3773,7 @@ namespace ClassicUO.Game.UI.Gumps
                 ),
                 2
             );
-            sectionVisual.Add(AddLabel(null, "Custom color", startX, startY));
+            sectionVisual.Add(AddLabel(null, "Custom hue", startX, startY));
             sectionVisual.AddRight
             (
                 _dust765HighlightLastTargetHue = AddColorBox
@@ -3792,7 +3787,7 @@ namespace ClassicUO.Game.UI.Gumps
                 2
             );
 
-            sectionVisual.Add(AddLabel(null, "Highlight last target - poisoned", startX, startY));
+            sectionVisual.Add(AddLabel(null, "Target (poison)", startX, startY));
             sectionVisual.AddRight
             (
                 _dust765HighlightLastTargetPoison = AddCombobox
@@ -3806,7 +3801,7 @@ namespace ClassicUO.Game.UI.Gumps
                 ),
                 2
             );
-            sectionVisual.Add(AddLabel(null, "Custom color", startX, startY));
+            sectionVisual.Add(AddLabel(null, "Poison hue", startX, startY));
             sectionVisual.AddRight
             (
                 _dust765HighlightLastTargetPoisonHue = AddColorBox
@@ -3820,7 +3815,7 @@ namespace ClassicUO.Game.UI.Gumps
                 2
             );
 
-            sectionVisual.Add(AddLabel(null, "Highlight last target - paralyzed", startX, startY));
+            sectionVisual.Add(AddLabel(null, "Target (para)", startX, startY));
             sectionVisual.AddRight
             (
                 _dust765HighlightLastTargetPara = AddCombobox
@@ -3834,7 +3829,7 @@ namespace ClassicUO.Game.UI.Gumps
                 ),
                 2
             );
-            sectionVisual.Add(AddLabel(null, "Custom color", startX, startY));
+            sectionVisual.Add(AddLabel(null, "Para hue", startX, startY));
             sectionVisual.AddRight
             (
                 _dust765HighlightLastTargetParaHue = AddColorBox
@@ -3850,7 +3845,7 @@ namespace ClassicUO.Game.UI.Gumps
 
             SettingsSection sectionFieldBlock = AddSettingsSection(
                 box,
-                "Wall of Stone / Energy Field (client pathfinding)"
+                "WoS & Energy Field"
             );
             sectionFieldBlock.Y = sectionVisual.Bounds.Bottom + 40;
 
@@ -3859,7 +3854,7 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765BlockWoS = AddCheckBox
                 (
                     null,
-                    "Block Wall of Stone (mark tile as impassable)",
+                    "Block WoS",
                     _currentProfile.BlockWoS,
                     startX,
                     startY
@@ -3871,14 +3866,14 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765BlockWoSFelOnly = AddCheckBox
                 (
                     null,
-                    "Wall of Stone: Felucca only (map 0)",
+                    "WoS Fel only",
                     _currentProfile.BlockWoSFelOnly,
                     startX,
                     startY
                 )
             );
 
-            sectionFieldBlock.Add(AddLabel(null, "WoS tile id (graphic)", 0, 0));
+            sectionFieldBlock.Add(AddLabel(null, "WoS graphic id", 0, 0));
             sectionFieldBlock.AddRight
             (
                 _dust765BlockWoSArt = new InputField
@@ -3904,7 +3899,7 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765BlockWoSArtForceAoS = AddCheckBox
                 (
                     null,
-                    "Force WoS from art 130 (AoS) to tile id above, hue 945",
+                    "Remap AoS WoS (945)",
                     _currentProfile.BlockWoSArtForceAoS,
                     startX,
                     startY
@@ -3916,7 +3911,7 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765BlockEnergyF = AddCheckBox
                 (
                     null,
-                    "Block Energy Field (mark tile as impassable)",
+                    "Block Energy Field",
                     _currentProfile.BlockEnergyF,
                     startX,
                     startY
@@ -3928,14 +3923,14 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765BlockEnergyFFelOnly = AddCheckBox
                 (
                     null,
-                    "Energy Field: Felucca only (map 0)",
+                    "EF Fel only",
                     _currentProfile.BlockEnergyFFelOnly,
                     startX,
                     startY
                 )
             );
 
-            sectionFieldBlock.Add(AddLabel(null, "Energy Field tile id (graphic)", 0, 0));
+            sectionFieldBlock.Add(AddLabel(null, "EF graphic id", 0, 0));
             sectionFieldBlock.AddRight
             (
                 _dust765BlockEnergyFArt = new InputField
@@ -3961,7 +3956,7 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765BlockEnergyFArtForceAoS = AddCheckBox
                 (
                     null,
-                    "Force Energy Field (shard/Razor CE arts) to tile id above, hue 293",
+                    "Remap EF arts (293)",
                     _currentProfile.BlockEnergyFArtForceAoS,
                     startX,
                     startY
@@ -3986,7 +3981,7 @@ namespace ClassicUO.Game.UI.Gumps
                 130,
                 20,
                 ButtonAction.Activate,
-                "New entry"
+                "New"
             )
             {
                 IsSelectable = false
@@ -4000,7 +3995,7 @@ namespace ClassicUO.Game.UI.Gumps
                 130,
                 20,
                 ButtonAction.Activate,
-                "Delete entry"
+                "Delete"
             )
             {
                 IsSelectable = false
@@ -4023,7 +4018,7 @@ namespace ClassicUO.Game.UI.Gumps
                     World,
                     250,
                     150,
-                    "Name overhead entry name",
+                    "Preset name",
                     name =>
                     {
                         if (string.IsNullOrWhiteSpace(name))
