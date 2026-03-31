@@ -93,6 +93,10 @@ namespace ClassicUO.Game.UI.Gumps
         private int _mapLoading;
         private uint _mapLoadingTime;
         private Task _loadingTask;
+        private uint _nextServerInfoRequestTime;
+        private readonly string _loadingMapText = "Please wait, I'm making the map file...";
+        private readonly Vector2 _loadingMapTextSize;
+        private static readonly Texture2D _blackTexture = SolidColorTextureCache.GetTexture(Color.Black);
 
         public WorldMapGump(World world) : base
         (
@@ -121,6 +125,7 @@ namespace ClassicUO.Game.UI.Gumps
 
             LoadMarkers();
             LoadZones();
+            _loadingMapTextSize = Fonts.Bold.MeasureString(_loadingMapText.AsSpan());
 
             BuildGump();
         }
@@ -316,8 +321,21 @@ namespace ClassicUO.Game.UI.Gumps
                 {
                     _showGuildMembers = !_showGuildMembers;
 
+                    GameActions.Say("[guildtracking", ProfileManager.CurrentProfile?.SpeechHue ?? 0);
                     World.WMapManager.SetEnable(_showPartyMembers || _showGuildMembers);
                     SaveSettings();
+
+                    UIManager.Add(
+                        new MessageBoxGump(
+                            World,
+                            380,
+                            150,
+                            _showGuildMembers
+                                ? "Guild tracking is ENABLED.\nWorld map will show guild members when server sends positions."
+                                : "Guild tracking is DISABLED.\nGuild members will no longer update on world map.",
+                            null
+                        )
+                    );
                 },
                 true,
                 _showGuildMembers
@@ -556,7 +574,11 @@ namespace ClassicUO.Game.UI.Gumps
             if (_map.Index != World.MapIndex && !_freeView)
                 ChangeMap(World.MapIndex);
 
-            World.WMapManager.RequestServerPartyGuildInfo();
+            if (Time.Ticks >= _nextServerInfoRequestTime)
+            {
+                _nextServerInfoRequestTime = Time.Ticks + 150;
+                World.WMapManager.RequestServerPartyGuildInfo();
+            }
         }
 
         public void ChangeMap(int index)
@@ -1928,7 +1950,7 @@ namespace ClassicUO.Game.UI.Gumps
             {
                 batcher.Draw
                 (
-                    SolidColorTextureCache.GetTexture(Color.Black),
+                    _blackTexture,
                     new Rectangle
                     (
                         gX,
@@ -1944,14 +1966,13 @@ namespace ClassicUO.Game.UI.Gumps
                 {
                     if (batcher.ClipBegin(gX, gY, gWidth, gHeight))
                     {
-                        var str = "Please wait, I'm making the map file...".AsSpan();
+                        var str = _loadingMapText.AsSpan();
                         //str = str[..(str.Length - (int)_mapLoadingTime % 3)];
 
                         //if (Time.Ticks > _mapLoadingTime)
                         //    _mapLoadingTime = Time.Ticks + 1000;
 
-                        var strSize = Fonts.Bold.MeasureString(str);
-                        var pos = strSize * -0.5f;
+                        var pos = _loadingMapTextSize * -0.5f;
                         pos.X += gX + halfWidth;
                         pos.Y += gY + halfHeight;
                         batcher.DrawString(Fonts.Bold, str, pos, new Vector3(38, 1, 1), layerDepth);

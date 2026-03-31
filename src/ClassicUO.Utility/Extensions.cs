@@ -8,6 +8,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace ClassicUO.Utility
@@ -28,7 +29,17 @@ namespace ClassicUO.Utility
         {
             if (handler != null)
             {
-                Task.Run(() => handler(sender, EventArgs.Empty)).Catch();
+                ThreadPool.QueueUserWorkItem(_ =>
+                {
+                    try
+                    {
+                        handler(sender, EventArgs.Empty);
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Panic(ex.ToString());
+                    }
+                });
             }
         }
 
@@ -36,7 +47,17 @@ namespace ClassicUO.Utility
         {
             if (handler != null)
             {
-                Task.Run(() => handler(sender, e)).Catch();
+                ThreadPool.QueueUserWorkItem(_ =>
+                {
+                    try
+                    {
+                        handler(sender, e);
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Panic(ex.ToString());
+                    }
+                });
             }
         }
 

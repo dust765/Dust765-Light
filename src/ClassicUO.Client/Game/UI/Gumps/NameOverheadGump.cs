@@ -24,13 +24,20 @@ namespace ClassicUO.Game.UI.Gumps
         private bool _positionLocked,
             _leftMouseIsDown;
         private readonly RenderedText _renderedText;
-        private Texture2D _borderColor = SolidColorTextureCache.GetTexture(Color.Black);
+        private Texture2D _borderColor = BORDER_COLOR_BLACK;
+        private string _lastSourceName = string.Empty;
+        private ushort _lastDisplayHue;
+        private bool _hasDisplayHue;
+        private bool _lastIsLastTarget;
 
         // ## BEGIN - END ## // NAMEOVERHEAD
         private LineCHB _hpLineBorder, _hpLineRed, _hpLine;
         private static readonly Color HPB_COLOR_DRAW_RED   = Color.Red;
         private static readonly Color HPB_COLOR_DRAW_BLUE  = Color.DodgerBlue;
         private static readonly Color HPB_COLOR_DRAW_BLACK = Color.Black;
+        private static readonly Texture2D BORDER_COLOR_BLACK = SolidColorTextureCache.GetTexture(Color.Black);
+        private static readonly Texture2D BORDER_COLOR_RED   = SolidColorTextureCache.GetTexture(Color.Red);
+        private static readonly Texture2D HPB_COLOR_WHITE    = SolidColorTextureCache.GetTexture(Color.White);
         private static readonly Texture2D HPB_COLOR_BLUE   = SolidColorTextureCache.GetTexture(Color.DodgerBlue);
         private static readonly Texture2D HPB_COLOR_YELLOW = SolidColorTextureCache.GetTexture(Color.Orange);
         private static readonly Texture2D HPB_COLOR_POISON = SolidColorTextureCache.GetTexture(Color.LimeGreen);
@@ -50,6 +57,11 @@ namespace ClassicUO.Game.UI.Gumps
 
             public override bool AddToRenderLists(RenderLists renderLists, int x, int y, ref float layerDepthRef)
             {
+                if (LineWidth <= 0 || Height <= 0 || LineColor == null)
+                {
+                    return false;
+                }
+
                 float layerDepth = layerDepthRef;
                 Vector3 hv = ShaderHueTranslator.GetHueVector(0, false, Alpha);
                 Texture2D tex = LineColor;
@@ -157,72 +169,63 @@ namespace ClassicUO.Game.UI.Gumps
                     return false;
                 }
 
-                Client.Game.UO.FileManager.Fonts.SetUseHTML(true);
-                Client.Game.UO.FileManager.Fonts.RecalculateWidthByInfo = true;
-
-                int width = Client.Game.UO.FileManager.Fonts.GetWidthUnicode(_renderedText.Font, t);
-
-                if (width > Constants.OBJECT_HANDLES_GUMP_WIDTH)
-                {
-                    t = Client.Game.UO.FileManager.Fonts.GetTextByWidthUnicode(
-                        _renderedText.Font,
-                        t.AsSpan(),
-                        Constants.OBJECT_HANDLES_GUMP_WIDTH,
-                        true,
-                        TEXT_ALIGN_TYPE.TS_CENTER,
-                        (ushort)FontStyle.BlackBorder
-                    );
-
-                    width = Constants.OBJECT_HANDLES_GUMP_WIDTH;
-                }
-
-                _renderedText.MaxWidth = width;
-                _renderedText.Text = t;
-
-                Client.Game.UO.FileManager.Fonts.RecalculateWidthByInfo = false;
-                Client.Game.UO.FileManager.Fonts.SetUseHTML(false);
-
-                Width = _background.Width = Math.Max(60, _renderedText.Width) + 4;
-                Height = _background.Height = Constants.OBJECT_HANDLES_GUMP_HEIGHT + 4;
-
-                WantUpdateSize = false;
-
-                return true;
+                return SetRenderedText(t);
             }
 
             if (!string.IsNullOrEmpty(entity.Name))
             {
-                string t = entity.Name;
-
-                int width = Client.Game.UO.FileManager.Fonts.GetWidthUnicode(_renderedText.Font, t);
-
-                if (width > Constants.OBJECT_HANDLES_GUMP_WIDTH)
-                {
-                    t = Client.Game.UO.FileManager.Fonts.GetTextByWidthUnicode(
-                        _renderedText.Font,
-                        t.AsSpan(),
-                        Constants.OBJECT_HANDLES_GUMP_WIDTH,
-                        true,
-                        TEXT_ALIGN_TYPE.TS_CENTER,
-                        (ushort)FontStyle.BlackBorder
-                    );
-
-                    width = Constants.OBJECT_HANDLES_GUMP_WIDTH;
-                }
-
-                _renderedText.MaxWidth = width;
-
-                _renderedText.Text = t;
-
-                Width = _background.Width = Math.Max(60, _renderedText.Width) + 4;
-                Height = _background.Height = Constants.OBJECT_HANDLES_GUMP_HEIGHT + 4;
-
-                WantUpdateSize = false;
-
-                return true;
+                return SetRenderedText(entity.Name);
             }
 
             return false;
+        }
+
+        private bool SetRenderedText(string text)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                return false;
+            }
+
+            string sourceText = text;
+
+            if (string.Equals(_lastSourceName, sourceText, StringComparison.Ordinal))
+            {
+                return true;
+            }
+
+            Client.Game.UO.FileManager.Fonts.SetUseHTML(true);
+            Client.Game.UO.FileManager.Fonts.RecalculateWidthByInfo = true;
+
+            int width = Client.Game.UO.FileManager.Fonts.GetWidthUnicode(_renderedText.Font, text);
+
+            if (width > Constants.OBJECT_HANDLES_GUMP_WIDTH)
+            {
+                text = Client.Game.UO.FileManager.Fonts.GetTextByWidthUnicode(
+                    _renderedText.Font,
+                    text.AsSpan(),
+                    Constants.OBJECT_HANDLES_GUMP_WIDTH,
+                    true,
+                    TEXT_ALIGN_TYPE.TS_CENTER,
+                    (ushort)FontStyle.BlackBorder
+                );
+
+                width = Constants.OBJECT_HANDLES_GUMP_WIDTH;
+            }
+
+            _renderedText.MaxWidth = width;
+            _renderedText.Text = text;
+            _lastSourceName = sourceText;
+
+            Client.Game.UO.FileManager.Fonts.RecalculateWidthByInfo = false;
+            Client.Game.UO.FileManager.Fonts.SetUseHTML(false);
+
+            Width = _background.Width = Math.Max(60, _renderedText.Width) + 4;
+            Height = _background.Height = Constants.OBJECT_HANDLES_GUMP_HEIGHT + 4;
+
+            WantUpdateSize = false;
+
+            return true;
         }
 
         private void BuildGump()
@@ -614,19 +617,22 @@ namespace ClassicUO.Game.UI.Gumps
                     }
                 }
 
-                if (entity == World.TargetManager.LastTargetInfo.Serial)
+                bool isLastTarget = entity == World.TargetManager.LastTargetInfo.Serial;
+                if (isLastTarget != _lastIsLastTarget)
                 {
-                    _borderColor = SolidColorTextureCache.GetTexture(Color.Red);
-                    _background.Hue = _renderedText.Hue = entity is Mobile m
-                        ? Notoriety.GetHue(m.NotorietyFlag)
-                        : (ushort)0x0481;
+                    _borderColor = isLastTarget ? BORDER_COLOR_RED : BORDER_COLOR_BLACK;
+                    _lastIsLastTarget = isLastTarget;
                 }
-                else
+
+                ushort hue = entity is Mobile m
+                    ? Notoriety.GetHue(m.NotorietyFlag)
+                    : (ushort)0x0481;
+
+                if (!_hasDisplayHue || _lastDisplayHue != hue)
                 {
-                    _borderColor = SolidColorTextureCache.GetTexture(Color.Black);
-                    _background.Hue = _renderedText.Hue = entity is Mobile m
-                        ? Notoriety.GetHue(m.NotorietyFlag)
-                        : (ushort)0x0481;
+                    _background.Hue = _renderedText.Hue = hue;
+                    _lastDisplayHue = hue;
+                    _hasDisplayHue = true;
                 }
                 // ## BEGIN - END ## // NAMEOVERHEAD
                 if (_hpLineBorder != null)
@@ -817,18 +823,22 @@ namespace ClassicUO.Game.UI.Gumps
                 float hpOpacity = ProfileManager.CurrentProfile.NamePlateHealthBarOpacity / 100f;
                 ushort bgHue = _background.Hue;
                 int hpWidth = (int)(Width * _hpPercent);
-                layerDepthRef += CHILD_LAYER_INCREMENT;
-                float hpDepth = layerDepthRef;
-                renderLists.AddGumpNoAtlas(batcher =>
+
+                if (hpOpacity > 0f && hpWidth > 0 && Height > 0)
                 {
-                    batcher.Draw(
-                        SolidColorTextureCache.GetTexture(Color.White),
-                        new Rectangle(x, y, hpWidth, Height),
-                        ShaderHueTranslator.GetHueVector(bgHue, false, hpOpacity),
-                        hpDepth
-                    );
-                    return true;
-                });
+                    layerDepthRef += CHILD_LAYER_INCREMENT;
+                    float hpDepth = layerDepthRef;
+                    renderLists.AddGumpNoAtlas(batcher =>
+                    {
+                        batcher.Draw(
+                            HPB_COLOR_WHITE,
+                            new Rectangle(x, y, hpWidth, Height),
+                            ShaderHueTranslator.GetHueVector(bgHue, false, hpOpacity),
+                            hpDepth
+                        );
+                        return true;
+                    });
+                }
             }
             // ## BEGIN - END ## // TAZUO
 
