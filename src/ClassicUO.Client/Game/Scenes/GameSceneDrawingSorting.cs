@@ -116,18 +116,6 @@ namespace ClassicUO.Game.Scenes
                         continue;
                     }
 
-                    // Dust765: skip tiles that InvisibleHouses would remove from _maxZ calculation
-                    if (ProfileManager.CurrentProfile.InvisibleHousesEnabled && _world.Player != null)
-                    {
-                        var groundTile = _world.Map?.GetTile(bx, by);
-                        if (groundTile != null
-                            && (tileZ - _world.Player.Z) > ProfileManager.CurrentProfile.InvisibleHousesZ
-                            && (tileZ - groundTile.Z) > ProfileManager.CurrentProfile.DontRemoveHouseBelowZ)
-                        {
-                            continue;
-                        }
-                    }
-
                     if (tileZ > pz14 && _maxZ > tileZ)
                     {
                         ref StaticTiles itemdata = ref Client.Game.UO.FileManager.TileData.StaticData[
@@ -173,18 +161,6 @@ namespace ClassicUO.Game.Scenes
                         }
 
                         sbyte tileZ = obj2.Z;
-
-                        // Dust765: skip tiles that InvisibleHouses would remove from _maxZ calculation
-                        if (ProfileManager.CurrentProfile.InvisibleHousesEnabled && _world.Player != null)
-                        {
-                            var groundTile2 = _world.Map?.GetTile(bx, by);
-                            if (groundTile2 != null
-                                && (tileZ - _world.Player.Z) > ProfileManager.CurrentProfile.InvisibleHousesZ
-                                && (tileZ - groundTile2.Z) > ProfileManager.CurrentProfile.DontRemoveHouseBelowZ)
-                            {
-                                continue;
-                            }
-                        }
 
                         if (tileZ > pz14 && _maxZ > tileZ)
                         {
@@ -511,7 +487,12 @@ namespace ClassicUO.Game.Scenes
                 return false;
             }
 
-            if (mob._surfaceOverheadCacheX == mob.X && mob._surfaceOverheadCacheY == mob.Y && mob._surfaceOverheadCacheMaxZ == _maxZ)
+            // Dust765: skip cache when InvisibleHouses is active — the result depends on
+            // InvisibleHousesEnabled state which is not part of the cache key.
+            if (!ProfileManager.CurrentProfile.InvisibleHousesEnabled
+                && mob._surfaceOverheadCacheX == mob.X
+                && mob._surfaceOverheadCacheY == mob.Y
+                && mob._surfaceOverheadCacheMaxZ == _maxZ)
             {
                 return mob._surfaceOverheadCache;
             }
@@ -522,7 +503,11 @@ namespace ClassicUO.Game.Scenes
             {
                 for (int x = -1; x <= 2; ++x)
                 {
-                    GameObject tile = _world.Map.GetTile(mob.X + x, mob.Y + y);
+                    // groundTile is the Land tile head at this position — saved once
+                    // and passed to ShouldIgnoreTileForSurfaceOverhead to avoid a
+                    // redundant GetTile call inside the inner loop.
+                    GameObject groundTile = _world.Map.GetTile(mob.X + x, mob.Y + y);
+                    GameObject tile = groundTile;
 
                     found = false;
 
@@ -532,6 +517,30 @@ namespace ClassicUO.Game.Scenes
 
                         if (tile.Z > mob.Z && (tile is Static || tile is Multi))
                         {
+                            // Multi: skip CHMOF-flagged tiles
+                            if (tile is Multi multiTile)
+                            {
+                                if ((multiTile.State & CUSTOM_HOUSE_MULTI_OBJECT_FLAGS.CHMOF_IGNORE_IN_RENDER) != 0 ||
+                                    (multiTile.State & CUSTOM_HOUSE_MULTI_OBJECT_FLAGS.CHMOF_PREVIEW) != 0 ||
+                                    (multiTile.State & CUSTOM_HOUSE_MULTI_OBJECT_FLAGS.CHMOF_TRANSPARENT) != 0)
+                                {
+                                    tile = next;
+                                    continue;
+                                }
+                            }
+
+                            // Dust765: InvisibleHouses — skip tiles that would be hidden (Static and Multi)
+                            if (ProfileManager.CurrentProfile.InvisibleHousesEnabled && _world.Player != null)
+                            {
+                                int gt_z = groundTile?.Z ?? 0;
+                                if ((tile.Z - _world.Player.Z) > ProfileManager.CurrentProfile.InvisibleHousesZ
+                                    && (tile.Z - gt_z) > ProfileManager.CurrentProfile.DontRemoveHouseBelowZ)
+                                {
+                                    tile = next;
+                                    continue;
+                                }
+                            }
+
                             ref var itemData = ref Client.Game.UO.FileManager.TileData.StaticData[tile.Graphic];
 
                             if (itemData.IsNoShoot || itemData.IsWindow)
@@ -590,8 +599,7 @@ namespace ClassicUO.Game.Scenes
                     (obj.Z - _world.Player.Z) > ProfileManager.CurrentProfile.InvisibleHousesZ &&
                     (obj.Z - groundTile.Z) > ProfileManager.CurrentProfile.DontRemoveHouseBelowZ)
                 {
-                    retValue = false;
-                    return 2; // skip
+                    return 1; // skip this tile only, continue with next object in list
                 }
             }
 
@@ -696,6 +704,13 @@ namespace ClassicUO.Game.Scenes
             )
             {
                 hue = 0x0040;
+            }
+            else if (
+                obj is Land
+                && LTHighlightRangeHelper.TryGetLandHighlightHue(_world, obj.X, obj.Y, out ushort ltLandHue)
+            )
+            {
+                hue = ltLandHue;
             }
             else if (obj is Static s)
             {
@@ -1105,7 +1120,7 @@ namespace ClassicUO.Game.Scenes
                                 continue;
                             }
 
-                            obj.AllowedToDraw = !HasSurfaceOverhead(mobile);
+                            obj.AllowedToDraw = profile.InvisibleHousesEnabled || !HasSurfaceOverhead(mobile);
 
                             PushToRenderQueue(
                                 obj,

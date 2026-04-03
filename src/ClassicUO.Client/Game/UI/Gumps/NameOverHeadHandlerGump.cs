@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
-using System;
+using System.Collections.Generic;
 using ClassicUO.Game.Managers;
 using ClassicUO.Game.UI.Controls;
 using ClassicUO.Resources;
@@ -14,12 +14,18 @@ namespace ClassicUO.Game.UI.Gumps
 
         public override GumpType GumpType => GumpType.NameOverHeadHandler;
 
+        private readonly List<RadioButton> _overheadButtons = new List<RadioButton>();
+        private Control _alpha;
+        private readonly Checkbox _keepOpenCheckbox;
+        private readonly Checkbox _keepPinnedCheckbox;
+        private readonly Checkbox _noBackgroundCheckbox;
+        private readonly Checkbox _healthLinesCheckbox;
 
         public NameOverHeadHandlerGump(World world) : base(world, 0, 0)
         {
             CanMove = true;
             AcceptMouseInput = true;
-            CanCloseWithRightClick = false; //Prevent accidentally closing when stay active is enabled
+            CanCloseWithRightClick = !world.NameOverHeadManager.IsPinnedToggled;
 
             if (LastPosition == null)
             {
@@ -36,123 +42,83 @@ namespace ClassicUO.Game.UI.Gumps
 
             LayerOrder = UILayer.Over;
 
-            AlphaBlendControl alpha;
-            Checkbox stayActive, cbAll, cbItems, cbCorpses, cbInnocent, cbAlly, cbGray, cbCriminal, cbEnemy, cbMurderer, cbInvulnerable;
-
-            Add
-            (
-                alpha = new AlphaBlendControl(0.7f)
+            Add(
+                _alpha = new AlphaBlendControl(0.7f)
                 {
                     Hue = 34
                 }
             );
 
-            Add
-            (
-                stayActive = new Checkbox
-                (
+            Add(
+                _keepOpenCheckbox = new Checkbox(
                     0x00D2,
                     0x00D3,
                     ResGumps.StayActive,
-                    color: 0xFFFF
+                    0xFF,
+                    0xFFFF
                 )
                 {
-                    IsChecked = world.NameOverHeadManager.IsToggled,
+                    IsChecked = world.NameOverHeadManager.IsPermaToggled
                 }
             );
-            stayActive.ValueChanged += (sender, e) => world.NameOverHeadManager.IsToggled = stayActive.IsChecked;
 
-            var typeAllowed = World.NameOverHeadManager.TypeAllowed;
+            _keepOpenCheckbox.ValueChanged += (_, _) =>
+                world.NameOverHeadManager.SetOverheadToggled(_keepOpenCheckbox.IsChecked);
 
-            int currentY = stayActive.Y + stayActive.Height;
-            int maxWidth = stayActive.Width;
-
-            Checkbox MakeCheckbox(string label, bool isChecked, ref int y)
-            {
-                var cb = new Checkbox(0x00D2, 0x00D3, label, color: 0xFFFF)
+            Add(
+                _keepPinnedCheckbox = new Checkbox(
+                    0x00D2,
+                    0x00D3,
+                    "Pin this UI",
+                    0xFF,
+                    0xFFFF
+                )
                 {
-                    IsChecked = isChecked,
-                    Y = y
-                };
-                y += cb.Height;
-                if (cb.Width > maxWidth)
-                    maxWidth = cb.Width;
-                return cb;
-            }
-
-            Add(cbAll = MakeCheckbox(ResGumps.All, typeAllowed == NameOverheadTypeAllowed.All, ref currentY));
-            Add(cbItems = MakeCheckbox("Items", typeAllowed.HasFlag(NameOverheadTypeAllowed.Items), ref currentY));
-            Add(cbCorpses = MakeCheckbox("Corpses", typeAllowed.HasFlag(NameOverheadTypeAllowed.Corpses), ref currentY));
-            Add(cbInnocent = MakeCheckbox("Innocent", typeAllowed.HasFlag(NameOverheadTypeAllowed.Innocent), ref currentY));
-            Add(cbAlly = MakeCheckbox("Ally", typeAllowed.HasFlag(NameOverheadTypeAllowed.Ally), ref currentY));
-            Add(cbGray = MakeCheckbox("Gray", typeAllowed.HasFlag(NameOverheadTypeAllowed.Gray), ref currentY));
-            Add(cbCriminal = MakeCheckbox("Criminal", typeAllowed.HasFlag(NameOverheadTypeAllowed.Criminal), ref currentY));
-            Add(cbEnemy = MakeCheckbox("Enemy", typeAllowed.HasFlag(NameOverheadTypeAllowed.Enemy), ref currentY));
-            Add(cbMurderer = MakeCheckbox("Murderer", typeAllowed.HasFlag(NameOverheadTypeAllowed.Murderer), ref currentY));
-            Add(cbInvulnerable = MakeCheckbox("Invulnerable", typeAllowed.HasFlag(NameOverheadTypeAllowed.Invulnerable), ref currentY));
-
-            alpha.Width = maxWidth;
-            alpha.Height = currentY;
-
-            Width = alpha.Width;
-            Height = alpha.Height;
-
-            // Track individual checkboxes for "All" logic
-            var individualBoxes = new[]
-            {
-                (cb: cbItems, flag: NameOverheadTypeAllowed.Items),
-                (cb: cbCorpses, flag: NameOverheadTypeAllowed.Corpses),
-                (cb: cbInnocent, flag: NameOverheadTypeAllowed.Innocent),
-                (cb: cbAlly, flag: NameOverheadTypeAllowed.Ally),
-                (cb: cbGray, flag: NameOverheadTypeAllowed.Gray),
-                (cb: cbCriminal, flag: NameOverheadTypeAllowed.Criminal),
-                (cb: cbEnemy, flag: NameOverheadTypeAllowed.Enemy),
-                (cb: cbMurderer, flag: NameOverheadTypeAllowed.Murderer),
-                (cb: cbInvulnerable, flag: NameOverheadTypeAllowed.Invulnerable),
-            };
-
-            bool suppressCascade = false;
-
-            cbAll.ValueChanged += (sender, e) =>
-            {
-                if (suppressCascade)
-                    return;
-
-                suppressCascade = true;
-
-                foreach (var (cb, _) in individualBoxes)
-                {
-                    cb.IsChecked = cbAll.IsChecked;
+                    IsChecked = world.NameOverHeadManager.IsPinnedToggled,
+                    X = 100
                 }
+            );
 
-                World.NameOverHeadManager.TypeAllowed = cbAll.IsChecked
-                    ? NameOverheadTypeAllowed.All
-                    : NameOverheadTypeAllowed.None;
+            _keepPinnedCheckbox.ValueChanged += (_, _) =>
+                world.NameOverHeadManager.SetPinnedToggled(_keepPinnedCheckbox.IsChecked);
 
-                suppressCascade = false;
-            };
-
-            foreach (var (cb, flag) in individualBoxes)
-            {
-                cb.ValueChanged += (sender, e) =>
+            Add(
+                _noBackgroundCheckbox = new Checkbox(
+                    0x00D2,
+                    0x00D3,
+                    "bg on mouse",
+                    0xFF,
+                    0xFFFF
+                )
                 {
-                    if (suppressCascade)
-                        return;
+                    IsChecked = world.NameOverHeadManager.IsBackgroundToggled,
+                    Y = 20
+                }
+            );
 
-                    suppressCascade = true;
+            _noBackgroundCheckbox.ValueChanged += (_, _) =>
+                world.NameOverHeadManager.SetBackgroundToggled(_noBackgroundCheckbox.IsChecked);
 
-                    if (cb.IsChecked)
-                        World.NameOverHeadManager.TypeAllowed |= flag;
-                    else
-                        World.NameOverHeadManager.TypeAllowed &= ~flag;
+            Add(
+                _healthLinesCheckbox = new Checkbox(
+                    0x00D2,
+                    0x00D3,
+                    "HP",
+                    0xFF,
+                    0xFFFF
+                )
+                {
+                    IsChecked = world.NameOverHeadManager.IsHealthLinesToggled,
+                    Y = 20,
+                    X = 100
+                }
+            );
 
-                    cbAll.IsChecked = World.NameOverHeadManager.TypeAllowed == NameOverheadTypeAllowed.All;
+            _healthLinesCheckbox.ValueChanged += (_, _) =>
+                world.NameOverHeadManager.SetHealthLinesToggled(_healthLinesCheckbox.IsChecked);
 
-                    suppressCascade = false;
-                };
-            }
+            DrawChoiceButtons();
         }
-
 
         protected override void OnDragEnd(int x, int y)
         {
@@ -161,6 +127,90 @@ namespace ClassicUO.Game.UI.Gumps
             SetInScreen();
 
             base.OnDragEnd(x, y);
+        }
+
+        public void UpdateCheckboxes()
+        {
+            foreach (RadioButton button in _overheadButtons)
+            {
+                button.IsChecked = World.NameOverHeadManager.LastActiveNameOverheadOption == button.Text;
+            }
+
+            _keepOpenCheckbox.IsChecked = World.NameOverHeadManager.IsPermaToggled;
+            _keepPinnedCheckbox.IsChecked = World.NameOverHeadManager.IsPinnedToggled;
+            _noBackgroundCheckbox.IsChecked = World.NameOverHeadManager.IsBackgroundToggled;
+            _healthLinesCheckbox.IsChecked = World.NameOverHeadManager.IsHealthLinesToggled;
+        }
+
+        public void RedrawOverheadOptions()
+        {
+            foreach (RadioButton button in _overheadButtons)
+            {
+                Remove(button);
+            }
+
+            _overheadButtons.Clear();
+            DrawChoiceButtons();
+        }
+
+        private void DrawChoiceButtons()
+        {
+            int biggestWidth = 100;
+            IReadOnlyList<NameOverheadOption> options = World.NameOverHeadManager.GetAllOptions();
+
+            for (int i = 0; i < options.Count; i++)
+            {
+                biggestWidth = System.Math.Max(biggestWidth, AddOverheadOptionButton(options[i], i).Width);
+            }
+
+            int topRowWidth = System.Math.Max(
+                _keepOpenCheckbox.Width,
+                100 + _keepPinnedCheckbox.Width
+            );
+            int secondRowWidth = System.Math.Max(
+                _noBackgroundCheckbox.Width,
+                100 + _healthLinesCheckbox.Width
+            );
+            biggestWidth = System.Math.Max(biggestWidth, System.Math.Max(topRowWidth, secondRowWidth));
+            biggestWidth += 8;
+
+            _alpha.Width = biggestWidth;
+            _alpha.Height = System.Math.Max(30, options.Count * 20) + 42;
+
+            Width = _alpha.Width;
+            Height = _alpha.Height;
+        }
+
+        private RadioButton AddOverheadOptionButton(NameOverheadOption option, int index)
+        {
+            RadioButton button;
+
+            Add(
+                button = new RadioButton(
+                    0,
+                    0x00D0,
+                    0x00D1,
+                    option.Name,
+                    0xFF,
+                    0xFFFF
+                )
+                {
+                    Y = 20 * index + 42,
+                    IsChecked = World.NameOverHeadManager.LastActiveNameOverheadOption == option.Name,
+                }
+            );
+
+            button.ValueChanged += (_, _) =>
+            {
+                if (button.IsChecked)
+                {
+                    World.NameOverHeadManager.SetActiveOption(option);
+                }
+            };
+
+            _overheadButtons.Add(button);
+
+            return button;
         }
     }
 }

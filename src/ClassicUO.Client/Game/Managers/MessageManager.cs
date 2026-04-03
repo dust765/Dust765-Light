@@ -205,7 +205,7 @@ namespace ClassicUO.Game.Managers
                             }
                         }
 
-                        if (currentProfile != null && currentProfile.OnCastingGump)
+                        if (parent == _world.Player)
                         {
                             GameActions.LastSpellIndex = spellFromWord.ID;
                             PlayerMobile player = _world.Player;

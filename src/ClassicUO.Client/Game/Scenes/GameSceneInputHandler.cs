@@ -1138,6 +1138,11 @@ namespace ClassicUO.Game.Scenes
                 _world.TargetManager.CancelTarget();
             }
 
+            if (_world.InGame)
+            {
+                _world.NameOverHeadManager.RegisterKeyDown(e);
+            }
+
             if (UIManager.KeyboardFocusControl != UIManager.SystemChat.TextBoxControl)
             {
                 return;
@@ -1368,6 +1373,8 @@ namespace ClassicUO.Game.Scenes
             {
                 return;
             }
+
+            _world.NameOverHeadManager.RegisterKeyUp(e);
 
             if (
                 ProfileManager.CurrentProfile.EnableMousewheelScaleZoom

@@ -2,7 +2,6 @@
 
 using ClassicUO.Assets;
 using ClassicUO.Configuration;
-using ClassicUO.Dust765;
 using ClassicUO.Game.Data;
 using ClassicUO.Game.GameObjects;
 using ClassicUO.Game.Managers;
@@ -13,6 +12,7 @@ using ClassicUO.Network;
 using ClassicUO.Renderer;
 using ClassicUO.Resources;
 using ClassicUO.Utility;
+using ClassicUO.Utility.Logging;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -22,7 +22,7 @@ using System.Linq;
 
 namespace ClassicUO.Game.UI.Gumps
 {
-    internal class OptionsGump : Gump
+    internal partial class OptionsGump : Gump
     {
         private const byte FONT = 0xFF;
         private const ushort HUE_FONT = 0xFFFF;
@@ -130,44 +130,7 @@ namespace ClassicUO.Game.UI.Gumps
         private Checkbox _ignoreAllianceMessages;
         private Checkbox _ignoreGuildMessages, _useAlternateJournal, _partyMessagesOverhead;
 
-        // Dust765 checkboxes
-        private Checkbox _dust765AvoidObstacles;
-        private Checkbox _dust765UccBuffbar;
-        private Checkbox _dust765UccSwing;
-        private Checkbox _dust765UccLocked;
-        private Checkbox _dust765NamePlateHealthBar;
-        private Checkbox _dust765UseOldHealthBars;
-        private Checkbox _dust765MultiUnderlinesParty;
-        private Checkbox _dust765MultiUnderlinesBigBars;
-        private Checkbox _dust765BandageGump, _dust765BandageGumpUpDown;
-        private Checkbox _dust765OnCastingGump, _dust765OnCastingGumpHidden, _dust765OnCastingUnderPlayerBar;
-        private Checkbox _dust765TransparentHouses;
-        private Checkbox _dust765InvisibleHouses;
-        private Checkbox _dust765ShowDeathOnWorldmap;
-        private Checkbox _dust765GridContainer;
-        private HSliderBar _dust765NamePlateOpacity;
-        private HSliderBar _dust765MultiUnderlinesTransparency;
-        private HSliderBar _dust765TransparentHousesZ;
-        private HSliderBar _dust765TransparentHousesTransparency;
-        private HSliderBar _dust765InvisibleHousesZ;
-        private HSliderBar _dust765DontRemoveHouseBelowZ;
-
-        // Dust765 — Art / Hue Changes
-        private Checkbox _dust765ColorStealth;
-        private Combobox _dust765StealthNeonType;
-
-        // Dust765 — Visual Helpers
-        private Checkbox _dust765PreviewFields;
-        private Checkbox _dust765BlockWoS,
-            _dust765BlockWoSFelOnly,
-            _dust765BlockWoSArtForceAoS,
-            _dust765BlockEnergyF,
-            _dust765BlockEnergyFFelOnly,
-            _dust765BlockEnergyFArtForceAoS;
-        private InputField _dust765BlockWoSArt, _dust765BlockEnergyFArt;
-        private Combobox _dust765HighlightLastTargetType;
-        private Combobox _dust765HighlightLastTargetPoison;
-        private Combobox _dust765HighlightLastTargetPara;
+        private NameOverheadAssignControl _nameOverheadControl;
 
         // general
         private HSliderBar _sliderFPS, _circleOfTranspRadius;
@@ -391,6 +354,19 @@ namespace ClassicUO.Game.UI.Gumps
                     10 + 30 * i++,
                     140,
                     25,
+                    ButtonAction.SwitchPage,
+                    "Overheads"
+                ) { ButtonParameter = 14 }
+            );
+
+            Add
+            (
+                new NiceButton
+                (
+                    10,
+                    10 + 30 * i++,
+                    140,
+                    25,
                     ButtonAction.Activate,
                     ResGumps.IgnoreListManager
                 )
@@ -474,7 +450,8 @@ namespace ClassicUO.Game.UI.Gumps
             BuildInfoBar();
             BuildContainers();
             BuildExperimental();
-            BuildDust765();
+            Dust765.Options.Dust765Options.RegisterOptionsPage(this);
+            BuildNameOverheadPage();
 
             ChangePage(1);
         }
@@ -3275,569 +3252,243 @@ namespace ClassicUO.Game.UI.Gumps
         }
 
 
-        private void BuildDust765()
+        private void BuildNameOverheadPage()
         {
-            const int PAGE = 13;
+            const int PAGE = 14;
 
-            ScrollArea rightArea = new ScrollArea
-            (
+            Add(
+                new Line(190, 52 + 25 + 2, 150, 1, Color.Gray.PackedValue),
+                PAGE
+            );
+
+            NiceButton addButton = new NiceButton(
                 190,
                 20,
-                WIDTH - 210,
-                420,
-                true
-            );
+                130,
+                20,
+                ButtonAction.Activate,
+                "New"
+            )
+            {
+                IsSelectable = false
+            };
+
+            Add(addButton, PAGE);
+
+            NiceButton delButton = new NiceButton(
+                190,
+                52,
+                130,
+                20,
+                ButtonAction.Activate,
+                "Delete"
+            )
+            {
+                IsSelectable = false
+            };
+
+            Add(delButton, PAGE);
+
+            ScrollArea listScroll = new ScrollArea(190, 52 + 25 + 4, 150, 320, true);
 
             int startX = 5;
             int startY = 5;
 
-            DataBox box = new DataBox(startX, startY, rightArea.Width - 15, 1);
-            box.WantUpdateSize = true;
-            rightArea.Add(box);
+            DataBox databox = new DataBox(startX, startY, 1, 1);
+            databox.WantUpdateSize = true;
+            listScroll.Add(databox);
 
-            // ---- Avoid Obstacles ----
-            SettingsSection sectionMove = AddSettingsSection(box, "Movement");
+            addButton.MouseUp += (_, _) =>
+            {
+                EntryDialog dialog = new EntryDialog(
+                    World,
+                    250,
+                    150,
+                    "Preset name",
+                    name =>
+                    {
+                        if (string.IsNullOrWhiteSpace(name))
+                        {
+                            return;
+                        }
 
-            sectionMove.Add
-            (
-                _dust765AvoidObstacles = AddCheckBox
-                (
-                    null,
-                    "Automatically avoid obstacles while moving",
-                    _currentProfile.AvoidObstacles,
-                    startX,
-                    startY
-                )
-            );
+                        if (World.NameOverHeadManager.FindOption(name) != null)
+                        {
+                            return;
+                        }
 
-            SettingsSection sectionCombatUi = AddSettingsSection(box, "UO Classic Combat (swing)");
-            sectionCombatUi.Y = sectionMove.Bounds.Bottom + 40;
+                        NiceButton nb;
 
-            sectionCombatUi.Add
-            (
-                _dust765UccBuffbar = AddCheckBox
-                (
-                    null,
-                    "Enable UO Classic Combat UI (swing bar)",
-                    _currentProfile.UOClassicCombatBuffbar,
-                    startX,
-                    startY
-                )
-            );
+                        databox.Add(
+                            nb = new NiceButton(
+                                0,
+                                0,
+                                130,
+                                25,
+                                ButtonAction.Activate,
+                                name
+                            )
+                            {
+                                Tag = new NameOverheadOption(name)
+                            }
+                        );
 
-            sectionCombatUi.Add
-            (
-                _dust765UccSwing = AddCheckBox
-                (
-                    null,
-                    "Show swing timer bar",
-                    _currentProfile.UOClassicCombatBuffbar_SwingEnabled,
-                    startX,
-                    startY
-                )
-            );
+                        databox.WantUpdateSize = true;
+                        databox.ReArrangeChildren();
 
-            sectionCombatUi.Add
-            (
-                _dust765UccLocked = AddCheckBox
-                (
-                    null,
-                    "Lock swing bar position (no drag)",
-                    _currentProfile.UOClassicCombatBuffbar_Locked,
-                    startX,
-                    startY
-                )
-            );
+                        nb.IsSelected = true;
 
-            // ---- HP/Mana/Stamina bars ----
-            SettingsSection sectionBars = AddSettingsSection(box, "HP / Mana / Stamina Bars");
-            sectionBars.Y = sectionCombatUi.Bounds.Bottom + 40;
+                        NameOverheadOption newOpt = (NameOverheadOption)nb.Tag;
+                        World.NameOverHeadManager.AddOption(newOpt);
 
-            sectionBars.Add
-            (
-                _dust765NamePlateHealthBar = AddCheckBox
-                (
-                    null,
-                    "Show HP/Mana/Stamina bars below own character nameplate",
-                    _currentProfile.NamePlateHealthBar,
-                    startX,
-                    startY
-                )
-            );
+                        _nameOverheadControl?.Dispose();
 
-            sectionBars.Add(AddLabel(null, "Nameplate bar opacity", startX, startY));
-            sectionBars.AddRight
-            (
-                _dust765NamePlateOpacity = AddHSlider
-                (
-                    null,
-                    0,
-                    100,
-                    Math.Clamp(_currentProfile.NamePlateHealthBarOpacity, (byte)0, (byte)100),
-                    startX,
-                    startY,
-                    200
-                )
-            );
+                        _nameOverheadControl = new NameOverheadAssignControl(World, newOpt)
+                        {
+                            X = 360,
+                            Y = 20
+                        };
 
-            sectionBars.Add
-            (
-                _dust765UseOldHealthBars = AddCheckBox
-                (
-                    null,
-                    "Use old-style mobile HP lines (underfoot)",
-                    _currentProfile.UseOldHealthBars,
-                    startX,
-                    startY
-                )
-            );
+                        Add(_nameOverheadControl, PAGE);
 
-            sectionBars.Add
-            (
-                _dust765MultiUnderlinesParty = AddCheckBox
-                (
-                    null,
-                    "HP / Mana / Stamina underlines (self and party)",
-                    _currentProfile.MultipleUnderlinesSelfParty,
-                    startX,
-                    startY
-                )
-            );
+                        nb.MouseUp += (s, _) =>
+                        {
+                            if (s is not NiceButton mupNiceButton)
+                            {
+                                return;
+                            }
 
-            sectionBars.Add
-            (
-                _dust765MultiUnderlinesBigBars = AddCheckBox
-                (
-                    null,
-                    "Larger underlines for self/party",
-                    _currentProfile.MultipleUnderlinesSelfPartyBigBars,
-                    startX,
-                    startY
-                )
-            );
+                            NameOverheadOption option = mupNiceButton.Tag as NameOverheadOption;
 
-            sectionBars.Add(AddLabel(null, "Underline transparency (1–10)", startX, startY));
-            sectionBars.AddRight
-            (
-                _dust765MultiUnderlinesTransparency = AddHSlider
-                (
-                    null,
-                    1,
-                    10,
-                    Math.Clamp(_currentProfile.MultipleUnderlinesSelfPartyTransparency, 1, 10),
-                    startX,
-                    startY,
-                    200
-                )
-            );
+                            if (option == null)
+                            {
+                                return;
+                            }
 
-            // ---- Bandage Gump ----
-            SettingsSection sectionBandage = AddSettingsSection(box, "Bandage Timer");
-            sectionBandage.Y = sectionBars.Bounds.Bottom + 40;
+                            _nameOverheadControl?.Dispose();
 
-            sectionBandage.Add
-            (
-                _dust765BandageGump = AddCheckBox
-                (
-                    null,
-                    "Show bandage timer gump",
-                    _currentProfile.BandageGump,
-                    startX,
-                    startY
-                )
-            );
+                            _nameOverheadControl = new NameOverheadAssignControl(World, option)
+                            {
+                                X = 360,
+                                Y = 20
+                            };
 
-            sectionBandage.Add
-            (
-                _dust765BandageGumpUpDown = AddCheckBox
-                (
-                    null,
-                    "Count up instead of count down",
-                    _currentProfile.BandageGumpUpDownToggle,
-                    startX,
-                    startY
-                )
-            );
-
-            // ---- OnCasting Gump ----
-            SettingsSection sectionCasting = AddSettingsSection(box, "Casting Timer (OnCasting)");
-            sectionCasting.Y = sectionBandage.Bounds.Bottom + 40;
-
-            sectionCasting.Add
-            (
-                _dust765OnCastingGump = AddCheckBox
-                (
-                    null,
-                    "Show casting timer gump",
-                    _currentProfile.OnCastingGump,
-                    startX,
-                    startY
-                )
-            );
-
-            sectionCasting.Add
-            (
-                _dust765OnCastingGumpHidden = AddCheckBox
-                (
-                    null,
-                    "Hide gump (keep internal tracking only)",
-                    _currentProfile.OnCastingGump_hidden,
-                    startX,
-                    startY
-                )
-            );
-
-            sectionCasting.Add
-            (
-                _dust765OnCastingUnderPlayerBar = AddCheckBox
-                (
-                    null,
-                    "Position below player status bar",
-                    _currentProfile.OnCastingUnderPlayerBar,
-                    startX,
-                    startY
-                )
-            );
-
-            SettingsSection sectionHouse = AddSettingsSection(box, "Houses & world map");
-            sectionHouse.Y = sectionCasting.Bounds.Bottom + 40;
-
-            sectionHouse.Add
-            (
-                _dust765TransparentHouses = AddCheckBox
-                (
-                    null,
-                    "Transparent houses and items (Z level)",
-                    _currentProfile.TransparentHousesEnabled,
-                    startX,
-                    startY
-                )
-            );
-
-            sectionHouse.PushIndent();
-            sectionHouse.Add(AddLabel(null, "Transparent above player Z", startX, startY));
-            sectionHouse.AddRight
-            (
-                _dust765TransparentHousesZ = AddHSlider
-                (
-                    null,
-                    1,
-                    100,
-                    Math.Clamp(_currentProfile.TransparentHousesZ, 1, 100),
-                    startX,
-                    startY,
-                    200
-                )
-            );
-            sectionHouse.Add(AddLabel(null, "Transparency (1–9)", startX, startY));
-            sectionHouse.AddRight
-            (
-                _dust765TransparentHousesTransparency = AddHSlider
-                (
-                    null,
-                    1,
-                    9,
-                    Math.Clamp(_currentProfile.TransparentHousesTransparency, 1, 9),
-                    startX,
-                    startY,
-                    200
-                )
-            );
-            sectionHouse.PopIndent();
-
-            sectionHouse.Add
-            (
-                _dust765InvisibleHouses = AddCheckBox
-                (
-                    null,
-                    "Invisible houses and items (hides statics by Z; not transparency)",
-                    _currentProfile.InvisibleHousesEnabled,
-                    startX,
-                    startY
-                )
-            );
-
-            sectionHouse.PushIndent();
-            sectionHouse.Add(AddLabel(null, "Invisible: Z delta above player (1–100)", 0, 0));
-            sectionHouse.Add
-            (
-                _dust765InvisibleHousesZ = AddHSlider
-                (
-                    null,
-                    1,
-                    100,
-                    Math.Clamp(_currentProfile.InvisibleHousesZ, 1, 100),
-                    0,
-                    0,
-                    200
-                )
-            );
-            sectionHouse.Add
-            (
-                AddLabel
-                (
-                    null,
-                    "Ground clearance: min (static Z − land Z) before hiding (both house modes)",
-                    0,
-                    0
-                )
-            );
-            sectionHouse.Add
-            (
-                _dust765DontRemoveHouseBelowZ = AddHSlider
-                (
-                    null,
-                    1,
-                    100,
-                    Math.Clamp(_currentProfile.DontRemoveHouseBelowZ, 1, 100),
-                    0,
-                    0,
-                    200
-                )
-            );
-            sectionHouse.PopIndent();
-
-            sectionHouse.Add
-            (
-                _dust765ShowDeathOnWorldmap = AddCheckBox
-                (
-                    null,
-                    "Show death location on world map for 5 min",
-                    _currentProfile.ShowDeathOnWorldmap,
-                    startX,
-                    startY
-                )
-            );
-
-            // ---- Grid Container ----
-            SettingsSection sectionGrid = AddSettingsSection(box, "Grid Container");
-            sectionGrid.Y = sectionHouse.Bounds.Bottom + 40;
-
-            sectionGrid.Add
-            (
-                _dust765GridContainer = AddCheckBox
-                (
-                    null,
-                    "Enable Grid Container (opens containers as item grid)",
-                    _currentProfile.GridContainerEnabled,
-                    startX,
-                    startY
-                )
-            );
-
-            // ---- Art / Hue Changes ----
-            SettingsSection sectionArt = AddSettingsSection(box, "Art / Hue Changes");
-            sectionArt.Y = sectionGrid.Bounds.Bottom + 40;
-
-            sectionArt.Add
-            (
-                _dust765ColorStealth = AddCheckBox
-                (
-                    null,
-                    "Color stealth walk art ON / OFF",
-                    _currentProfile.ColorStealth,
-                    startX,
-                    startY
-                )
-            );
-
-            sectionArt.Add(AddLabel(null, "Stealth neon effect", startX, startY));
-            sectionArt.AddRight
-            (
-                _dust765StealthNeonType = AddCombobox
-                (
-                    null,
-                    new[] { "Off", "White", "Pink", "Ice", "Fire" },
-                    _currentProfile.StealthNeonType,
-                    startX,
-                    startY,
-                    150
-                ),
-                2
-            );
-
-            // ---- Visual Helpers ----
-            SettingsSection sectionVisual = AddSettingsSection(box, "Visual Helpers");
-            sectionVisual.Y = sectionArt.Bounds.Bottom + 40;
-
-            sectionVisual.Add
-            (
-                _dust765PreviewFields = AddCheckBox
-                (
-                    null,
-                    "Preview field spells (highlight tiles on cursor)",
-                    _currentProfile.PreviewFields,
-                    startX,
-                    startY
-                )
-            );
-
-            sectionVisual.Add(AddLabel(null, "Highlight last target", startX, startY));
-            sectionVisual.AddRight
-            (
-                _dust765HighlightLastTargetType = AddCombobox
-                (
-                    null,
-                    new[] { "Off", "White", "Pink", "Ice", "Fire", "Custom" },
-                    _currentProfile.HighlightLastTargetType,
-                    startX,
-                    startY,
-                    150
-                ),
-                2
-            );
-
-            sectionVisual.Add(AddLabel(null, "Highlight last target - poisoned", startX, startY));
-            sectionVisual.AddRight
-            (
-                _dust765HighlightLastTargetPoison = AddCombobox
-                (
-                    null,
-                    new[] { "Off", "White", "Pink", "Ice", "Fire", "Custom", "Special (green)" },
-                    _currentProfile.HighlightLastTargetTypePoison,
-                    startX,
-                    startY,
-                    180
-                ),
-                2
-            );
-
-            sectionVisual.Add(AddLabel(null, "Highlight last target - paralyzed", startX, startY));
-            sectionVisual.AddRight
-            (
-                _dust765HighlightLastTargetPara = AddCombobox
-                (
-                    null,
-                    new[] { "Off", "White", "Pink", "Ice", "Fire", "Custom", "Special (purple)" },
-                    _currentProfile.HighlightLastTargetTypePara,
-                    startX,
-                    startY,
-                    180
-                ),
-                2
-            );
-
-            SettingsSection sectionFieldBlock = AddSettingsSection(
-                box,
-                "Wall of Stone / Energy Field (client pathfinding)"
-            );
-            sectionFieldBlock.Y = sectionVisual.Bounds.Bottom + 40;
-
-            sectionFieldBlock.Add
-            (
-                _dust765BlockWoS = AddCheckBox
-                (
-                    null,
-                    "Block Wall of Stone (mark tile as impassable)",
-                    _currentProfile.BlockWoS,
-                    startX,
-                    startY
-                )
-            );
-
-            sectionFieldBlock.Add
-            (
-                _dust765BlockWoSFelOnly = AddCheckBox
-                (
-                    null,
-                    "Wall of Stone: Felucca only (map 0)",
-                    _currentProfile.BlockWoSFelOnly,
-                    startX,
-                    startY
-                )
-            );
-
-            sectionFieldBlock.Add(AddLabel(null, "WoS tile id (graphic)", 0, 0));
-            sectionFieldBlock.AddRight
-            (
-                _dust765BlockWoSArt = new InputField
-                (
-                    0x0BB8,
-                    FONT,
-                    HUE_FONT,
-                    true,
-                    50,
-                    TEXTBOX_HEIGHT,
-                    80,
-                    50000
+                            Add(_nameOverheadControl, PAGE);
+                        };
+                    }
                 )
                 {
-                    NumbersOnly = true
-                },
-                2
-            );
-            _dust765BlockWoSArt.SetText(_currentProfile.BlockWoSArt.ToString());
+                    CanCloseWithRightClick = true
+                };
 
-            sectionFieldBlock.Add
-            (
-                _dust765BlockWoSArtForceAoS = AddCheckBox
-                (
-                    null,
-                    "Force WoS from art 130 (AoS) to tile id above, hue 945",
-                    _currentProfile.BlockWoSArtForceAoS,
-                    startX,
-                    startY
-                )
-            );
+                UIManager.Add(dialog);
+            };
 
-            sectionFieldBlock.Add
-            (
-                _dust765BlockEnergyF = AddCheckBox
-                (
-                    null,
-                    "Block Energy Field (mark tile as impassable)",
-                    _currentProfile.BlockEnergyF,
-                    startX,
-                    startY
-                )
-            );
+            delButton.MouseUp += (_, _) =>
+            {
+                NiceButton nb = databox.FindControls<NiceButton>().SingleOrDefault(a => a.IsSelected);
 
-            sectionFieldBlock.Add
-            (
-                _dust765BlockEnergyFFelOnly = AddCheckBox
-                (
-                    null,
-                    "Energy Field: Felucca only (map 0)",
-                    _currentProfile.BlockEnergyFFelOnly,
-                    startX,
-                    startY
-                )
-            );
-
-            sectionFieldBlock.Add(AddLabel(null, "Energy Field tile id (graphic)", 0, 0));
-            sectionFieldBlock.AddRight
-            (
-                _dust765BlockEnergyFArt = new InputField
-                (
-                    0x0BB8,
-                    FONT,
-                    HUE_FONT,
-                    true,
-                    50,
-                    TEXTBOX_HEIGHT,
-                    80,
-                    50000
-                )
+                if (nb != null)
                 {
-                    NumbersOnly = true
-                },
-                2
-            );
-            _dust765BlockEnergyFArt.SetText(_currentProfile.BlockEnergyFArt.ToString());
+                    UIManager.Add(
+                        new QuestionGump(
+                            World,
+                            ResGumps.MacroDeleteConfirmation,
+                            b =>
+                            {
+                                if (!b)
+                                {
+                                    return;
+                                }
 
-            sectionFieldBlock.Add
-            (
-                _dust765BlockEnergyFArtForceAoS = AddCheckBox
-                (
-                    null,
-                    "Force Energy Field (shard/Razor CE arts) to tile id above, hue 293",
-                    _currentProfile.BlockEnergyFArtForceAoS,
-                    startX,
-                    startY
-                )
-            );
+                                if (_nameOverheadControl != null
+                                    && ReferenceEquals(_nameOverheadControl.Option, nb.Tag))
+                                {
+                                    World.NameOverHeadManager.RemoveOption(_nameOverheadControl.Option);
 
-            Add(rightArea, PAGE);
+                                    _nameOverheadControl.Dispose();
+                                    _nameOverheadControl = null;
+                                }
+                                else if (nb.Tag is NameOverheadOption opt)
+                                {
+                                    World.NameOverHeadManager.RemoveOption(opt);
+                                }
+
+                                nb.Dispose();
+                                databox.WantUpdateSize = true;
+                                databox.ReArrangeChildren();
+                            }
+                        )
+                    );
+                }
+            };
+
+            NiceButton firstNb = null;
+
+            foreach (NameOverheadOption option in World.NameOverHeadManager.GetAllOptions())
+            {
+                NiceButton nb;
+
+                databox.Add(
+                    nb = new NiceButton(
+                        0,
+                        0,
+                        130,
+                        25,
+                        ButtonAction.Activate,
+                        option.Name
+                    )
+                    {
+                        Tag = option
+                    }
+                );
+
+                firstNb ??= nb;
+
+                nb.MouseUp += (s, _) =>
+                {
+                    if (s is not NiceButton mupNiceButton)
+                    {
+                        return;
+                    }
+
+                    NameOverheadOption opt = mupNiceButton.Tag as NameOverheadOption;
+
+                    if (opt == null)
+                    {
+                        return;
+                    }
+
+                    _nameOverheadControl?.Dispose();
+
+                    _nameOverheadControl = new NameOverheadAssignControl(World, opt)
+                    {
+                        X = 360,
+                        Y = 20
+                    };
+
+                    Add(_nameOverheadControl, PAGE);
+                };
+            }
+
+            databox.ReArrangeChildren();
+
+            IReadOnlyList<NameOverheadOption> opts = World.NameOverHeadManager.GetAllOptions();
+
+            if (opts.Count > 0 && firstNb != null)
+            {
+                firstNb.IsSelected = true;
+
+                _nameOverheadControl = new NameOverheadAssignControl(World, opts[0])
+                {
+                    X = 360,
+                    Y = 20
+                };
+
+                Add(_nameOverheadControl, PAGE);
+            }
+
+            Add(listScroll, PAGE);
         }
 
         private void BuildInfoBar()
@@ -4434,6 +4085,8 @@ namespace ClassicUO.Game.UI.Gumps
 
         private void Apply()
         {
+            _currentProfile = ProfileManager.CurrentProfile ?? _currentProfile;
+
             WorldViewportGump vp = UIManager.GetGump<WorldViewportGump>();
 
             // general
@@ -5010,116 +4663,18 @@ namespace ClassicUO.Game.UI.Gumps
             _currentProfile.TooltipDisplayZoom = _tooltip_zoom.Value;
             _currentProfile.TooltipFont = _tooltip_font_selector.GetSelectedFont();
 
-            // Dust765
-            _currentProfile.AvoidObstacles = _dust765AvoidObstacles.IsChecked;
-            _currentProfile.UOClassicCombatBuffbar = _dust765UccBuffbar.IsChecked;
-            _currentProfile.UOClassicCombatBuffbar_SwingEnabled = _dust765UccSwing.IsChecked;
-            _currentProfile.UOClassicCombatBuffbar_Locked = _dust765UccLocked.IsChecked;
-            _currentProfile.NamePlateHealthBar = _dust765NamePlateHealthBar.IsChecked;
-            _currentProfile.NamePlateHealthBarOpacity = (byte)Math.Clamp(_dust765NamePlateOpacity.Value, 0, 100);
-            _currentProfile.UseOldHealthBars = _dust765UseOldHealthBars.IsChecked;
-            _currentProfile.MultipleUnderlinesSelfParty = _dust765MultiUnderlinesParty.IsChecked;
-            _currentProfile.MultipleUnderlinesSelfPartyBigBars = _dust765MultiUnderlinesBigBars.IsChecked;
-            _currentProfile.MultipleUnderlinesSelfPartyTransparency = Math.Clamp(_dust765MultiUnderlinesTransparency.Value, 1, 10);
-            UOClassicCombatSwingGump.RefreshOpenGump(World);
-            _currentProfile.BandageGump = _dust765BandageGump.IsChecked;
-            _currentProfile.BandageGumpUpDownToggle = _dust765BandageGumpUpDown.IsChecked;
-            _currentProfile.OnCastingGump = _dust765OnCastingGump.IsChecked;
-            _currentProfile.OnCastingGump_hidden = _dust765OnCastingGumpHidden.IsChecked;
-            _currentProfile.OnCastingUnderPlayerBar = _dust765OnCastingUnderPlayerBar.IsChecked;
-            _currentProfile.TransparentHousesEnabled = _dust765TransparentHouses.IsChecked;
-            _currentProfile.TransparentHousesZ = Math.Clamp(_dust765TransparentHousesZ.Value, 1, 100);
-            _currentProfile.TransparentHousesTransparency = Math.Clamp(_dust765TransparentHousesTransparency.Value, 1, 9);
-            _currentProfile.InvisibleHousesEnabled = _dust765InvisibleHouses.IsChecked;
-            _currentProfile.InvisibleHousesZ = Math.Clamp(_dust765InvisibleHousesZ.Value, 1, 100);
-            _currentProfile.DontRemoveHouseBelowZ = Math.Clamp(_dust765DontRemoveHouseBelowZ.Value, 1, 100);
-            _currentProfile.ShowDeathOnWorldmap = _dust765ShowDeathOnWorldmap.IsChecked;
-            _currentProfile.GridContainerEnabled = _dust765GridContainer.IsChecked;
-
-            // Art / Hue Changes
-            _currentProfile.ColorStealth = _dust765ColorStealth.IsChecked;
-            _currentProfile.StealthNeonType = _dust765StealthNeonType.SelectedIndex;
-
-            // Visual Helpers
-            _currentProfile.PreviewFields = _dust765PreviewFields.IsChecked;
-
-            _currentProfile.BlockWoSArtForceAoS = _dust765BlockWoSArtForceAoS.IsChecked;
-            if (uint.TryParse(_dust765BlockWoSArt.Text, out uint wosArtId))
-            {
-                _currentProfile.BlockWoSArt = wosArtId;
-            }
-
-            ushort wosGraphic = (ushort)Math.Min(_currentProfile.BlockWoSArt, ushort.MaxValue);
-
-            if (_currentProfile.BlockWoS != _dust765BlockWoS.IsChecked)
-            {
-                if (_dust765BlockWoS.IsChecked)
-                {
-                    FieldBlockTileData.SetImpassable(wosGraphic, true);
-                }
-                else
-                {
-                    FieldBlockTileData.SetImpassable(wosGraphic, false);
-                }
-
-                _currentProfile.BlockWoS = _dust765BlockWoS.IsChecked;
-            }
-
-            if (_currentProfile.BlockWoSFelOnly != _dust765BlockWoSFelOnly.IsChecked)
-            {
-                if (_dust765BlockWoSFelOnly.IsChecked && World.MapIndex == 0)
-                {
-                    FieldBlockTileData.SetImpassable(wosGraphic, true);
-                }
-                else
-                {
-                    FieldBlockTileData.SetImpassable(wosGraphic, false);
-                }
-
-                _currentProfile.BlockWoSFelOnly = _dust765BlockWoSFelOnly.IsChecked;
-            }
-
-            _currentProfile.BlockEnergyFArtForceAoS = _dust765BlockEnergyFArtForceAoS.IsChecked;
-            if (uint.TryParse(_dust765BlockEnergyFArt.Text, out uint eFieldArtId))
-            {
-                _currentProfile.BlockEnergyFArt = eFieldArtId;
-            }
-
-            ushort eFieldGraphic = (ushort)Math.Min(_currentProfile.BlockEnergyFArt, ushort.MaxValue);
-
-            if (_currentProfile.BlockEnergyF != _dust765BlockEnergyF.IsChecked)
-            {
-                if (_dust765BlockEnergyF.IsChecked)
-                {
-                    FieldBlockTileData.SetImpassable(eFieldGraphic, true);
-                }
-                else
-                {
-                    FieldBlockTileData.SetImpassable(eFieldGraphic, false);
-                }
-
-                _currentProfile.BlockEnergyF = _dust765BlockEnergyF.IsChecked;
-            }
-
-            if (_currentProfile.BlockEnergyFFelOnly != _dust765BlockEnergyFFelOnly.IsChecked)
-            {
-                if (_dust765BlockEnergyFFelOnly.IsChecked && World.MapIndex == 0)
-                {
-                    FieldBlockTileData.SetImpassable(eFieldGraphic, true);
-                }
-                else
-                {
-                    FieldBlockTileData.SetImpassable(eFieldGraphic, false);
-                }
-
-                _currentProfile.BlockEnergyFFelOnly = _dust765BlockEnergyFFelOnly.IsChecked;
-            }
-
-            _currentProfile.HighlightLastTargetType = _dust765HighlightLastTargetType.SelectedIndex;
-            _currentProfile.HighlightLastTargetTypePoison = _dust765HighlightLastTargetPoison.SelectedIndex;
-            _currentProfile.HighlightLastTargetTypePara = _dust765HighlightLastTargetPara.SelectedIndex;
+            Dust765.Options.Dust765Options.ApplyProfile(this);
 
             _currentProfile?.Save(World, ProfileManager.ProfilePath);
+
+            try
+            {
+                World.NameOverHeadManager.Save();
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex.ToString());
+            }
         }
 
         internal void UpdateVideo()

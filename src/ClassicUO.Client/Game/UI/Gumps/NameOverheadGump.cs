@@ -2,6 +2,7 @@
 
 using ClassicUO.Assets;
 using ClassicUO.Configuration;
+using ClassicUO.Game;
 using ClassicUO.Game.Data;
 using ClassicUO.Game.GameObjects;
 using ClassicUO.Game.Managers;
@@ -24,11 +25,69 @@ namespace ClassicUO.Game.UI.Gumps
         private bool _positionLocked,
             _leftMouseIsDown;
         private readonly RenderedText _renderedText;
-        private Texture2D _borderColor = SolidColorTextureCache.GetTexture(Color.Black);
-        private bool _showHpBar;
-        private bool _showSelfBars; // Dust765: barras HP/Mana/Stamina abaixo do personagem
-        private const int SELF_BAR_HEIGHT = 4;
-        private const int SELF_BAR_GAP = 2;
+        private Texture2D _borderColor = BORDER_COLOR_BLACK;
+        private string _lastSourceName = string.Empty;
+        private ushort _lastDisplayHue;
+        private bool _hasDisplayHue;
+        private bool _lastIsLastTarget;
+
+        // ## BEGIN - END ## // NAMEOVERHEAD
+        private LineCHB _hpLineBorder, _hpLineRed, _hpLine;
+        private static readonly Color HPB_COLOR_DRAW_RED   = Color.Red;
+        private static readonly Color HPB_COLOR_DRAW_BLUE  = Color.DodgerBlue;
+        private static readonly Color HPB_COLOR_DRAW_BLACK = Color.Black;
+        private static readonly Texture2D BORDER_COLOR_BLACK = SolidColorTextureCache.GetTexture(Color.Black);
+        private static readonly Texture2D BORDER_COLOR_RED   = SolidColorTextureCache.GetTexture(Color.Red);
+        private static readonly Texture2D HPB_COLOR_WHITE    = SolidColorTextureCache.GetTexture(Color.White);
+        private static readonly Texture2D HPB_COLOR_BLUE   = SolidColorTextureCache.GetTexture(Color.DodgerBlue);
+        private static readonly Texture2D HPB_COLOR_YELLOW = SolidColorTextureCache.GetTexture(Color.Orange);
+        private static readonly Texture2D HPB_COLOR_POISON = SolidColorTextureCache.GetTexture(Color.LimeGreen);
+        private static readonly Texture2D HPB_COLOR_PARA   = SolidColorTextureCache.GetTexture(Color.MediumPurple);
+
+        private class LineCHB : Line
+        {
+            public LineCHB(int x, int y, int w, int h, uint color)
+                : base(x, y, w, h, color)
+            {
+                LineWidth = w;
+                LineColor = SolidColorTextureCache.GetTexture(new Color { PackedValue = color });
+                CanMove = true;
+            }
+            public int LineWidth { get; set; }
+            public Texture2D LineColor { get; set; }
+
+            public override bool AddToRenderLists(RenderLists renderLists, int x, int y, ref float layerDepthRef)
+            {
+                if (LineWidth <= 0 || Height <= 0 || LineColor == null)
+                {
+                    return false;
+                }
+
+                float layerDepth = layerDepthRef;
+                Vector3 hv = ShaderHueTranslator.GetHueVector(0, false, Alpha);
+                Texture2D tex = LineColor;
+                int lw = LineWidth;
+                int lh = Height;
+                renderLists.AddGumpNoAtlas(batcher =>
+                {
+                    batcher.Draw(tex, new Rectangle(x, y, lw, lh), hv, layerDepth);
+                    return true;
+                });
+                return true;
+            }
+        }
+
+        private static int CalculatePercents(int max, int current, int maxValue)
+        {
+            if (max > 0)
+            {
+                max = current * 100 / max;
+                if (max > 100) max = 100;
+                if (max > 1)   max = maxValue * max / 100;
+            }
+            return max;
+        }
+        // ## BEGIN - END ## // NAMEOVERHEAD
 
         public NameOverheadGump(World world, uint serial) : base(world, serial, 0)
         {
@@ -59,7 +118,18 @@ namespace ClassicUO.Game.UI.Gumps
 
             SetTooltip(entity);
 
+            // ## BEGIN - END ## // NAMEOVERHEAD
+            if (entity is Mobile)
+            {
+                Add(_hpLineBorder = new LineCHB(1, -8, 1, 8, HPB_COLOR_DRAW_BLACK.PackedValue) { LineWidth = 0 });
+                Add(_hpLineRed    = new LineCHB(1, -7, 1, 6, HPB_COLOR_DRAW_RED.PackedValue)   { LineWidth = 0 });
+                Add(_hpLine       = new LineCHB(1, -7, 1, 6, HPB_COLOR_DRAW_BLUE.PackedValue)  { LineWidth = 0 });
+            }
+            // ## BEGIN - END ## // NAMEOVERHEAD
+
             BuildGump();
+
+            WantUpdateSize = false;
         }
 
         public bool SetName()
@@ -100,78 +170,63 @@ namespace ClassicUO.Game.UI.Gumps
                     return false;
                 }
 
-                Client.Game.UO.FileManager.Fonts.SetUseHTML(true);
-                Client.Game.UO.FileManager.Fonts.RecalculateWidthByInfo = true;
-
-                int width = Client.Game.UO.FileManager.Fonts.GetWidthUnicode(_renderedText.Font, t);
-
-                if (width > Constants.OBJECT_HANDLES_GUMP_WIDTH)
-                {
-                    t = Client.Game.UO.FileManager.Fonts.GetTextByWidthUnicode(
-                        _renderedText.Font,
-                        t.AsSpan(),
-                        Constants.OBJECT_HANDLES_GUMP_WIDTH,
-                        true,
-                        TEXT_ALIGN_TYPE.TS_CENTER,
-                        (ushort)FontStyle.BlackBorder
-                    );
-
-                    width = Constants.OBJECT_HANDLES_GUMP_WIDTH;
-                }
-
-                _renderedText.MaxWidth = width;
-                _renderedText.Text = t;
-
-                Client.Game.UO.FileManager.Fonts.RecalculateWidthByInfo = false;
-                Client.Game.UO.FileManager.Fonts.SetUseHTML(false);
-
-                Width = _background.Width = Constants.OBJECT_HANDLES_GUMP_WIDTH + 4;
-                _showHpBar = false;
-                Height = _background.Height = Constants.OBJECT_HANDLES_GUMP_HEIGHT + 4;
-
-                WantUpdateSize = false;
-
-                return true;
+                return SetRenderedText(t);
             }
 
             if (!string.IsNullOrEmpty(entity.Name))
             {
-                string t = entity.Name;
-
-                int width = Client.Game.UO.FileManager.Fonts.GetWidthUnicode(_renderedText.Font, t);
-
-                if (width > Constants.OBJECT_HANDLES_GUMP_WIDTH)
-                {
-                    t = Client.Game.UO.FileManager.Fonts.GetTextByWidthUnicode(
-                        _renderedText.Font,
-                        t.AsSpan(),
-                        Constants.OBJECT_HANDLES_GUMP_WIDTH,
-                        true,
-                        TEXT_ALIGN_TYPE.TS_CENTER,
-                        (ushort)FontStyle.BlackBorder
-                    );
-
-                    width = Constants.OBJECT_HANDLES_GUMP_WIDTH;
-                }
-
-                _renderedText.MaxWidth = width;
-
-                _renderedText.Text = t;
-
-                Width = _background.Width = Constants.OBJECT_HANDLES_GUMP_WIDTH + 4;
-                _showHpBar = entity is Mobile && ProfileManager.CurrentProfile.NameOverheadShowHpBar;
-                // Dust765: barras HP/Mana/Stamina (só para o próprio player)
-                _showSelfBars = entity is PlayerMobile && ProfileManager.CurrentProfile.NamePlateHealthBar;
-                int hpBarExtra = _showHpBar ? Constants.OBJECT_HANDLES_HP_BAR_HEIGHT + 1 : 0;
-                int selfBarsExtra = _showSelfBars ? (SELF_BAR_HEIGHT * 3 + SELF_BAR_GAP * 2 + 2) : 0;
-                Height = _background.Height = Constants.OBJECT_HANDLES_GUMP_HEIGHT + 4 + hpBarExtra + selfBarsExtra;
-
-                WantUpdateSize = false;
-
-                return true;
+                return SetRenderedText(entity.Name);
             }
 
             return false;
+        }
+
+        private bool SetRenderedText(string text)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                return false;
+            }
+
+            string sourceText = text;
+
+            if (string.Equals(_lastSourceName, sourceText, StringComparison.Ordinal))
+            {
+                return true;
+            }
+
+            Client.Game.UO.FileManager.Fonts.SetUseHTML(true);
+            Client.Game.UO.FileManager.Fonts.RecalculateWidthByInfo = true;
+
+            int width = Client.Game.UO.FileManager.Fonts.GetWidthUnicode(_renderedText.Font, text);
+
+            if (width > Constants.OBJECT_HANDLES_GUMP_WIDTH)
+            {
+                text = Client.Game.UO.FileManager.Fonts.GetTextByWidthUnicode(
+                    _renderedText.Font,
+                    text.AsSpan(),
+                    Constants.OBJECT_HANDLES_GUMP_WIDTH,
+                    true,
+                    TEXT_ALIGN_TYPE.TS_CENTER,
+                    (ushort)FontStyle.BlackBorder
+                );
+
+                width = Constants.OBJECT_HANDLES_GUMP_WIDTH;
+            }
+
+            _renderedText.MaxWidth = width;
+            _renderedText.Text = text;
+            _lastSourceName = sourceText;
+
+            Client.Game.UO.FileManager.Fonts.RecalculateWidthByInfo = false;
+            Client.Game.UO.FileManager.Fonts.SetUseHTML(false);
+
+            Width = _background.Width = Math.Max(60, _renderedText.Width) + 4;
+            Height = _background.Height = Constants.OBJECT_HANDLES_GUMP_HEIGHT + 4;
+
+            WantUpdateSize = false;
+
+            return true;
         }
 
         private void BuildGump()
@@ -185,13 +240,20 @@ namespace ClassicUO.Game.UI.Gumps
                 return;
             }
 
+            // ## BEGIN - END ## // NAMEOVERHEAD
+            float bgAlpha = ProfileManager.CurrentProfile != null
+                ? ProfileManager.CurrentProfile.NamePlateOpacity / 100f
+                : 0.7f;
             Add(
-                _background = new AlphaBlendControl(.7f)
+                _background = new AlphaBlendControl(bgAlpha)
                 {
                     WantUpdateSize = false,
-                    Hue = entity is Mobile m ? Notoriety.GetHue(m.NotorietyFlag) : (ushort)0x0481
+                    Hue = entity is Mobile m ? Notoriety.GetHue(m.NotorietyFlag) : (ushort)0x0481,
+                    IsVisible = ProfileManager.CurrentProfile == null
+                        || !ProfileManager.CurrentProfile.NameOverheadBackgroundToggled
                 }
             );
+            // ## BEGIN - END ## // NAMEOVERHEAD
         }
 
         protected override void CloseWithRightClick()
@@ -503,7 +565,7 @@ namespace ClassicUO.Game.UI.Gumps
                 _lockedPosition.Y = (int)(
                     m.RealScreenPosition.Y
                     + (m.Offset.Y - m.Offset.Z)
-                    - (height + centerY + 8 + 10)
+                    - (height + centerY + 15)
                     + (
                         m.IsGargoyle && m.IsFlying
                             ? -22
@@ -520,6 +582,7 @@ namespace ClassicUO.Game.UI.Gumps
         protected override void OnMouseExit(int x, int y)
         {
             _positionLocked = false;
+
             base.OnMouseExit(x, y);
         }
 
@@ -540,20 +603,85 @@ namespace ClassicUO.Game.UI.Gumps
             }
             else
             {
-                if (entity == World.TargetManager.LastTargetInfo.Serial)
+                if (ProfileManager.CurrentProfile != null)
                 {
-                    _borderColor = SolidColorTextureCache.GetTexture(Color.Red);
-                    _background.Hue = _renderedText.Hue = entity is Mobile m
-                        ? Notoriety.GetHue(m.NotorietyFlag)
-                        : (ushort)0x0481;
+                    _background.Alpha = ProfileManager.CurrentProfile.NamePlateOpacity / 100f;
+
+                    if (ProfileManager.CurrentProfile.NameOverheadBackgroundToggled)
+                    {
+                        Control mo = UIManager.MouseOverControl;
+                        _background.IsVisible = mo != null && mo.RootParent == this;
+                    }
+                    else
+                    {
+                        _background.IsVisible = true;
+                    }
                 }
-                else
+
+                bool isLastTarget = entity == World.TargetManager.LastTargetInfo.Serial;
+                if (isLastTarget != _lastIsLastTarget)
                 {
-                    _borderColor = SolidColorTextureCache.GetTexture(Color.Black);
-                    _background.Hue = _renderedText.Hue = entity is Mobile m
-                        ? Notoriety.GetHue(m.NotorietyFlag)
-                        : (ushort)0x0481;
+                    _borderColor = isLastTarget ? BORDER_COLOR_RED : BORDER_COLOR_BLACK;
+                    _lastIsLastTarget = isLastTarget;
                 }
+
+                ushort hue = entity is Mobile m
+                    ? Notoriety.GetHue(m.NotorietyFlag)
+                    : (ushort)0x0481;
+
+                if (!_hasDisplayHue || _lastDisplayHue != hue)
+                {
+                    _background.Hue = _renderedText.Hue = hue;
+                    _lastDisplayHue = hue;
+                    _hasDisplayHue = true;
+                }
+                // ## BEGIN - END ## // NAMEOVERHEAD
+                if (_hpLineBorder != null)
+                {
+                    if (ProfileManager.CurrentProfile != null && ProfileManager.CurrentProfile.ShowHPLineInNOH)
+                    {
+                        if (entity is Mobile mobile)
+                        {
+                            _hpLineBorder.X = _background.X - 1;
+                            _hpLineRed.X = _hpLine.X = _background.X;
+                            _hpLineBorder.Y = _background.Y - 8;
+                            _hpLineRed.Y = _hpLine.Y = _background.Y - 7;
+
+                            int bgW = Math.Max(_background.Width, Width);
+                            if (bgW <= 0)
+                            {
+                                bgW = 60;
+                            }
+
+                            _hpLineBorder.LineWidth = bgW + 2;
+                            _hpLineRed.LineWidth = bgW;
+
+                            int hits = mobile.HitsMax > 0
+                                ? CalculatePercents(mobile.HitsMax, mobile.Hits, bgW)
+                                : bgW;
+                            if (hits != _hpLine.LineWidth)
+                            {
+                                _hpLine.LineWidth = hits;
+                            }
+
+                            if (mobile.IsPoisoned)
+                                _hpLine.LineColor = HPB_COLOR_POISON;
+                            else if (mobile.IsParalyzed)
+                                _hpLine.LineColor = HPB_COLOR_PARA;
+                            else if (mobile.IsYellowHits)
+                                _hpLine.LineColor = HPB_COLOR_YELLOW;
+                            else
+                                _hpLine.LineColor = HPB_COLOR_BLUE;
+                        }
+                    }
+                    else
+                    {
+                        _hpLineBorder.X = _hpLineRed.X = _hpLine.X = _background.X;
+                        _hpLineBorder.Y = _hpLineRed.Y = _hpLine.Y = _background.Y;
+                        _hpLineBorder.LineWidth = _hpLineRed.LineWidth = _hpLine.LineWidth = 0;
+                    }
+                }
+                // ## BEGIN - END ## // NAMEOVERHEAD
             }
         }
 
@@ -563,6 +691,11 @@ namespace ClassicUO.Game.UI.Gumps
             {
                 return false;
             }
+
+            // ## BEGIN - END ## // TAZUO
+            bool _isMobile = false;
+            double _hpPercent = 1;
+            // ## BEGIN - END ## // TAZUO
 
             if (SerialHelper.IsMobile(LocalSerial))
             {
@@ -574,6 +707,21 @@ namespace ClassicUO.Game.UI.Gumps
 
                     return false;
                 }
+
+                // ## BEGIN - END ## // TAZUO
+                _isMobile = true;
+                _hpPercent = m.HitsMax > 0 ? (double)m.Hits / (double)m.HitsMax : 1d;
+
+                // ## BEGIN - END ## // NAMEOVERHEAD
+                if (ProfileManager.CurrentProfile?.NamePlateHideAtFullHealth == true
+                    && _hpPercent >= 1
+                    && World.Player.InWarMode
+                    && m != World.Player)
+                {
+                    return false;
+                }
+                // ## BEGIN - END ## // NAMEOVERHEAD
+                // ## BEGIN - END ## // TAZUO
 
                 if (_positionLocked)
                 {
@@ -602,7 +750,7 @@ namespace ClassicUO.Game.UI.Gumps
                     y = (int)(
                         m.RealScreenPosition.Y
                         + (m.Offset.Y - m.Offset.Z)
-                        - (height + centerY + 8 + 10)
+                        - (height + centerY + 15)
                         + (
                             m.IsGargoyle && m.IsFlying
                                 ? -22
@@ -652,20 +800,51 @@ namespace ClassicUO.Game.UI.Gumps
             {
                 return false;
             }
-            float layerDepth = layerDepthRef;
-
             X = x;
             Y = y;
-            renderLists.AddGumpNoAtlas(
-                batcher =>
-                {
-                    batcher.DrawRectangle(_borderColor, x - 1, y - 1, Width + 1, Height + 1, hueVector, layerDepth);
-                    return true;
-                }
-            );
+
+            if (_background.IsVisible)
+            {
+                float borderDepth = layerDepthRef;
+                renderLists.AddGumpNoAtlas(
+                    batcher =>
+                    {
+                        batcher.DrawRectangle(_borderColor, x - 1, y - 1, Width + 1, Height + 1, hueVector, borderDepth);
+                        return true;
+                    }
+                );
+                layerDepthRef += CHILD_LAYER_INCREMENT;
+            }
 
             base.AddToRenderLists(renderLists, x, y, ref layerDepthRef);
 
+            // ## BEGIN - END ## // TAZUO
+            if (ProfileManager.CurrentProfile?.NamePlateHealthBar == true && _isMobile)
+            {
+                float hpOpacity = ProfileManager.CurrentProfile.NamePlateHealthBarOpacity / 100f;
+                ushort bgHue = _background.Hue;
+                int hpWidth = (int)(Width * _hpPercent);
+
+                if (hpOpacity > 0f && hpWidth > 0 && Height > 0)
+                {
+                    layerDepthRef += CHILD_LAYER_INCREMENT;
+                    float hpDepth = layerDepthRef;
+                    renderLists.AddGumpNoAtlas(batcher =>
+                    {
+                        batcher.Draw(
+                            HPB_COLOR_WHITE,
+                            new Rectangle(x, y, hpWidth, Height),
+                            ShaderHueTranslator.GetHueVector(bgHue, false, hpOpacity),
+                            hpDepth
+                        );
+                        return true;
+                    });
+                }
+            }
+            // ## BEGIN - END ## // TAZUO
+
+            layerDepthRef += CHILD_LAYER_INCREMENT;
+            float textDepth = layerDepthRef;
             int renderedTextOffset = Math.Max(0, Width - _renderedText.Width - 4) >> 1;
             renderLists.AddGumpNoAtlas(batcher =>
                 {
@@ -679,72 +858,10 @@ namespace ClassicUO.Game.UI.Gumps
                         Height,
                         0,
                         0,
-                        layerDepth + CHILD_LAYER_INCREMENT * 2
+                        textDepth
                     );
                 }
             );
-
-            if (_showHpBar && World.Get(LocalSerial) is Mobile mob)
-            {
-                int selfBarsExtra = _showSelfBars ? (SELF_BAR_HEIGHT * 3 + SELF_BAR_GAP * 2 + 2) : 0;
-                int barX = x;
-                int barY = y + Height - Constants.OBJECT_HANDLES_HP_BAR_HEIGHT - selfBarsExtra;
-                int barWidth = Width;
-                int barHeight = Constants.OBJECT_HANDLES_HP_BAR_HEIGHT;
-                int filledWidth = barWidth * mob.HitsPercentage / 100;
-                Color hpColor = mob.HitsPercentage >= 80 ? Color.Green
-                              : mob.HitsPercentage >= 50 ? Color.YellowGreen
-                              : mob.HitsPercentage >= 30 ? Color.Yellow
-                              : Color.Red;
-                float barDepth = layerDepth + CHILD_LAYER_INCREMENT * 3;
-
-                renderLists.AddGumpNoAtlas(batcher =>
-                {
-                    batcher.Draw(SolidColorTextureCache.GetTexture(Color.Black),
-                        new Rectangle(barX, barY, barWidth, barHeight), hueVector, barDepth);
-                    if (filledWidth > 0)
-                        batcher.Draw(SolidColorTextureCache.GetTexture(hpColor),
-                            new Rectangle(barX, barY, filledWidth, barHeight), hueVector, barDepth + CHILD_LAYER_INCREMENT);
-                    return true;
-                });
-            }
-
-            // Dust765: barras HP/Mana/Stamina abaixo do char (só player)
-            if (_showSelfBars && World.Get(LocalSerial) is PlayerMobile player)
-            {
-                int barsStartY = y + Height - (SELF_BAR_HEIGHT * 3 + SELF_BAR_GAP * 2);
-                int barsX = x;
-                int barsWidth = Width;
-                float selfBarDepth = layerDepth + CHILD_LAYER_INCREMENT * 4;
-                float barAlpha = Math.Clamp(ProfileManager.CurrentProfile.NamePlateHealthBarOpacity / 100f, 0.05f, 1f);
-                Vector3 barFillHue = ShaderHueTranslator.GetHueVector(0, false, barAlpha, true);
-                Vector3 barEdgeHue = ShaderHueTranslator.GetHueVector(0, false, Math.Min(1f, barAlpha + 0.12f), true);
-
-                // HP
-                int hpFill = player.HitsMax > 0 ? barsWidth * player.Hits / player.HitsMax : 0;
-                Color hpCol = player.Hits >= player.HitsMax * 0.6f ? Color.Green
-                            : player.Hits >= player.HitsMax * 0.3f ? Color.Yellow
-                            : Color.Red;
-                // Mana
-                int manaFill = player.ManaMax > 0 ? barsWidth * player.Mana / player.ManaMax : 0;
-                // Stamina
-                int stamFill = player.StaminaMax > 0 ? barsWidth * player.Stamina / player.StaminaMax : 0;
-
-                int hpY = barsStartY;
-                int manaY = hpY + SELF_BAR_HEIGHT + SELF_BAR_GAP;
-                int stamY = manaY + SELF_BAR_HEIGHT + SELF_BAR_GAP;
-
-                renderLists.AddGumpNoAtlas(batcher =>
-                {
-                    batcher.Draw(SolidColorTextureCache.GetTexture(Color.Black), new Rectangle(barsX, hpY, barsWidth, SELF_BAR_HEIGHT), barEdgeHue, selfBarDepth);
-                    if (hpFill > 0) batcher.Draw(SolidColorTextureCache.GetTexture(hpCol), new Rectangle(barsX, hpY, hpFill, SELF_BAR_HEIGHT), barFillHue, selfBarDepth + CHILD_LAYER_INCREMENT);
-                    batcher.Draw(SolidColorTextureCache.GetTexture(Color.Black), new Rectangle(barsX, manaY, barsWidth, SELF_BAR_HEIGHT), barEdgeHue, selfBarDepth);
-                    if (manaFill > 0) batcher.Draw(SolidColorTextureCache.GetTexture(Color.Blue), new Rectangle(barsX, manaY, manaFill, SELF_BAR_HEIGHT), barFillHue, selfBarDepth + CHILD_LAYER_INCREMENT);
-                    batcher.Draw(SolidColorTextureCache.GetTexture(Color.Black), new Rectangle(barsX, stamY, barsWidth, SELF_BAR_HEIGHT), barEdgeHue, selfBarDepth);
-                    if (stamFill > 0) batcher.Draw(SolidColorTextureCache.GetTexture(Color.Orange), new Rectangle(barsX, stamY, stamFill, SELF_BAR_HEIGHT), barFillHue, selfBarDepth + CHILD_LAYER_INCREMENT);
-                    return true;
-                });
-            }
 
             return true;
         }
