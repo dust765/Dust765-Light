@@ -352,6 +352,10 @@ sealed class ClassicUOHost : IPluginHandler
                 fixed (byte* ptr = rentBuf)
                     Buffer.MemoryCopy(ptr, data.ToPointer(), sizeof(byte) * length, sizeof(byte) * length);
             }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Plugin] '{plugin.AssetsPath}' threw an exception in ProcessRecvPacket: {ex}");
+            }
             finally
             {
                 ArrayPool<byte>.Shared.Return(rentBuf);
@@ -378,6 +382,10 @@ sealed class ClassicUOHost : IPluginHandler
 
                 fixed (byte* ptr = rentBuf)
                     Buffer.MemoryCopy(ptr, data.ToPointer(), sizeof(byte) * length, sizeof(byte) * length);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Plugin] '{plugin.AssetsPath}' threw an exception in ProcessSendPacket: {ex}");
             }
             finally
             {

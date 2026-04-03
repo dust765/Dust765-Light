@@ -18,6 +18,8 @@ namespace ClassicUO.Game.GameObjects
     internal partial class Mobile
     {
         private const int SIT_OFFSET_Y = 4;
+        private const float STEALTH_SELF_ALPHA_NO_TINT = 0.72f;
+        private const float STEALTH_SELF_ALPHA_TINTED = 0.52f;
         private static EquipConvData? _equipConvData;
         private static int _characterFrameStartY;
         private static int _startCharacterWaistY;
@@ -104,8 +106,13 @@ namespace ClassicUO.Game.GameObjects
                 if (Serial == World.Player.Serial)
                 {
                     var _sp = ProfileManager.CurrentProfile;
-                    if (_sp != null && (_sp.ColorStealth || _sp.StealthNeonType != 0))
+                    bool stealthTinted =
+                        _sp != null && (_sp.ColorStealth || _sp.StealthNeonType != 0);
+                    if (stealthTinted)
                         overridedHue = CombatCollection.StealthHue(overridedHue);
+                    float baseA = AlphaHue / 255f;
+                    float fade = stealthTinted ? STEALTH_SELF_ALPHA_TINTED : STEALTH_SELF_ALPHA_NO_TINT;
+                    hueVec.Z = Math.Min(1f, baseA * fade);
                 }
                 // ## BEGIN - END ## // ART / HUE CHANGES
             }
@@ -169,7 +176,7 @@ namespace ClassicUO.Game.GameObjects
             if (_profile != null && Serial != World.Player.Serial)
             {
                 bool isLastTarget = World.Get(World.TargetManager.LastTargetInfo.Serial) == this;
-                if (isLastTarget || isAttack)
+                if (isLastTarget)
                 {
                     overridedHue = CombatCollection.LastTargetHue(this, overridedHue);
                     hueVec.Y = 1;

@@ -163,6 +163,17 @@ namespace ClassicUO.Game.UI.Gumps
                 biggestWidth = System.Math.Max(biggestWidth, AddOverheadOptionButton(options[i], i).Width);
             }
 
+            int topRowWidth = System.Math.Max(
+                _keepOpenCheckbox.Width,
+                100 + _keepPinnedCheckbox.Width
+            );
+            int secondRowWidth = System.Math.Max(
+                _noBackgroundCheckbox.Width,
+                100 + _healthLinesCheckbox.Width
+            );
+            biggestWidth = System.Math.Max(biggestWidth, System.Math.Max(topRowWidth, secondRowWidth));
+            biggestWidth += 8;
+
             _alpha.Width = biggestWidth;
             _alpha.Height = System.Math.Max(30, options.Count * 20) + 42;
 

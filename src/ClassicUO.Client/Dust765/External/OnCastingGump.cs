@@ -51,11 +51,6 @@ namespace ClassicUO.Dust765.External
 
         public void Start()
         {
-            if (!ProfileManager.CurrentProfile.OnCastingGump)
-            {
-                return;
-            }
-
             _startTime = Time.Ticks;
             int spellIndex = GameActions.LastSpellIndex;
             int circle = GetCastingCircle(spellIndex);
@@ -82,9 +77,16 @@ namespace ClassicUO.Dust765.External
             _endTime = _startTime + 400 + (uint)(circle + protectionDelay) * 250;
             GameActions.iscasting = true;
 
-            if (!ProfileManager.CurrentProfile.OnCastingGump_hidden)
+            if (
+                ProfileManager.CurrentProfile.OnCastingGump
+                && !ProfileManager.CurrentProfile.OnCastingGump_hidden
+            )
             {
                 IsVisible = true;
+            }
+            else
+            {
+                IsVisible = false;
             }
         }
 
@@ -129,12 +131,6 @@ namespace ClassicUO.Dust765.External
                 return;
             }
 
-            if (!ProfileManager.CurrentProfile.OnCastingGump)
-            {
-                IsVisible = false;
-                return;
-            }
-
             if (GameActions.iscasting && Time.Ticks >= _endTime)
             {
                 Stop();
@@ -142,6 +138,12 @@ namespace ClassicUO.Dust765.External
             else if (!GameActions.iscasting && IsVisible)
             {
                 Stop();
+            }
+
+            if (!ProfileManager.CurrentProfile.OnCastingGump)
+            {
+                IsVisible = false;
+                return;
             }
 
             if (IsVisible)

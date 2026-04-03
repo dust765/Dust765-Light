@@ -2,6 +2,7 @@
 
 using ClassicUO.IO;
 using ClassicUO.Utility;
+using ClassicUO.Utility.Logging;
 using System;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -45,6 +46,12 @@ namespace ClassicUO.Assets
                 {
                     pathidx = FileManager.GetUOFilePath("Gumpidx.mul");
                 }
+
+                if (!System.IO.File.Exists(path))
+                    Log.Warn($"[GumpsLoader] gumpart.mul não encontrado: {path}");
+
+                if (!System.IO.File.Exists(pathidx))
+                    Log.Warn($"[GumpsLoader] gumpidx.mul não encontrado: {pathidx}");
 
                 _file = new UOFileMul(path, pathidx);
 

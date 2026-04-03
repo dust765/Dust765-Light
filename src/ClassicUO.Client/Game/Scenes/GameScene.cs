@@ -735,6 +735,8 @@ namespace ClassicUO.Game.Scenes
 
             base.Update();
 
+            ReleaseNoticeService.TryShowNotice(_world);
+
             if (_time_cleanup < Time.Ticks)
             {
                 _world.Map?.ClearUnusedBlocks();

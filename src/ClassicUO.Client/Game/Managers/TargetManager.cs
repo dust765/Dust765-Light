@@ -436,6 +436,8 @@ namespace ClassicUO.Game.Managers
                 {
                     return;
                 }
+
+                LastTargetInfo.SetLand(x, y, (sbyte)z);
             }
             else
             {
@@ -450,11 +452,11 @@ namespace ClassicUO.Game.Managers
                 {
                     z += itemData.Height;
                 }
+
+                LastTargetInfo.SetStatic(graphic, x, y, (sbyte)z);
             }
 
-            LastTargetInfo.SetStatic(graphic, x, y, (sbyte) z);
-
-            TargetPacket(graphic, x, y, (sbyte) z);
+            TargetPacket(graphic, x, y, (sbyte)z);
         }
 
         public void SendMultiTarget(ushort x, ushort y, sbyte z)

@@ -4793,8 +4793,7 @@ namespace ClassicUO.Network
             // Dust765: notificar timers via cliloc
             if (ProfileManager.CurrentProfile?.BandageGump == true)
                 world.Player?.BandageTimer?.OnCliloc(cliloc);
-            if (ProfileManager.CurrentProfile?.OnCastingGump == true)
-                world.Player?.OnCasting?.OnCliloc(cliloc);
+            world.Player?.OnCasting?.OnCliloc(cliloc);
 
             if (cliloc == 1008092 || cliloc == 1005445) // value for "You notify them you don't want to join the party" || "You have been added to the party"
             {

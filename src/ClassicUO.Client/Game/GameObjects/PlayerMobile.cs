@@ -368,16 +368,7 @@ namespace ClassicUO.Game.GameObjects
 
         private void TryOpenDoors()
         {
-            if (!World.Player.IsDead && ProfileManager.CurrentProfile.AutoOpenDoors)
-            {
-                int x = X, y = Y, z = Z;
-                Pathfinder.GetNewXY((byte) Direction, ref x, ref y);
-
-                if (World.Items.Values.Any(s => s.ItemData.IsDoor && s.X == x && s.Y == y && s.Z - 15 <= z && s.Z + 15 >= z))
-                {
-                    GameActions.OpenDoor();
-                }
-            }
+            TryOpenDoorAhead(Direction, X, Y, Z);
         }
 
         public override void Destroy()
@@ -580,6 +571,11 @@ namespace ClassicUO.Game.GameObjects
             {
                 if (IsObstacle(direction, x, y, z))
                 {
+                    if (TryOpenDoorAhead(direction, x, y, z))
+                    {
+                        return false;
+                    }
+
                     Direction newDir = TryToAvoid(direction, x, y, z);
                     if (!IsObstacle(newDir, x, y, z))
                     {
@@ -730,6 +726,38 @@ namespace ClassicUO.Game.GameObjects
         {
             return direction == Direction.North || direction == Direction.South ||
                    direction == Direction.East  || direction == Direction.West;
+        }
+
+        private bool CanUseDoorAssist()
+        {
+            return !World.Player.IsDead
+                && (ProfileManager.CurrentProfile.AutoOpenDoors || ProfileManager.CurrentProfile.SmoothDoors);
+        }
+
+        private bool HasDoorAhead(Direction direction, int x, int y, sbyte z)
+        {
+            int nextX = x;
+            int nextY = y;
+            Pathfinder.GetNewXY((byte) direction, ref nextX, ref nextY);
+
+            return World.Items.Values.Any(s =>
+                s.ItemData.IsDoor
+                && s.X == nextX
+                && s.Y == nextY
+                && s.Z - 15 <= z
+                && s.Z + 15 >= z
+            );
+        }
+
+        private bool TryOpenDoorAhead(Direction direction, int x, int y, sbyte z)
+        {
+            if (!CanUseDoorAssist() || !HasDoorAhead(direction, x, y, z))
+            {
+                return false;
+            }
+
+            GameActions.OpenDoor();
+            return true;
         }
 
         private bool IsObstacle(Direction direction, int x, int y, sbyte z)
