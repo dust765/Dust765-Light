@@ -12,7 +12,6 @@ permissions:
   contents: write
 
 env:
-  CUO_ASSEMBLY_VERSION: "3.0.0.${{ github.run_number }}"
   CUO_OUTPUT_PATH: "dist"
   CUO_PROJECT_PATH: "src/ClassicUO.Client/ClassicUO.Client.csproj"
   BOOT_PROJECT_PATH: "src/ClassicUO.Bootstrap/src/ClassicUO.Bootstrap.csproj"
@@ -60,21 +59,33 @@ jobs:
           dotnet-version: 10.0.x
           include-prerelease: false
 
+      - name: Read Version from csproj
+        shell: bash
+        run: |
+          set -e
+          V=$(dotnet msbuild "${{ env.CUO_PROJECT_PATH }}" -getProperty:Version -nologo | tail -n 1 | tr -d '\r' | xargs)
+          if [[ -z "$V" ]]; then
+            echo "Could not read Version from ${{ env.CUO_PROJECT_PATH }}"
+            exit 1
+          fi
+          echo "CUO_PKG_VERSION=${V}" >> "$GITHUB_ENV"
+          echo "CUO_ASSEMBLY_VERSION=${V}.${{ github.run_number }}" >> "$GITHUB_ENV"
+
       - name: Set release metadata
         shell: bash
         run: |
           if [[ "${BRANCH_NAME}" == "main" ]]; then
             echo "CUO_ZIP_NAME=Dust765-Light-${{ matrix.target }}-release.zip" >> "$GITHUB_ENV"
-            echo "RELEASE_TAG=Dust765-Light-main-${CUO_ASSEMBLY_VERSION}" >> "$GITHUB_ENV"
-            echo "RELEASE_NAME=Dust765-Light main ${CUO_ASSEMBLY_VERSION}" >> "$GITHUB_ENV"
+            echo "RELEASE_TAG=v${CUO_ASSEMBLY_VERSION}" >> "$GITHUB_ENV"
+            echo "RELEASE_NAME=Dust765-Light ${CUO_PKG_VERSION} (${{ github.run_number }})" >> "$GITHUB_ENV"
             echo "RELEASE_PRERELEASE=false" >> "$GITHUB_ENV"
             echo "RELEASE_ALLOW_UPDATES=false" >> "$GITHUB_ENV"
             echo "RELEASE_MAKE_LATEST=true" >> "$GITHUB_ENV"
             echo "RELEASE_FORCE_TAG=false" >> "$GITHUB_ENV"
           elif [[ "${BRANCH_NAME}" == "develop" ]]; then
             echo "CUO_ZIP_NAME=Dust765-Light-${{ matrix.target }}-dev.zip" >> "$GITHUB_ENV"
-            echo "RELEASE_TAG=Dust765-Light-develop-prerelease" >> "$GITHUB_ENV"
-            echo "RELEASE_NAME=Dust765-Light develop prerelease" >> "$GITHUB_ENV"
+            echo "RELEASE_TAG=v${CUO_PKG_VERSION}-develop" >> "$GITHUB_ENV"
+            echo "RELEASE_NAME=Dust765-Light ${CUO_PKG_VERSION} develop" >> "$GITHUB_ENV"
             echo "RELEASE_PRERELEASE=true" >> "$GITHUB_ENV"
             echo "RELEASE_ALLOW_UPDATES=true" >> "$GITHUB_ENV"
             echo "RELEASE_MAKE_LATEST=false" >> "$GITHUB_ENV"
