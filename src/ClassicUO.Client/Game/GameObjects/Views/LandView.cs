@@ -43,6 +43,10 @@ namespace ClassicUO.Game.GameObjects
             {
                 hue = 0x0040;
             }
+            else if (LTHighlightRangeHelper.TryGetLandHighlightHue(World, X, Y, out ushort ltHue))
+            {
+                hue = ltHue;
+            }
 
             Vector3 hueVec;
             if (hue != 0)

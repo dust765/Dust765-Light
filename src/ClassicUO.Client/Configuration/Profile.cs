@@ -22,6 +22,7 @@ namespace ClassicUO.Configuration
     //[JsonSourceGenerationOptions(WriteIndented = true, PropertyNamingPolicy = JsonKnownNamingPolicy.Unspecified)]
     [JsonSerializable(typeof(GlobalProfile), GenerationMode = JsonSourceGenerationMode.Metadata)]
     [JsonSerializable(typeof(Profile), GenerationMode = JsonSourceGenerationMode.Metadata)]
+    [JsonSerializable(typeof(ReleaseNotifyCache), GenerationMode = JsonSourceGenerationMode.Metadata)]
     sealed partial class ProfileJsonContext : JsonSerializerContext
     {
         sealed class SnakeCaseNamingPolicy : JsonNamingPolicy
@@ -453,6 +454,14 @@ namespace ClassicUO.Configuration
         public ushort HighlightLastTargetTypePoisonHue { get; set; } = 0x0044;
         public int HighlightLastTargetTypePara { get; set; } = 0; // same scale, 6=special para purple
         public ushort HighlightLastTargetTypeParaHue { get; set; } = 0x0044;
+
+        // Last target range ring
+        public bool LTHighlightRangeOnCast { get; set; } = false;
+        public int LTHighlightRangeOnCastRange { get; set; } = 10;
+        public ushort LTHighlightRangeOnCastHue { get; set; } = 0x0074;
+        public bool LTHighlightRangeOnActivated { get; set; } = false;
+        public int LTHighlightRangeOnActivatedRange { get; set; } = 10;
+        public ushort LTHighlightRangeOnActivatedHue { get; set; } = 0x0074;
 
         // ---- /Dust765 ----
 
