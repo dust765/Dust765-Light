@@ -92,6 +92,15 @@ namespace ClassicUO.Configuration
         
         [JsonPropertyName("files_override")] public string OverrideFile { get; set; }
 
+        [JsonPropertyName("release_debug_api_url")]
+        public string ReleaseDebugApiUrl { get; set; } = "";
+
+        [JsonPropertyName("release_debug_local_version")]
+        public string ReleaseDebugLocalVersion { get; set; } = "";
+
+        [JsonPropertyName("release_debug_force_show_notice")]
+        public bool ReleaseDebugForceShowReleaseNotice { get; set; }
+
         public static string GetSettingsFilepath()
         {
             if (CustomSettingsFilepath != null)

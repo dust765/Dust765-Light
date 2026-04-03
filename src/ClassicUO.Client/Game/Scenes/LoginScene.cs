@@ -67,6 +67,8 @@ namespace ClassicUO.Game.Scenes
         {
             base.Load();
 
+            ReleaseNoticeService.InitializeCheck();
+
             Client.Game.Window.AllowUserResizing = false;
 
             _autoLogin = Settings.GlobalSettings.AutoLogin;
@@ -123,6 +125,8 @@ namespace ClassicUO.Game.Scenes
         public override void Update()
         {
             base.Update();
+
+            ReleaseNoticeService.TryShowNotice(_world);
 
             if (_lastLoginStep != CurrentLoginStep)
             {
