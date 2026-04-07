@@ -390,8 +390,16 @@ namespace ClassicUO
 
             Mouse.Update();
 
-            var data = NetClient.Socket.CollectAvailableData();
-            var packetsCount = PacketHandlers.Handler.ParsePackets(NetClient.Socket, UO.World, data);
+            var packetsCount = 0;
+            ArraySegment<byte> recv;
+            do
+            {
+                recv = NetClient.Socket.CollectAvailableData();
+                if (recv.Count != 0)
+                {
+                    packetsCount += PacketHandlers.Handler.ParsePackets(NetClient.Socket, UO.World, recv);
+                }
+            } while (recv.Count != 0);
 
             NetClient.Socket.Statistics.TotalPacketsReceived += (uint)packetsCount;
             NetClient.Socket.Flush();

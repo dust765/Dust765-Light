@@ -1,6 +1,7 @@
 ﻿// SPDX-License-Identifier: BSD-2-Clause
 
 using System;
+using System.Diagnostics;
 
 namespace ClassicUO.Network
 {
@@ -73,13 +74,13 @@ namespace ClassicUO.Network
                 return;
             }
 
-            long delta = Environment.TickCount64 - t0;
-            if (delta < 0 || delta > 120_000)
+            double ms = Stopwatch.GetElapsedTime(t0).TotalMilliseconds;
+            if (ms < 0 || ms > 120_000)
             {
                 return;
             }
 
-            _pings[i] = (uint)delta;
+            _pings[i] = (uint)ms;
         }
 
         public void SendPing()
@@ -90,7 +91,7 @@ namespace ClassicUO.Network
             }
 
             int i = _pingIdx % _pings.Length;
-            _pingSendTick[i] = Environment.TickCount64;
+            _pingSendTick[i] = Stopwatch.GetTimestamp();
             _socket.Send_Ping(_pingIdx);
             _pingIdx = (byte)((_pingIdx + 1) % _pings.Length);
         }
