@@ -15,6 +15,13 @@ namespace ClassicUO.Game.Scenes
     /// </summary>
     internal class RenderLists
     {
+        private static readonly Comparer<GameObject> EffectDistanceComparer =
+            Comparer<GameObject>.Create(static (a, b) => a.Distance.CompareTo(b.Distance));
+
+        private static readonly Comparer<GameObject> EffectDepthComparer = Comparer<GameObject>.Create(
+            static (a, b) => a.CalculateDepthZ().CompareTo(b.CalculateDepthZ())
+        );
+
         private readonly List<GameObject> _tiles = [];
         private readonly List<GameObject> _stretchedTiles = [];
         private readonly List<GameObject> _statics = [];
@@ -23,6 +30,7 @@ namespace ClassicUO.Game.Scenes
         private readonly List<GameObject> _transparentObjects = [];
         private readonly List<Func<UltimaBatcher2D, bool>> _gumpSprites = [];
         private readonly List<Func<UltimaBatcher2D, bool>> _gumpTexts = [];
+        private GameObject[] _effectCapScratch = [];
 
         public void Clear()
         {
@@ -124,7 +132,14 @@ namespace ClassicUO.Game.Scenes
             return result;
         }
 
-        public int DrawRenderLists(UltimaBatcher2D batcher, sbyte maxGroundZ, List<Chunk> visibleChunks, int offsetX, int offsetY)
+        public int DrawRenderLists(
+            UltimaBatcher2D batcher,
+            sbyte maxGroundZ,
+            List<Chunk> visibleChunks,
+            int offsetX,
+            int offsetY,
+            int maxScreenEffectSprites = 0
+        )
         {
             int result = 0;
 
@@ -155,9 +170,9 @@ namespace ClassicUO.Game.Scenes
             batcher.ResetWorldOffset();
 
             // Draw excluded statics + animations + effects
-            result += DrawRenderList(batcher, _statics, maxGroundZ) +
-                   DrawRenderList(batcher, _animations, maxGroundZ) +
-                   DrawRenderList(batcher, _effects, maxGroundZ);
+            result += DrawRenderList(batcher, _statics, maxGroundZ)
+                + DrawRenderList(batcher, _animations, maxGroundZ)
+                + DrawEffectsCapped(batcher, maxGroundZ, maxScreenEffectSprites);
 
             if (_transparentObjects.Count > 0 || _gumpSprites.Count > 0 || _gumpTexts.Count > 0)
             {
@@ -199,6 +214,48 @@ namespace ClassicUO.Game.Scenes
 
             foreach (var obj in renderList)
             {
+                if (obj.Z <= maxGroundZ)
+                {
+                    float depth = obj.CalculateDepthZ();
+
+                    if (obj.Draw(batcher, obj.RealScreenPosition.X, obj.RealScreenPosition.Y, depth))
+                    {
+                        done++;
+                    }
+                }
+            }
+
+            return done;
+        }
+
+        private int DrawEffectsCapped(UltimaBatcher2D batcher, sbyte maxGroundZ, int maxSprites)
+        {
+            if (maxSprites <= 0 || _effects.Count <= maxSprites)
+            {
+                return DrawRenderList(batcher, _effects, maxGroundZ);
+            }
+
+            int n = _effects.Count;
+
+            if (_effectCapScratch.Length < n)
+            {
+                Array.Resize(ref _effectCapScratch, Math.Max(n, _effectCapScratch.Length * 2));
+            }
+
+            for (int i = 0; i < n; i++)
+            {
+                _effectCapScratch[i] = _effects[i];
+            }
+
+            Array.Sort(_effectCapScratch, 0, n, EffectDistanceComparer);
+            Array.Sort(_effectCapScratch, 0, maxSprites, EffectDepthComparer);
+
+            int done = 0;
+
+            for (int i = 0; i < maxSprites; i++)
+            {
+                GameObject obj = _effectCapScratch[i];
+
                 if (obj.Z <= maxGroundZ)
                 {
                     float depth = obj.CalculateDepthZ();
