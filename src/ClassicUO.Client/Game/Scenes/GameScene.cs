@@ -415,8 +415,18 @@ namespace ClassicUO.Game.Scenes
 
         public void AddLight(GameObject obj, GameObject lightObject, int x, int y)
         {
+            int lightCap = ProfileManager.CurrentProfile.MaxDynamicLights;
+            if (lightCap <= 0)
+            {
+                lightCap = LightsLoader.MAX_LIGHTS_DATA_INDEX_COUNT;
+            }
+            else
+            {
+                lightCap = Math.Min(lightCap, LightsLoader.MAX_LIGHTS_DATA_INDEX_COUNT);
+            }
+
             if (
-                _lightCount >= LightsLoader.MAX_LIGHTS_DATA_INDEX_COUNT
+                _lightCount >= lightCap
                 || !UseLights && !UseAltLights
                 || obj == null
             )
@@ -1037,7 +1047,8 @@ namespace ClassicUO.Game.Scenes
                 _maxGroundZ,
                 _visibleChunks,
                 _offset.X,
-                _offset.Y
+                _offset.Y,
+                ProfileManager.CurrentProfile.MaxScreenEffectSprites
             );
 
 
@@ -1055,8 +1066,10 @@ namespace ClassicUO.Game.Scenes
                 );
             }
 
-            // draw weather
-            _world.Weather.Draw(batcher, 0, 0, MAX_LAYER_DEPTH - 1);
+            if (ProfileManager.CurrentProfile.RenderWeather)
+            {
+                _world.Weather.Draw(batcher, 0, 0, MAX_LAYER_DEPTH - 1);
+            }
 
             DrawSelection(batcher, MAX_LAYER_DEPTH);
 

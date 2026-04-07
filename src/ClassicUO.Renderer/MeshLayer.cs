@@ -226,7 +226,9 @@ namespace ClassicUO.Renderer
         /// <summary>
         /// Builds per-frame index data from the Visible[] flags. Sprites are already
         /// in texture-sorted order, so the visible subset preserves texture grouping for
-        /// optimal draw call batching. Skips rebuild if visibility is unchanged.
+        /// optimal draw call batching. Skips rebuild when <see cref="Visible"/> matches
+        /// the previous frame (see <see cref="_prevVisible"/>); GPU index upload still
+        /// runs each draw because the shared <see cref="UltimaBatcher2D"/> index buffer is reused per chunk.
         /// </summary>
         public bool BuildVisibleIndices()
         {

@@ -135,6 +135,9 @@ namespace ClassicUO.Configuration
         public bool BandageSelfOld { get; set; } = true;
         public bool EnableDeathScreen { get; set; } = true;
         public bool EnableBlackWhiteEffect { get; set; } = true;
+        public int MaxScreenEffectSprites { get; set; }
+        public int MaxDynamicLights { get; set; }
+        public bool RenderWeather { get; set; } = true;
 
         // tooltip
         public bool UseTooltip { get; set; } = true;
