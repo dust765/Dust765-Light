@@ -360,6 +360,17 @@ namespace ClassicUO.Configuration
 
         public bool OverheadPartyMessages { get; set; }
 
+        // Movement tuning
+        public int MovementTurnDelay { get; set; } = 100;
+        public int MovementTurnDelayFast { get; set; } = 45;
+        public int MovementWalkingDelay { get; set; } = 150;
+        public int MovementPlayerWalkingDelay { get; set; } = 150;
+        public bool MovementEnableAdaptiveDelays { get; set; } = false;
+        public int MovementAdaptiveMaxExtraDelay { get; set; } = 120;
+        public float MovementAdaptiveJitterWeight { get; set; } = 0.5f;
+        public bool MovementDebugOverlay { get; set; } = false;
+        public bool MovementDebugLog { get; set; } = false;
+
         // ---- Dust765 ----
         // Avoid Obstacles
         public bool AvoidObstacles { get; set; } = false;
