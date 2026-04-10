@@ -147,10 +147,11 @@ namespace ClassicUO.Game.UI.Gumps
         private NiceButton _setAsNewDefault;
 
         // video
-        private Checkbox _use_old_status_gump, _statusGumpBarMutuallyExclusive, _windowBorderless, _enableDeathScreen, _enableBlackWhiteEffect, _altLights, _enableLight, _enableShadows, _enableShadowsStatics, _auraMouse, _runMouseInSeparateThread, _useColoredLights, _darkNights, _partyAura, _hideChatGradient, _animatedWaterEffect;
+        private Checkbox _use_old_status_gump, _statusGumpBarMutuallyExclusive, _windowBorderless, _enableDeathScreen, _enableBlackWhiteEffect, _altLights, _enableLight, _enableShadows, _enableShadowsStatics, _auraMouse, _runMouseInSeparateThread, _useColoredLights, _darkNights, _partyAura, _hideChatGradient, _animatedWaterEffect, _renderWeather;
         private Combobox _lightLevelType;
         private Checkbox _use_smooth_boat_movement;
         private HSliderBar _terrainShadowLevel;
+        private HSliderBar _maxScreenEffectSprites, _maxDynamicLights;
 
         private Checkbox _use_tooltip;
         private Checkbox _useStandardSkillsGump, _showMobileNameIncoming, _showCorpseNameIncoming;
@@ -1997,6 +1998,45 @@ namespace ClassicUO.Game.UI.Gumps
 
             section5.Add(AddLabel(null, ResGumps.TerrainShadowsLevel, startX, startY));
             section5.AddRight(_terrainShadowLevel = AddHSlider(null, Constants.MIN_TERRAIN_SHADOWS_LEVEL, Constants.MAX_TERRAIN_SHADOWS_LEVEL, _currentProfile.TerrainShadowsLevel, startX, startY, 200));
+
+            SettingsSection section6 = AddSettingsSection(box, "Performance (PvP)");
+            section6.Y = section5.Bounds.Bottom + 40;
+
+            section6.Add(AddLabel(null, "Max effect sprites (0 = unlimited)", startX, startY));
+            section6.AddRight(
+                _maxScreenEffectSprites = AddHSlider(
+                    null,
+                    0,
+                    400,
+                    _currentProfile.MaxScreenEffectSprites,
+                    startX,
+                    startY,
+                    200
+                )
+            );
+
+            section6.Add(AddLabel(null, "Max dynamic lights (0 = unlimited)", startX, startY));
+            section6.AddRight(
+                _maxDynamicLights = AddHSlider(
+                    null,
+                    0,
+                    100,
+                    _currentProfile.MaxDynamicLights,
+                    startX,
+                    startY,
+                    200
+                )
+            );
+
+            section6.Add(
+                _renderWeather = AddCheckBox(
+                    null,
+                    "Draw weather in world",
+                    _currentProfile.RenderWeather,
+                    startX,
+                    startY
+                )
+            );
 
             Add(rightArea, PAGE);
         }
@@ -3970,6 +4010,9 @@ namespace ClassicUO.Game.UI.Gumps
                     _partyAura.IsChecked = true;
                     _animatedWaterEffect.IsChecked = false;
                     _partyAuraColorPickerBox.Hue = 0x0044;
+                    _maxScreenEffectSprites.Value = 0;
+                    _maxDynamicLights.Value = 0;
+                    _renderWeather.IsChecked = true;
 
                     break;
 
@@ -4412,6 +4455,9 @@ namespace ClassicUO.Game.UI.Gumps
 
             _currentProfile.AuraOnMouse = _auraMouse.IsChecked;
             _currentProfile.AnimatedWaterEffect = _animatedWaterEffect.IsChecked;
+            _currentProfile.MaxScreenEffectSprites = _maxScreenEffectSprites.Value;
+            _currentProfile.MaxDynamicLights = _maxDynamicLights.Value;
+            _currentProfile.RenderWeather = _renderWeather.IsChecked;
             _currentProfile.PartyAura = _partyAura.IsChecked;
             _currentProfile.PartyAuraHue = _partyAuraColorPickerBox.Hue;
             _currentProfile.HideChatGradient = _hideChatGradient.IsChecked;

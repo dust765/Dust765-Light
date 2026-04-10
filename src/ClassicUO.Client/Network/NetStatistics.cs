@@ -1,6 +1,7 @@
 ﻿// SPDX-License-Identifier: BSD-2-Clause
 
 using System;
+using System.Diagnostics;
 
 namespace ClassicUO.Network
 {
@@ -11,7 +12,8 @@ namespace ClassicUO.Network
         private byte _pingIdx;
 
         private readonly uint[] _pings = new uint[5];
-        private uint _startTickValue, _statisticsTimer;
+        private readonly long[] _pingSendTick = new long[5];
+        private uint _statisticsTimer;
 
 
         public NetStatistics(NetClient socket)
@@ -65,7 +67,20 @@ namespace ClassicUO.Network
 
         public void PingReceived(byte idx)
         {
-            _pings[idx % _pings.Length] = Time.Ticks - _startTickValue;
+            int i = idx % _pings.Length;
+            long t0 = _pingSendTick[i];
+            if (t0 == 0)
+            {
+                return;
+            }
+
+            double ms = Stopwatch.GetElapsedTime(t0).TotalMilliseconds;
+            if (ms < 0 || ms > 120_000)
+            {
+                return;
+            }
+
+            _pings[i] = (uint)ms;
         }
 
         public void SendPing()
@@ -75,14 +90,15 @@ namespace ClassicUO.Network
                 return;
             }
 
-            _startTickValue = Time.Ticks;
+            int i = _pingIdx % _pings.Length;
+            _pingSendTick[i] = Stopwatch.GetTimestamp();
             _socket.Send_Ping(_pingIdx);
             _pingIdx = (byte)((_pingIdx + 1) % _pings.Length);
         }
 
         public void Reset()
         {
-            _startTickValue = 0;
+            Array.Clear(_pingSendTick);
             ConnectedFrom = DateTime.MinValue;
             _lastTotalBytesReceived = _lastTotalBytesSent = _lastTotalPacketsReceived = _lastTotalPacketsSent = 0;
             TotalBytesReceived = TotalBytesSent = TotalPacketsReceived = TotalPacketsSent = 0;
