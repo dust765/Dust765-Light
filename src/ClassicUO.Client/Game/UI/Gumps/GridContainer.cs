@@ -567,6 +567,29 @@ namespace ClassicUO.Game.UI.Gumps
                 foreach (var slot in gridSlots)
                     slot.Value.SetGridItem(null);
 
+                // Clean up stale itemPositions entries for items no longer in this container
+                List<int> staleSlots = null;
+                foreach (var spot in itemPositions)
+                {
+                    Item i = world.Items.Get(spot.Value);
+                    if (i == null || i.Container != container.Serial)
+                    {
+                        staleSlots ??= new List<int>();
+                        staleSlots.Add(spot.Key);
+                    }
+                }
+                if (staleSlots != null)
+                {
+                    foreach (int s in staleSlots)
+                    {
+                        if (itemPositions.TryGetValue(s, out uint staleSerial))
+                        {
+                            itemLocks.Remove(staleSerial);
+                            itemPositions.Remove(s);
+                        }
+                    }
+                }
+
                 foreach (var spot in itemPositions)
                 {
                     Item i = world.Items.Get(spot.Value);
@@ -730,21 +753,32 @@ namespace ClassicUO.Game.UI.Gumps
 
             internal void SetGridItem(Item item)
             {
-                _item = item;
-                Hightlight = false;
-                ItemGridLocked = false;
-                count?.Dispose();
-                count = null;
-
-                if (item != null)
+                if (item == null)
                 {
+                    _item = null;
+                    LocalSerial = 0;
+                    hit.ClearTooltip();
+                    Hightlight = false;
+                    count?.Dispose();
+                    count = null;
+                    ItemGridLocked = false;
+                }
+                else
+                {
+                    _item = item;
                     LocalSerial = item.Serial;
                     int itemAmt = (_item.ItemData.IsStackable ? _item.Amount : 1);
                     if (itemAmt > 1)
                     {
+                        count?.Dispose();
                         count = new Label(itemAmt.ToString(), true, 0x0481, align: TEXT_ALIGN_TYPE.TS_LEFT);
                         count.X = 1;
                         count.Y = Height - count.Height;
+                    }
+                    else
+                    {
+                        count?.Dispose();
+                        count = null;
                     }
                     hit.SetTooltip(_item);
                 }
