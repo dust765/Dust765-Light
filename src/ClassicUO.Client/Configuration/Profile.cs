@@ -365,7 +365,7 @@ namespace ClassicUO.Configuration
 
         // Movement tuning
         public int MovementTurnDelay { get; set; } = 100;
-        public int MovementTurnDelayFast { get; set; } = 45;
+        public int MovementTurnDelayFast { get; set; } = 80;
         public int MovementWalkingDelay { get; set; } = 150;
         public int MovementPlayerWalkingDelay { get; set; } = 150;
         public bool MovementEnableAdaptiveDelays { get; set; } = false;
