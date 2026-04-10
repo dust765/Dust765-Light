@@ -896,6 +896,14 @@ namespace ClassicUO.Game.Scenes
                         ? ref meshStatic.ItemData
                         : ref Unsafe.As<Multi>(obj).ItemData);
 
+                    // Dust765: HideVegetation filter for meshed statics/multis
+                    if (profile.HideVegetation && !meshItemData.IsMultiMovable)
+                    {
+                        bool isVeg = obj is Static sv ? sv.IsVegetation : (obj is Multi mv && mv.IsVegetation);
+                        if (isVeg)
+                            continue;
+                    }
+
                     // Simplified ProcessAlpha for meshed statics: skip IsFoliage branch (never true)
                     bool meshAllowSelection = true;
                     bool meshFadingOut = false;
