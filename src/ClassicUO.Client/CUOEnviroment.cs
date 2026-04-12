@@ -27,8 +27,8 @@ namespace ClassicUO
 
         public static readonly string Version =
             Assembly.GetExecutingAssembly()?.GetName()?.Version is System.Version ver
-                ? ver.ToString(3)
-                : "1.0.0";
+                ? ver.ToString(4)
+                : "1.0.0.0";
         public static readonly string ExecutablePath =
 #if NETFRAMEWORK
            AppContext.BaseDirectory; // Path.GetDirectoryName(Assembly.GetEntryAssembly()?.Location);
