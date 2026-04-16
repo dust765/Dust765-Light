@@ -210,9 +210,13 @@ namespace ClassicUO.Game.Managers
                             GameActions.LastSpellIndex = spellFromWord.ID;
                             PlayerMobile player = _world.Player;
 
-                            if (player?.OnCasting != null && !GameActions.iscasting)
+                            if (
+                                player?.OnCasting != null
+                                && !GameActions.iscasting
+                                && currentProfile.OnCastingGump
+                            )
                             {
-                                player.OnCasting.Start();
+                                player.OnCasting.Start((uint) spellFromWord.ID, 0);
                             }
                         }
                     }

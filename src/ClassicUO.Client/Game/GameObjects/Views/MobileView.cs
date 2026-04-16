@@ -151,9 +151,14 @@ namespace ClassicUO.Game.GameObjects
                         }
                     }
 
-                    if (World.Player != null && Serial == World.Player.Serial && GameActions.iscasting)
+                    if (
+                        World.Player != null
+                        && Serial == World.Player.Serial
+                        && ProfileManager.CurrentProfile.OnCastingHarmfulHueOnPlayer
+                        && GameActions.iscasting
+                    )
                     {
-                        overridedHue = 0x0023;
+                        overridedHue = ProfileManager.CurrentProfile.HarmfulHue;
                         hueVec.Y = 1;
                     }
                 }
