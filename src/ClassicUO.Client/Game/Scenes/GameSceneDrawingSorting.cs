@@ -7,6 +7,7 @@ using ClassicUO.Dust765;
 using ClassicUO.Game.Data;
 using ClassicUO.Game.GameObjects;
 using ClassicUO.Game.Managers;
+using ClassicUO.Input;
 using ClassicUO.Game.Map;
 using ClassicUO.Renderer;
 using ClassicUO.Utility;
@@ -254,12 +255,7 @@ namespace ClassicUO.Game.Scenes
 
         private void UpdateObjectHandles(Entity obj, bool useObjectHandles)
         {
-            bool allowed = _world.NameOverHeadManager.IsAllowed(obj)
-                || (
-                    obj is Mobile pm
-                    && pm == _world.Player
-                    && ProfileManager.CurrentProfile.NamePlateHealthBar
-                );
+            bool allowed = _world.NameOverHeadManager.IsAllowed(obj);
 
             if (useObjectHandles && allowed)
             {
@@ -1099,9 +1095,7 @@ namespace ClassicUO.Game.Scenes
 
                     case Mobile mobile:
                         {
-                            bool showPlayerResourceNameplate =
-                                mobile == _world.Player && profile.NamePlateHealthBar;
-                            UpdateObjectHandles(mobile, useObjectHandles || showPlayerResourceNameplate);
+                            UpdateObjectHandles(mobile, useObjectHandles);
 
                             maxObjectZ += Constants.DEFAULT_CHARACTER_HEIGHT;
 
