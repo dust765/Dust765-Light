@@ -6,6 +6,7 @@ using ClassicUO.Game;
 using ClassicUO.Game.Data;
 using ClassicUO.Game.GameObjects;
 using ClassicUO.Game.Managers;
+using ClassicUO.Input;
 using ClassicUO.Game.Scenes;
 using ClassicUO.Game.UI.Controls;
 using ClassicUO.Input;
@@ -258,14 +259,16 @@ namespace ClassicUO.Game.UI.Gumps
 
         protected override void CloseWithRightClick()
         {
-            Entity entity = World.Get(LocalSerial);
-
-            if (entity != null)
+            // Só permite fechar com botão direito se não estiver fixado
+            if (!ProfileManager.CurrentProfile.NameOverheadPinnedToggled)
             {
-                entity.ObjectHandlesStatus = ObjectHandlesStatus.CLOSED;
+                Entity entity = World.Get(LocalSerial);
+                if (entity != null)
+                {
+                    entity.ObjectHandlesStatus = ObjectHandlesStatus.CLOSED;
+                }
+                base.CloseWithRightClick();
             }
-
-            base.CloseWithRightClick();
         }
 
         private void DoDrag()

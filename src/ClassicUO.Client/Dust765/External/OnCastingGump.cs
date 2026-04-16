@@ -49,37 +49,34 @@ namespace ClassicUO.Dust765.External
             BuildGump();
         }
 
-        public void Start()
+        public void Start(uint _spell_id, uint _re = 0)
         {
             _startTime = Time.Ticks;
-            int spellIndex = GameActions.LastSpellIndex;
+            int spellIndex = (int) _spell_id;
             int circle = GetCastingCircle(spellIndex);
             uint protectionDelay = 0;
             PlayerMobile player = World.Player;
-            if (player != null)
+            if (player != null && player.IsBuffIconExists(BuffIconType.Protection))
             {
-                SpellDefinition def = SpellDefinition.FullIndexGetSpell(spellIndex);
-                bool ignoreProtectionDelay =
-                    def.Name != null
-                    && def.Name.IndexOf("protection", StringComparison.OrdinalIgnoreCase) >= 0;
-                if (
-                    (
-                        player.IsBuffIconExists(BuffIconType.Protection)
-                        && !ignoreProtectionDelay
-                    )
-                    || player.IsBuffIconExists(BuffIconType.EssenceOfWind)
-                )
+                protectionDelay = 1;
+
+                if (circle != 9)
                 {
-                    protectionDelay = 2;
+                    protectionDelay += 2;
+                }
+                else
+                {
+                    protectionDelay += 5;
+                    circle += 2;
                 }
             }
 
-            _endTime = _startTime + 400 + (uint)(circle + protectionDelay) * 250;
+            _endTime = _startTime + 400 + ((uint) circle + protectionDelay) * 250 + _re;
             GameActions.iscasting = true;
 
             if (
-                ProfileManager.CurrentProfile.OnCastingGump
-                && !ProfileManager.CurrentProfile.OnCastingGump_hidden
+                ProfileManager.CurrentProfile?.OnCastingGump == true
+                && ProfileManager.CurrentProfile.OnCastingGump_hidden == false
             )
             {
                 IsVisible = true;
@@ -140,7 +137,7 @@ namespace ClassicUO.Dust765.External
                 Stop();
             }
 
-            if (!ProfileManager.CurrentProfile.OnCastingGump)
+            if (ProfileManager.CurrentProfile == null || !ProfileManager.CurrentProfile.OnCastingGump)
             {
                 IsVisible = false;
                 return;
@@ -148,36 +145,15 @@ namespace ClassicUO.Dust765.External
 
             if (IsVisible)
             {
-                // Posicionar: se OnCastingUnderPlayerBar = true, fica abaixo do player; senão segue o mouse
-                if (ProfileManager.CurrentProfile.OnCastingUnderPlayerBar)
-                {
-                    int gx = ProfileManager.CurrentProfile.GameWindowPosition.X;
-                    int gy = ProfileManager.CurrentProfile.GameWindowPosition.Y;
-                    int px = gx + World.Player.RealScreenPosition.X + (int)World.Player.Offset.X;
-                    int py = gy + World.Player.RealScreenPosition.Y + (int)(World.Player.Offset.Y - World.Player.Offset.Z);
+                int w = _borderSize * 2 + _text.Width;
+                int h = _borderSize * 2 + _text.Height;
+                _background.Width  = w;
+                _background.Height = h;
+                Width  = w;
+                Height = h;
 
-                    int w = _borderSize * 2 + _text.Width;
-                    int h = _borderSize * 2 + _text.Height;
-                    _background.Width  = w;
-                    _background.Height = h;
-                    Width  = w;
-                    Height = h;
-
-                    X = px - (w >> 1);
-                    Y = py + 4; // 4px abaixo do char
-                }
-                else
-                {
-                    int w = _borderSize * 2 + _text.Width;
-                    int h = _borderSize * 2 + _text.Height;
-                    _background.Width  = w;
-                    _background.Height = h;
-                    Width  = w;
-                    Height = h;
-
-                    X = Mouse.Position.X;
-                    Y = Mouse.Position.Y;
-                }
+                X = Mouse.Position.X;
+                Y = Mouse.Position.Y;
             }
         }
 

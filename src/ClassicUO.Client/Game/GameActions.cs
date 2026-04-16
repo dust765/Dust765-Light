@@ -639,9 +639,9 @@ namespace ClassicUO.Game
             {
                 LastSpellIndex = index;
                 var player = Client.Game.UO.World.Player;
-                if (player?.OnCasting != null && !iscasting)
+                if (player?.OnCasting != null && !iscasting && ProfileManager.CurrentProfile?.OnCastingGump == true)
                 {
-                    player.OnCasting.Start();
+                    player.OnCasting.Start((uint)index, 0);
                 }
                 Socket.Send_CastSpellFromBook(index, bookSerial);
             }
@@ -653,9 +653,9 @@ namespace ClassicUO.Game
             {
                 LastSpellIndex = index;
                 var player = Client.Game.UO.World.Player;
-                if (player?.OnCasting != null && !iscasting)
+                if (player?.OnCasting != null && !iscasting && ProfileManager.CurrentProfile?.OnCastingGump == true)
                 {
-                    player.OnCasting.Start();
+                    player.OnCasting.Start((uint)index, 0);
                 }
                 Socket.Send_CastSpell(index);
             }
