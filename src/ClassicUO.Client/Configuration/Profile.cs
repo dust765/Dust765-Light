@@ -407,7 +407,7 @@ namespace ClassicUO.Configuration
         // OnCasting Gump
         public bool OnCastingGump { get; set; } = false;
         public bool OnCastingGump_hidden { get; set; } = false;
-        public bool OnCastingHarmfulHueOnPlayer { get; set; } = true;
+        public bool OnCastingHarmfulHueOnPlayer { get; set; } = false;
 
         public bool TransparentHousesEnabled { get; set; } = false;
         public int TransparentHousesZ { get; set; } = 1;
