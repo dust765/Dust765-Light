@@ -166,6 +166,18 @@ namespace ClassicUO.Game.Managers
                 return false;
             }
 
+            if (
+                mobile.Serial != _world.Player.Serial
+                && mobile.IsInvulnerableMannequin
+                && (
+                    ProfileManager.CurrentProfile.HideInvulnerableMannequinNameplates
+                    || ProfileManager.CurrentProfile.HideInvulnerableMannequinsOnInvisibleHouses
+                )
+            )
+            {
+                return false;
+            }
+
             if (ActiveOverheadOptions.HasFlag(NameOverheadOptions.Humanoid) && mobile.IsHuman)
             {
                 return true;

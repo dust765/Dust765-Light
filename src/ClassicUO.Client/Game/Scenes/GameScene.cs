@@ -955,11 +955,6 @@ namespace ClassicUO.Game.Scenes
                 return false;
             }
 
-            if (CheckDeathScreen(batcher))
-            {
-                return true;
-            }
-
             Viewport r_viewport = batcher.GraphicsDevice.Viewport;
             Viewport camera_viewport = Camera.GetViewport();
             Matrix matrix = Camera.ViewTransformMatrix;
@@ -972,6 +967,9 @@ namespace ClassicUO.Game.Scenes
             DrawWorld(batcher, ref matrix, renderTargets);
 
             batcher.GraphicsDevice.Viewport = r_viewport;
+
+            // Keep world rendering while dead; death screen is only an overlay message.
+            CheckDeathScreen(batcher);
 
             return base.Draw(batcher, renderTargets);
         }

@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using ClassicUO.Assets;
+using ClassicUO.Configuration;
 using ClassicUO.Game;
 using ClassicUO.Game.Managers;
 using ClassicUO.Game.UI.Gumps;
@@ -132,6 +133,18 @@ namespace ClassicUO.Game.UI.Controls
             AddCheckbox("Enemy", NameOverheadOptions.Enemy, 0, y);
             AddCheckbox("Murderer", NameOverheadOptions.Murderer, 150, y);
             y += row;
+            Checkbox hideMannequinNameplate = new Checkbox(0x00D2, 0x00D3, "Mannequin (yellow)", 0xFF, 0xFFFF)
+            {
+                IsChecked = ProfileManager.CurrentProfile.HideInvulnerableMannequinNameplates,
+                X = 150,
+                Y = y
+            };
+            hideMannequinNameplate.ValueChanged += (_, _) =>
+            {
+                ProfileManager.CurrentProfile.HideInvulnerableMannequinNameplates =
+                    hideMannequinNameplate.IsChecked;
+            };
+            Add(hideMannequinNameplate);
             AddCheckbox("Invuln", NameOverheadOptions.Invulnerable, 0, y);
         }
 
