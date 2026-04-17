@@ -165,6 +165,19 @@ namespace ClassicUO.Game.GameObjects
                     }
                 }
 
+                if (ProfileManager.CurrentProfile.InvisibleHousesEnabled && World.Player != null)
+                {
+                    GameObject tile = World.Map?.GetTile(X, Y);
+                    if (
+                        tile != null
+                        && (Z - World.Player.Z) > ProfileManager.CurrentProfile.InvisibleHousesZ
+                        && (Z - tile.Z) > ProfileManager.CurrentProfile.DontRemoveHouseBelowZ
+                    )
+                    {
+                        return false;
+                    }
+                }
+
                 ref UOFileIndex index = ref Client.Game.UO.FileManager.Arts.File.GetValidRefEntry(Graphic + 0x4000);
 
                 Point position = RealScreenPosition;

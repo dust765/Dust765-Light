@@ -9,7 +9,6 @@ using ClassicUO.Game.GameObjects;
 using ClassicUO.Game.Managers;
 using ClassicUO.Game.UI.Controls;
 using ClassicUO.Game.UI.Gumps;
-using ClassicUO.Input;
 using Microsoft.Xna.Framework;
 
 namespace ClassicUO.Dust765.External
@@ -157,8 +156,13 @@ namespace ClassicUO.Dust765.External
                 Width  = w;
                 Height = h;
 
-                X = Mouse.Position.X;
-                Y = Mouse.Position.Y;
+                int gx = ProfileManager.CurrentProfile.GameWindowPosition.X;
+                int gy = ProfileManager.CurrentProfile.GameWindowPosition.Y;
+                int px = gx + World.Player.RealScreenPosition.X + (int)World.Player.Offset.X;
+                int py = gy + World.Player.RealScreenPosition.Y + (int)(World.Player.Offset.Y - World.Player.Offset.Z);
+
+                X = px - (Width >> 1) + 5;
+                Y = py - Height - 10;
             }
         }
 

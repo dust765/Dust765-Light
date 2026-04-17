@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 using ClassicUO.Configuration;
+using ClassicUO.Game;
 using ClassicUO.Dust765;
 using ClassicUO.Game.Data;
 using ClassicUO.Game.Scenes;
@@ -109,6 +110,22 @@ namespace ClassicUO.Game.GameObjects
                 )
             )
             {
+                if (
+                    ProfileManager.CurrentProfile.InvisibleHousesEnabled
+                    && World.Player != null
+                )
+                {
+                    GameObject tile = World.Map?.GetTile(X, Y);
+                    if (
+                        tile != null
+                        && (Z - World.Player.Z) > ProfileManager.CurrentProfile.InvisibleHousesZ
+                        && (Z - tile.Z) > ProfileManager.CurrentProfile.DontRemoveHouseBelowZ
+                    )
+                    {
+                        return false;
+                    }
+                }
+
                 ushort graphic = Graphic;
 
                 bool isTree = StaticFilters.IsTree(graphic, out _);
