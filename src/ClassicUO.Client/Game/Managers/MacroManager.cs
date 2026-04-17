@@ -1805,6 +1805,9 @@ namespace ClassicUO.Game.Managers
                 case MacroType.ToggleInvisibleHouses:
                     ProfileManager.CurrentProfile.InvisibleHousesEnabled = !ProfileManager.CurrentProfile.InvisibleHousesEnabled;
                     break;
+                case MacroType.ToggleAvoidObstacles:
+                    ProfileManager.CurrentProfile.AvoidObstacles = !ProfileManager.CurrentProfile.AvoidObstacles;
+                    break;
             }
 
 
@@ -2354,7 +2357,8 @@ namespace ClassicUO.Game.Managers
         UseObject,
         LookAtMouse,
         UseCounterBarSlot,
-        ToggleInvisibleHouses // Dust765
+        ToggleInvisibleHouses, // Dust765
+        ToggleAvoidObstacles // Dust765
     }
 
     internal enum MacroSubType
