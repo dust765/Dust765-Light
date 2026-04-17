@@ -165,7 +165,7 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765UseOldHealthBars = AddCheckBox
                 (
                     null,
-                    "Thin HP lines under mobiles",
+                    "Show HP lines both mobiles",
                     _currentProfile.UseOldHealthBars,
                     startX,
                     startY
@@ -232,7 +232,7 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765MultiUnderlinesParty = AddCheckBox
                 (
                     null,
-                    "Stam underlines (you/party)",
+                    "Show Mana/Stam lines both (you/party)",
                     _currentProfile.MultipleUnderlinesSelfParty,
                     startX,
                     startY

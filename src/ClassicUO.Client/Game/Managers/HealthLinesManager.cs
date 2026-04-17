@@ -53,6 +53,15 @@ namespace ClassicUO.Game.Managers
                     continue;
                 }
 
+                if (
+                    ProfileManager.CurrentProfile.HideInvulnerableMannequinsOnInvisibleHouses
+                    && mobile.Serial != _world.Player.Serial
+                    && mobile.IsInvulnerableMannequin
+                )
+                {
+                    continue;
+                }
+
                 var newTargSystem = false;
                 var forceDraw = false;
                 var passive = mobile.Serial != _world.Player.Serial;
