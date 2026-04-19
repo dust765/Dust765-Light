@@ -650,7 +650,7 @@ namespace ClassicUO.Game.GameObjects
             // Adaptive coalescing: only suppress direction-only packets when the server
             // is falling behind (3+ unconfirmed packets). This allows full-speed spinning
             // when the connection is healthy and automatically backs off under congestion.
-            if (walkTime == (ushort)MovementSpeed.TurnDelay && Walker.UnacceptedPacketsCount >= 3)
+            if (walkTime == (ushort)MovementSpeed.TurnDelay && Walker.UnacceptedPacketsCount >= 1)
             {
                 Direction = direction;
                 Walker.LastStepRequestTime = Time.Ticks + walkTime;

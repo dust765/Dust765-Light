@@ -24,6 +24,14 @@ sealed class Plugin
 {
     public static List<Plugin> Plugins { get; } = new List<Plugin>();
 
+    [System.Runtime.InteropServices.DllImport("SDL3", EntryPoint = "SDL_GetWindowProperties", CallingConvention = System.Runtime.InteropServices.CallingConvention.Cdecl)]
+    private static extern uint SDL_GetWindowProperties_Native(IntPtr window);
+
+    [System.Runtime.InteropServices.DllImport("SDL3", EntryPoint = "SDL_GetPointerProperty", CallingConvention = System.Runtime.InteropServices.CallingConvention.Cdecl)]
+    private static extern unsafe IntPtr SDL_GetPointerProperty_Native(uint props, byte* name, IntPtr default_value);
+
+    private static readonly string SDL_PROP_WINDOW_WIN32_HWND_POINTER = "SDL.window.win32.hwnd";
+
 
 
     private readonly IPluginHandler _server;
@@ -72,7 +80,23 @@ sealed class Plugin
             return;
         }
 
-        var hwnd_TODO = IntPtr.Zero;
+        IntPtr hwnd_TODO = IntPtr.Zero;
+        if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows))
+        {
+            try
+            {
+                var props = SDL_GetWindowProperties_Native(sdlWindow);
+                var nameBytes = System.Text.Encoding.UTF8.GetBytes(SDL_PROP_WINDOW_WIN32_HWND_POINTER + "\0");
+                unsafe
+                {
+                    fixed (byte* namePtr = nameBytes)
+                    {
+                        hwnd_TODO = SDL_GetPointerProperty_Native(props, namePtr, IntPtr.Zero);
+                    }
+                }
+            }
+            catch { }
+        }
 
         _recv = OnPluginRecv;
         _send = OnPluginSend;

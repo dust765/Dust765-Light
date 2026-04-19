@@ -81,12 +81,12 @@ namespace ClassicUO.Game.Managers
 
                 if (!newTargSystem)
                 {
-                    if (max == 0)
+                    if (max == 0 && !forceDraw)
                     {
                         continue;
                     }
 
-                    if (showWhen == 1 && current == max)
+                    if (showWhen == 1 && current == max && !forceDraw)
                     {
                         continue;
                     }
