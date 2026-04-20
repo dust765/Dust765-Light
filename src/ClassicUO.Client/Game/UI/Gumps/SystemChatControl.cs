@@ -35,7 +35,9 @@ namespace ClassicUO.Game.UI.Gumps
     internal class SystemChatControl : Control
     {
         private const int MAX_MESSAGE_LENGTH = 100;
-        private const int TEXTBOX_LENGTH = 500;
+        private const int TEXTBOX_LENGTH = 20000;
+        private const int CHAT_INPUT_MAX_CHARS_PER_LINE_MIN = 1000;
+        private const int CHAT_INPUT_MAX_CHARS_PER_LINE_MAX = 20000;
         private const int CHAT_X_OFFSET = 3;
         private const int CHAT_HEIGHT = 15;
         private static readonly List<Tuple<ChatMode, string>> _messageHistory = new List<Tuple<ChatMode, string>>();
@@ -152,15 +154,18 @@ namespace ClassicUO.Game.UI.Gumps
 
         private void TextBoxControl_BeforeTextChanged(object sender, StbTextBox.BeforeTextChangedEventArgs e)
         {
-            string text = e.NewText.Replace("\n", " ");
-
             if (!ProfileManager.CurrentProfile.ChatInputAutoLineBreak)
             {
-                e.NewText = text;
                 return;
             }
 
-            int maxLineChars = Math.Clamp(ProfileManager.CurrentProfile.ChatInputMaxCharsPerLine, 20, 120);
+            string text = e.NewText.Replace("\n", " ");
+
+            int maxLineChars = Math.Clamp(
+                ProfileManager.CurrentProfile.ChatInputMaxCharsPerLine,
+                CHAT_INPUT_MAX_CHARS_PER_LINE_MIN,
+                CHAT_INPUT_MAX_CHARS_PER_LINE_MAX
+            );
 
             string result = string.Empty;
             string message;
@@ -764,6 +769,11 @@ namespace ClassicUO.Game.UI.Gumps
                 ResetTextBox();
             }
 
+            if (!ProfileManager.CurrentProfile.ChatInputAutoLineBreak)
+            {
+                text = text.Replace("\r\n", "\n").Replace('\n', ' ');
+            }
+
             if (TryHandleMessageMultipartSend(text, Mode, out var remainder))
             {
                 TextBoxControl.SetText(remainder);
@@ -812,7 +822,9 @@ namespace ClassicUO.Game.UI.Gumps
                 return false;
             }
 
-            int lastSpaceIndex = text.LastIndexOfAny([' ', '\n'], maxLineChars);
+            int lastSpaceIndex = ProfileManager.CurrentProfile.ChatInputAutoLineBreak
+                ? text.LastIndexOfAny([' ', '\n'], maxLineChars)
+                : text.LastIndexOf(' ', maxLineChars);
             if (lastSpaceIndex < 0)
             {
                 lastSpaceIndex = maxLineChars;

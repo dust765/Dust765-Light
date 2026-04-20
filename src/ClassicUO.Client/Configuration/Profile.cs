@@ -180,7 +180,7 @@ namespace ClassicUO.Configuration
         public bool ActivateChatAdditionalButtons { get; set; } = true;
         public bool ActivateChatShiftEnterSupport { get; set; } = true;
         public bool ChatInputAutoLineBreak { get; set; } = true;
-        public int ChatInputMaxCharsPerLine { get; set; } = 100;
+        public int ChatInputMaxCharsPerLine { get; set; } = 1000;
         public bool UseObjectsFading { get; set; } = true;
         public bool HoldDownKeyAltToCloseAnchored { get; set; } = true;
         public bool CloseAllAnchoredGumpsInGroupWithRightClick { get; set; } = false;
