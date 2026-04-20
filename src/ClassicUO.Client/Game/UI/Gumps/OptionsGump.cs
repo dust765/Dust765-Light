@@ -30,6 +30,8 @@ namespace ClassicUO.Game.UI.Gumps
         private const int HEIGHT = 500;
         private const int TEXTBOX_HEIGHT = 25;
         private const int SCREEN_ZOOM_STEPS = 20;
+        private const int CHAT_INPUT_MAX_CHARS_SLIDER_MIN = 1000;
+        private const int CHAT_INPUT_MAX_CHARS_SLIDER_MAX = 20000;
 
         private static Texture2D _logoTexture2D;
         private Combobox _auraType;
@@ -2686,15 +2688,19 @@ namespace ClassicUO.Game.UI.Gumps
             _chatInputMaxCharsPerLineSlider = AddHSlider
             (
                 rightArea,
-                20,
-                120,
-                Math.Clamp(_currentProfile.ChatInputMaxCharsPerLine, 20, 120),
+                CHAT_INPUT_MAX_CHARS_SLIDER_MIN,
+                CHAT_INPUT_MAX_CHARS_SLIDER_MAX,
+                Math.Clamp(
+                    _currentProfile.ChatInputMaxCharsPerLine,
+                    CHAT_INPUT_MAX_CHARS_SLIDER_MIN,
+                    CHAT_INPUT_MAX_CHARS_SLIDER_MAX
+                ),
                 startX,
                 startY,
                 180
             );
 
-            startY += _chatInputMaxCharsPerLineSlider.Height + 2;
+            startY += _chatInputMaxCharsPerLineSlider.Height + 14;
             startX = 5;
 
             _hideChatGradient = AddCheckBox
@@ -4096,7 +4102,7 @@ namespace ClassicUO.Game.UI.Gumps
                     _chatAdditionalButtonsCheckbox.IsChecked = true;
                     _chatShiftEnterCheckbox.IsChecked = true;
                     _chatInputAutoLineBreak.IsChecked = true;
-                    _chatInputMaxCharsPerLineSlider.Value = 100;
+                    _chatInputMaxCharsPerLineSlider.Value = CHAT_INPUT_MAX_CHARS_SLIDER_MIN;
                     _saveJournalCheckBox.IsChecked = false;
                     _hideChatGradient.IsChecked = false;
                     _ignoreGuildMessages.IsChecked = false;
@@ -4340,7 +4346,11 @@ namespace ClassicUO.Game.UI.Gumps
             _currentProfile.ActivateChatAdditionalButtons = _chatAdditionalButtonsCheckbox.IsChecked;
             _currentProfile.ActivateChatShiftEnterSupport = _chatShiftEnterCheckbox.IsChecked;
             _currentProfile.ChatInputAutoLineBreak = _chatInputAutoLineBreak.IsChecked;
-            _currentProfile.ChatInputMaxCharsPerLine = Math.Clamp(_chatInputMaxCharsPerLineSlider.Value, 20, 120);
+            _currentProfile.ChatInputMaxCharsPerLine = Math.Clamp(
+                _chatInputMaxCharsPerLineSlider.Value,
+                CHAT_INPUT_MAX_CHARS_SLIDER_MIN,
+                CHAT_INPUT_MAX_CHARS_SLIDER_MAX
+            );
             _currentProfile.SaveJournalToFile = _saveJournalCheckBox.IsChecked;
             _currentProfile.OverheadPartyMessages = _partyMessagesOverhead.IsChecked;
 
