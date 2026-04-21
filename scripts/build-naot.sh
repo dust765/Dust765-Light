@@ -2,6 +2,9 @@
 
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
 usage() {
   echo "Usage: $(basename "$0") [OPTIONS]"
   echo ""
@@ -62,9 +65,9 @@ done
 export PATH="$PATH:/c/Program Files (x86)/Microsoft Visual Studio/Installer"
 
 # Define paths and project details
-bootstrap_project="../src/ClassicUO.Bootstrap/src/ClassicUO.Bootstrap.csproj"
-client_project="../src/ClassicUO.Client"
-output_directory="../bin/dist"
+bootstrap_project="$REPO_ROOT/src/ClassicUO.Bootstrap/src/ClassicUO.Bootstrap.csproj"
+client_project="$REPO_ROOT/src/ClassicUO.Client"
+output_directory="$REPO_ROOT/bin/dist"
 target=""
 
 # Determine the platform
