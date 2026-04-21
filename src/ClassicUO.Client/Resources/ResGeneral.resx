@@ -387,16 +387,16 @@ Hue: {1}</value>
     <value>Your Ultima Online directory seems to be invalid.
 Download the official Launcher to setup and run your game.
 
-Link: classicuo.eu</value>
+Link: dust765.com/</value>
   </data>
   <data name="YourUOClientVersionIsInvalid" xml:space="preserve">
     <value>Your Ultima Online client version seems to be invalid.
 Download the official Launcher to setup and run your game.
 
-Link: classicuo.eu</value>
+Link: dust765.com/</value>
   </data>
   <data name="ClassicUOLink" xml:space="preserve">
-    <value>https://classicuo.eu</value>
+    <value>https://dust765.com/</value>
   </data>
   <data name="ItBeginsToRain" xml:space="preserve">
     <value>It begins to rain.</value>

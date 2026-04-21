@@ -79,6 +79,13 @@ namespace ClassicUO
                 sb.AppendLine();
                 sb.AppendLine();
 
+                HtmlCrashLogGen.Generate
+                (
+                    sb.ToString(),
+                    "Dust765 Crash Report",
+                    "Oh no! Dust765 crashed."
+                );
+
                 Log.Panic(e.ExceptionObject.ToString());
                 string path = Path.Combine(CUOEnviroment.ExecutablePath, "Logs");
 
