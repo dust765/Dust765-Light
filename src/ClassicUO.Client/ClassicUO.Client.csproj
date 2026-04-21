@@ -11,7 +11,12 @@
     <AssemblyVersion>1.1.1.0</AssemblyVersion>
     <FileVersion>1.1.1.0</FileVersion>
     <Product>Dust765 - Light</Product>
+    <FileEmbed_MaxEmbedSize>4194304</FileEmbed_MaxEmbedSize>
   </PropertyGroup>
+
+  <ItemGroup>
+    <CompilerVisibleProperty Include="FileEmbed_MaxEmbedSize" />
+  </ItemGroup>
 
   <PropertyGroup Condition="'$(Configuration)'=='Release'">
     <OutputPath>$(ProjectDir)..\..\bin\Release\</OutputPath>

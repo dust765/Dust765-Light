@@ -103,8 +103,20 @@ namespace ClassicUO.Game.Managers
                     {
                         if ((showWhen == 2 && (current != max || forceDraw)) || showWhen <= 1)
                         {
-                            if (mobile.HitsPercentage != 0)
+                            if (max > 0)
                             {
+                                int hpPercent = Math.Clamp(current * 100 / max, 0, 100);
+                                if (mobile.HitsPercentage != hpPercent)
+                                {
+                                    mobile.UpdateHits((byte) hpPercent);
+                                }
+
+                                var hitsTexture = mobile.HitsTexture;
+                                if (hitsTexture == null || hitsTexture.IsDestroyed)
+                                {
+                                    continue;
+                                }
+
                                 animations.GetAnimationDimensions(
                                     mobile.AnimIndex,
                                     mobile.GetGraphicForAnimation(),
@@ -115,27 +127,18 @@ namespace ClassicUO.Game.Managers
                                     mobile.IsMounted,
                                     /*(byte) m.AnimIndex*/
                                     0,
-                                    out int centerX,
+                                    out _,
                                     out int centerY,
-                                    out int width,
+                                    out _,
                                     out int height
                                 );
 
-                                Point p1 = p;
-                                p1.Y -= height + centerY + 8 + 22;
-
-                                if (mobile.IsGargoyle && mobile.IsFlying)
-                                {
-                                    p1.Y -= 22;
-                                }
-                                else if (!mobile.IsMounted)
-                                {
-                                    p1.Y += 22;
-                                }
-
+                                Point p1 = mobile.RealScreenPosition;
+                                p1.X += (int) mobile.Offset.X + 22;
+                                p1.Y += (int) (mobile.Offset.Y - mobile.Offset.Z - (height + centerY + 8));
                                 p1 = Client.Game.Scene.Camera.WorldToScreen(p1, true);
-                                p1.X -= (mobile.HitsTexture.Width >> 1) + 5;
-                                p1.Y -= mobile.HitsTexture.Height;
+                                p1.X -= hitsTexture.Width >> 1;
+                                p1.Y -= hitsTexture.Height;
 
                                 if (mobile.ObjectHandlesStatus == ObjectHandlesStatus.DISPLAYING)
                                 {
@@ -149,18 +152,18 @@ namespace ClassicUO.Game.Managers
                                 if (
                                     !(
                                         p1.X < 0
-                                        || p1.X > camera.Bounds.Width - mobile.HitsTexture.Width
+                                        || p1.X > camera.Bounds.Width - hitsTexture.Width
                                         || p1.Y < 0
                                         || p1.Y > camera.Bounds.Height
                                     )
                                 )
                                 {
-                                    mobile.HitsTexture.Draw(batcher, p1.X, p1.Y, layerDepth);
+                                    hitsTexture.Draw(batcher, p1.X, p1.Y, layerDepth);
                                 }
 
                                 if (newTargSystem)
                                 {
-                                    offsetY += mobile.HitsTexture.Height;
+                                    offsetY += hitsTexture.Height;
                                 }
                             }
                         }

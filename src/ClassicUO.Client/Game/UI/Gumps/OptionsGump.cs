@@ -85,6 +85,7 @@ namespace ClassicUO.Game.UI.Gumps
                          _alwaysRun,
                          _alwaysRunUnlessHidden,
                          _fastRotation,
+                         _ignoreStaminaCheck,
                          _showHpMobile,
                          _highlightByPoisoned,
                          _highlightByParalyzed,
@@ -568,6 +569,18 @@ namespace ClassicUO.Game.UI.Gumps
                     null,
                     "Fast rotation",
                     _currentProfile.FastRotation,
+                    startX,
+                    startY
+                )
+            );
+
+            section.Add
+            (
+                _ignoreStaminaCheck = AddCheckBox
+                (
+                    null,
+                    "Ignore stamina check",
+                    _currentProfile.IgnoreStaminaCheck,
                     startX,
                     startY
                 )
@@ -3959,6 +3972,7 @@ namespace ClassicUO.Game.UI.Gumps
                     _useShiftPathfind.IsChecked = false;
                     _alwaysRun.IsChecked = false;
                     _alwaysRunUnlessHidden.IsChecked = false;
+                    _ignoreStaminaCheck.IsChecked = false;
                     _showHpMobile.IsChecked = false;
                     _hpComboBox.SelectedIndex = 0;
                     _hpComboBoxShowWhen.SelectedIndex = 0;
@@ -4197,6 +4211,7 @@ namespace ClassicUO.Game.UI.Gumps
             _currentProfile.AlwaysRun = _alwaysRun.IsChecked;
             _currentProfile.AlwaysRunUnlessHidden = _alwaysRunUnlessHidden.IsChecked;
             _currentProfile.FastRotation = _fastRotation.IsChecked;
+            _currentProfile.IgnoreStaminaCheck = _ignoreStaminaCheck.IsChecked;
             MovementSpeed.FastRotation = _fastRotation.IsChecked;
             _currentProfile.ShowMobilesHP = _showHpMobile.IsChecked;
             _currentProfile.HighlightMobilesByPoisoned = _highlightByPoisoned.IsChecked;

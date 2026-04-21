@@ -5,7 +5,7 @@
     <AssemblyVersion>1.1.1.25</AssemblyVersion>
     <FileVersion>1.1.1.25</FileVersion>
     <Copyright>ClassicUO</Copyright>
-    <PackageProjectUrl>https://www.classicuo.eu/</PackageProjectUrl>
+    <PackageProjectUrl>https://dust765.com/</PackageProjectUrl>
     <Description>An open source implementation of the Ultima Online Classic Client.</Description>
   </PropertyGroup>
 </Project>
