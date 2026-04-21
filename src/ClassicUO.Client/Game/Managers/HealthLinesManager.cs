@@ -101,7 +101,7 @@ namespace ClassicUO.Game.Managers
                 {
                     if (mode != 1 && !mobile.IsDead)
                     {
-                        if (showWhen == 2 && current != max || showWhen <= 1)
+                        if ((showWhen == 2 && (current != max || forceDraw)) || showWhen <= 1)
                         {
                             if (mobile.HitsPercentage != 0)
                             {
