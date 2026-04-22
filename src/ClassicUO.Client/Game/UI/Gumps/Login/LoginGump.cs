@@ -416,7 +416,7 @@ namespace ClassicUO.Game.UI.Gumps.Login
                     false,
                     false,
                     false,
-                    "<body link=\"#FF00FF00\" vlink=\"#FF00FF00\" ><a href=\"https://discord.gg/VdyCpjQ\">Join Discord",
+                    "<body link=\"#FF00FF00\" vlink=\"#FF00FF00\" ><a href=\"https://discord.gg/y8AQ9XTS\">Join Dust765 Discord",
                     0x32,
                     true,
                     isunicode: true,
