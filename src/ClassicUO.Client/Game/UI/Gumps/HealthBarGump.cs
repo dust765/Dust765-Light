@@ -1173,7 +1173,17 @@ namespace ClassicUO.Game.UI.Gumps
             }
 
             _textBox.MouseUp += TextBoxOnMouseUp;
-            _textBox.SetText(_name);
+
+            // Sempre exibe o percentual de HP para todos os mobiles, exceto manequins
+            if (entity is Mobile mob && !mob.IsInvulnerableMannequin && mob.HitsMax > 0)
+            {
+                int percent = mob.Hits * 100 / mob.HitsMax;
+                _textBox.SetText(percent + "%");
+            }
+            else
+            {
+                _textBox.SetText(_name);
+            }
 
             if (entity == null)
             {
