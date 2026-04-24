@@ -76,6 +76,9 @@ namespace ClassicUO.Game.Scenes
             _useItemQueue = new UseItemQueue(world);
         }
 
+        public World World => _world;
+        public MacroManager Macros => _world.Macros;
+
         public bool UpdateDrawPosition { get; set; }
         public bool DisconnectionRequested { get; set; }
         public bool UseLights =>
