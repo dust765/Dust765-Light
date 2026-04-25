@@ -128,30 +128,48 @@ namespace ClassicUO.Game
                             Client.Game.UO.FileManager.Fonts.SetUseHTML(true, HTMLColor, HasBackgroundColor);
                         }
 
+                        string layoutText = Text;
+                        int layoutWidth = MaxWidth > 0 ? MaxWidth : Width;
+
+                        if (MaxWidth > 0 && (FontStyle & FontStyle.Cropped) != 0)
+                        {
+                            var fonts = Client.Game.UO.FileManager.Fonts;
+                            int realWidth = IsUnicode
+                                ? fonts.GetWidthUnicode(Font, Text)
+                                : fonts.GetWidthASCII(Font, Text);
+
+                            if (realWidth > MaxWidth)
+                            {
+                                layoutText = IsUnicode
+                                    ? fonts.GetTextByWidthUnicode(Font, Text.AsSpan(), MaxWidth, isCropped: true, Align, (ushort)FontStyle)
+                                    : fonts.GetTextByWidthASCII(Font, Text, MaxWidth, isCropped: true, Align, (ushort)FontStyle);
+                            }
+                        }
+
                         if (IsUnicode)
                         {
                             _info = Client.Game.UO.FileManager.Fonts.GetInfoUnicode(
                                 Font,
-                                Text,
-                                Text.Length,
+                                layoutText,
+                                layoutText.Length,
                                 Align,
                                 (ushort)FontStyle,
-                                MaxWidth > 0 ? MaxWidth : Width,
-                                countret: false,
-                                countspaces: false
+                                layoutWidth,
+                                countret: true,
+                                countspaces: true
                             );
                         }
                         else
                         {
                             _info = Client.Game.UO.FileManager.Fonts.GetInfoASCII(
                                 Font,
-                                Text,
-                                Text.Length,
+                                layoutText,
+                                layoutText.Length,
                                 Align,
                                 (ushort)FontStyle,
-                                MaxWidth > 0 ? MaxWidth : Width,
-                                countret: false,
-                                countspaces: false
+                                layoutWidth,
+                                countret: true,
+                                countspaces: true
                             );
                         }
 
