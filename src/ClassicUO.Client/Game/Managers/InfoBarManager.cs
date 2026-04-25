@@ -29,7 +29,9 @@ namespace ClassicUO.Game.Managers
 
         public static string[] GetVars()
         {
-            return Enum.GetNames(typeof(InfoBarVars));
+            string[] names = (string[])Enum.GetNames(typeof(InfoBarVars)).Clone();
+            names[(int)InfoBarVars.PhysicalResist] = ResGumps.PhysicalResistance;
+            return names;
         }
 
         public void AddItem(InfoBarItem ibi)
@@ -119,6 +121,7 @@ namespace ClassicUO.Game.Managers
             infoBarItems.Add(new InfoBarItem(ResGeneral.Mana, InfoBarVars.Mana, 0x1ED));
             infoBarItems.Add(new InfoBarItem(ResGeneral.Stam, InfoBarVars.Stamina, 0x22E));
             infoBarItems.Add(new InfoBarItem(ResGeneral.Weight, InfoBarVars.Weight, 0x3D2));
+            infoBarItems.Add(new InfoBarItem(ResGumps.PhysicalResistance, InfoBarVars.PhysicalResist, 0x0481));
         }
     }
 
@@ -131,7 +134,7 @@ namespace ClassicUO.Game.Managers
         Followers,
         Gold,
         Damage,
-        Armor,
+        PhysicalResist,
         Luck,
         FireResist,
         ColdResist,

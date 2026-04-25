@@ -1173,6 +1173,8 @@ namespace ClassicUO.Game.UI.Gumps
             }
 
             _textBox.MouseUp += TextBoxOnMouseUp;
+
+            // Sempre exibe apenas o nome do mobile na healthbar
             _textBox.SetText(_name);
 
             if (entity == null)

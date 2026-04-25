@@ -30,6 +30,8 @@ namespace ClassicUO.Game.UI.Gumps
         private const int HEIGHT = 500;
         private const int TEXTBOX_HEIGHT = 25;
         private const int SCREEN_ZOOM_STEPS = 20;
+        private const int CHAT_INPUT_MAX_CHARS_SLIDER_MIN = 1000;
+        private const int CHAT_INPUT_MAX_CHARS_SLIDER_MAX = 20000;
 
         private static Texture2D _logoTexture2D;
         private Combobox _auraType;
@@ -83,11 +85,13 @@ namespace ClassicUO.Game.UI.Gumps
                          _alwaysRun,
                          _alwaysRunUnlessHidden,
                          _fastRotation,
+                         _ignoreStaminaCheck,
                          _showHpMobile,
                          _highlightByPoisoned,
                          _highlightByParalyzed,
                          _highlightByInvul,
                          _drawRoofs,
+                         _hideInvulnerableMannequinsOnInvisibleHouses,
                          _treeToStumps,
                          _hideVegetation,
                          _noColorOutOfRangeObjects,
@@ -99,6 +103,7 @@ namespace ClassicUO.Game.UI.Gumps
                          _chatAfterEnter,
                          _chatAdditionalButtonsCheckbox,
                          _chatShiftEnterCheckbox,
+                         _chatInputAutoLineBreak,
                          _enableCaveBorder;
         private Checkbox _holdShiftForContext, _holdShiftToSplitStack, _reduceFPSWhenInactive, _sallosEasyGrab, _partyInviteGump, _objectsFading, _textFading, _holdAltToMoveGumps;
         private Combobox _hpComboBox, _healtbarType, _fieldsType, _hpComboBoxShowWhen;
@@ -135,6 +140,7 @@ namespace ClassicUO.Game.UI.Gumps
         // general
         private HSliderBar _sliderFPS, _circleOfTranspRadius;
         private HSliderBar _sliderSpeechDelay;
+        private HSliderBar _chatInputMaxCharsPerLineSlider;
         private HSliderBar _sliderScreenZoom;
         private HSliderBar _sliderZoom;
         private HSliderBar _soundsVolume, _musicVolume, _loginMusicVolume;
@@ -563,6 +569,18 @@ namespace ClassicUO.Game.UI.Gumps
                     null,
                     "Fast rotation",
                     _currentProfile.FastRotation,
+                    startX,
+                    startY
+                )
+            );
+
+            section.Add
+            (
+                _ignoreStaminaCheck = AddCheckBox
+                (
+                    null,
+                    "Ignore stamina check",
+                    _currentProfile.IgnoreStaminaCheck,
                     startX,
                     startY
                 )
@@ -1404,6 +1422,18 @@ namespace ClassicUO.Game.UI.Gumps
                     null,
                     ResGumps.HideRoofTiles,
                     !_currentProfile.DrawRoofs,
+                    startX,
+                    startY
+                )
+            );
+
+            section5.Add
+            (
+                _hideInvulnerableMannequinsOnInvisibleHouses = AddCheckBox
+                (
+                    null,
+                    "Hide mannequin view",
+                    _currentProfile.HideInvulnerableMannequinsOnInvisibleHouses,
                     startX,
                     startY
                 )
@@ -2651,6 +2681,39 @@ namespace ClassicUO.Game.UI.Gumps
             );
 
             startY += _chatShiftEnterCheckbox.Height + 2;
+            startX = 5;
+
+            _chatInputAutoLineBreak = AddCheckBox
+            (
+                rightArea,
+                ResGumps.ChatInputAutoLineBreak,
+                _currentProfile.ChatInputAutoLineBreak,
+                startX,
+                startY
+            );
+
+            startY += _chatInputAutoLineBreak.Height + 2;
+
+            AddLabel(rightArea, ResGumps.ChatInputMaxCharsPerLine, startX, startY);
+
+            startY += 15;
+
+            _chatInputMaxCharsPerLineSlider = AddHSlider
+            (
+                rightArea,
+                CHAT_INPUT_MAX_CHARS_SLIDER_MIN,
+                CHAT_INPUT_MAX_CHARS_SLIDER_MAX,
+                Math.Clamp(
+                    _currentProfile.ChatInputMaxCharsPerLine,
+                    CHAT_INPUT_MAX_CHARS_SLIDER_MIN,
+                    CHAT_INPUT_MAX_CHARS_SLIDER_MAX
+                ),
+                startX,
+                startY,
+                180
+            );
+
+            startY += _chatInputMaxCharsPerLineSlider.Height + 14;
             startX = 5;
 
             _hideChatGradient = AddCheckBox
@@ -3909,6 +3972,7 @@ namespace ClassicUO.Game.UI.Gumps
                     _useShiftPathfind.IsChecked = false;
                     _alwaysRun.IsChecked = false;
                     _alwaysRunUnlessHidden.IsChecked = false;
+                    _ignoreStaminaCheck.IsChecked = false;
                     _showHpMobile.IsChecked = false;
                     _hpComboBox.SelectedIndex = 0;
                     _hpComboBoxShowWhen.SelectedIndex = 0;
@@ -4051,6 +4115,8 @@ namespace ClassicUO.Game.UI.Gumps
                     UIManager.SystemChat.IsActive = !_chatAfterEnter.IsChecked;
                     _chatAdditionalButtonsCheckbox.IsChecked = true;
                     _chatShiftEnterCheckbox.IsChecked = true;
+                    _chatInputAutoLineBreak.IsChecked = true;
+                    _chatInputMaxCharsPerLineSlider.Value = CHAT_INPUT_MAX_CHARS_SLIDER_MIN;
                     _saveJournalCheckBox.IsChecked = false;
                     _hideChatGradient.IsChecked = false;
                     _ignoreGuildMessages.IsChecked = false;
@@ -4145,6 +4211,7 @@ namespace ClassicUO.Game.UI.Gumps
             _currentProfile.AlwaysRun = _alwaysRun.IsChecked;
             _currentProfile.AlwaysRunUnlessHidden = _alwaysRunUnlessHidden.IsChecked;
             _currentProfile.FastRotation = _fastRotation.IsChecked;
+            _currentProfile.IgnoreStaminaCheck = _ignoreStaminaCheck.IsChecked;
             MovementSpeed.FastRotation = _fastRotation.IsChecked;
             _currentProfile.ShowMobilesHP = _showHpMobile.IsChecked;
             _currentProfile.HighlightMobilesByPoisoned = _highlightByPoisoned.IsChecked;
@@ -4166,6 +4233,8 @@ namespace ClassicUO.Game.UI.Gumps
             _currentProfile.HoldShiftToSplitStack = _holdShiftToSplitStack.IsChecked;
             _currentProfile.CloseHealthBarType = _healtbarType.SelectedIndex;
             _currentProfile.HideScreenshotStoredInMessage = _hideScreenshotStoredInMessage.IsChecked;
+            _currentProfile.HideInvulnerableMannequinsOnInvisibleHouses =
+                _hideInvulnerableMannequinsOnInvisibleHouses.IsChecked;
 
             if (_currentProfile.DrawRoofs == _drawRoofs.IsChecked)
             {
@@ -4291,6 +4360,12 @@ namespace ClassicUO.Game.UI.Gumps
 
             _currentProfile.ActivateChatAdditionalButtons = _chatAdditionalButtonsCheckbox.IsChecked;
             _currentProfile.ActivateChatShiftEnterSupport = _chatShiftEnterCheckbox.IsChecked;
+            _currentProfile.ChatInputAutoLineBreak = _chatInputAutoLineBreak.IsChecked;
+            _currentProfile.ChatInputMaxCharsPerLine = Math.Clamp(
+                _chatInputMaxCharsPerLineSlider.Value,
+                CHAT_INPUT_MAX_CHARS_SLIDER_MIN,
+                CHAT_INPUT_MAX_CHARS_SLIDER_MAX
+            );
             _currentProfile.SaveJournalToFile = _saveJournalCheckBox.IsChecked;
             _currentProfile.OverheadPartyMessages = _partyMessagesOverhead.IsChecked;
 

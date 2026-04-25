@@ -27,6 +27,11 @@ namespace ClassicUO.Game.UI.Gumps
             BuildGump();
         }
 
+        // ClassicAssist compatibility: creates button without explicit World parameter
+        public MacroButtonGump(Macro macro, int x, int y) : this(Client.Game.GetScene<GameScene>().World, macro, x, y)
+        {
+        }
+
         public MacroButtonGump(World world) : base(world,0, 0)
         {
             CanMove = true;
