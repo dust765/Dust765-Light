@@ -877,7 +877,7 @@ namespace ClassicUO.Assets
                             ptr.MaxHeight = 14;
                         }
 
-                        ptr.Data.Length = ptr.CharCount - newlineval;
+                        ptr.Data.Resize(ptr.CharCount - newlineval);
 
                         MultilinesFontInfo newptr = new MultilinesFontInfo();
                         newptr.Reset();
@@ -969,7 +969,7 @@ namespace ClassicUO.Assets
 
                         //ptr.CharCount = charCount;
                         charCount = 0;
-                        ptr.Data.Length = ptr.CharCount;
+                        ptr.Data.Resize(ptr.CharCount);
 
                         if (isFixed || isCropped)
                         {
@@ -1435,7 +1435,7 @@ namespace ClassicUO.Assets
                             ptr.MaxHeight = 14 + extraheight;
                         }
 
-                        ptr.Data.Length = ptr.CharCount - newlineval;
+                        ptr.Data.Resize(ptr.CharCount - newlineval);
                         MultilinesFontInfo newptr = new MultilinesFontInfo();
                         newptr.Reset();
                         ptr.Next = newptr;
@@ -1532,7 +1532,7 @@ namespace ClassicUO.Assets
                         //ptr.CharCount = charCount;
 
                         charCount = 0;
-                        ptr.Data.Length = ptr.CharCount;
+                        ptr.Data.Resize(ptr.CharCount);
 
                         if (isFixed || isCropped)
                         {
@@ -2348,7 +2348,7 @@ namespace ClassicUO.Assets
                         }
 
                         ptr.MaxHeight = MAX_HTML_TEXT_HEIGHT;
-                        ptr.Data.Length = ptr.CharCount;
+                        ptr.Data.Resize(ptr.CharCount);
                         MultilinesFontInfo newptr = new MultilinesFontInfo();
                         newptr.Reset();
                         ptr.Next = newptr;
@@ -2435,7 +2435,7 @@ namespace ClassicUO.Assets
                         }
 
                         ptr.MaxHeight = MAX_HTML_TEXT_HEIGHT;
-                        ptr.Data.Length = ptr.CharCount;
+                        ptr.Data.Resize(ptr.CharCount);
                         charCount = 0;
 
                         if (isFixed || isCropped)
