@@ -1,18 +1,20 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
+    <OutputType>WinExe</OutputType>
     <TargetFramework>net472</TargetFramework>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <LangVersion>Preview</LangVersion>
     <AssemblyName>ClassicUO</AssemblyName>
     <RootNamespace>ClassicUO</RootNamespace>
-    <ApplicationIcon>cuoicon.ico</ApplicationIcon>
+    <ApplicationIcon>..\..\ClassicUO.Client\cuoicon.ico</ApplicationIcon>
     <PlatformTarget>x64</PlatformTarget>
   </PropertyGroup>
 
   <ItemGroup>
-    <Content Include="cuoicon.ico" />
+    <Content Include="..\..\ClassicUO.Client\cuoicon.ico">
+      <Link>cuoicon.ico</Link>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>

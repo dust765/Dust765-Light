@@ -166,6 +166,18 @@ namespace ClassicUO.Game.Managers
                 return false;
             }
 
+            if (
+                mobile.Serial != _world.Player.Serial
+                && mobile.IsInvulnerableMannequin
+                && (
+                    ProfileManager.CurrentProfile.HideInvulnerableMannequinNameplates
+                    || ProfileManager.CurrentProfile.HideInvulnerableMannequinsOnInvisibleHouses
+                )
+            )
+            {
+                return false;
+            }
+
             if (ActiveOverheadOptions.HasFlag(NameOverheadOptions.Humanoid) && mobile.IsHuman)
             {
                 return true;
@@ -396,6 +408,9 @@ namespace ClassicUO.Game.Managers
         {
             if (_gump != null && !_gump.IsDisposed)
             {
+                if (!visible && IsPinnedToggled)
+                    return;
+
                 _gump.IsVisible = visible;
             }
         }
@@ -407,6 +422,9 @@ namespace ClassicUO.Game.Managers
                 _gump = new NameOverHeadHandlerGump(_world);
                 UIManager.Add(_gump);
             }
+
+            if (IsPinnedToggled)
+                return;
 
             _gump.IsEnabled = false;
             _gump.IsVisible = false;
@@ -449,9 +467,11 @@ namespace ClassicUO.Game.Managers
             IsPinnedToggled = toggled;
             _gump?.UpdateCheckboxes();
 
-            if (_gump != null && !_gump.IsDisposed)
+            // If unpinned while gump is hidden, keep it visible so user can see it
+            if (!toggled && _gump != null && !_gump.IsDisposed && !_gump.IsVisible)
             {
-                _gump.CanCloseWithRightClick = !toggled;
+                _gump.IsEnabled = true;
+                _gump.IsVisible = true;
             }
         }
 

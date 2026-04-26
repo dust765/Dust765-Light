@@ -17,7 +17,7 @@ namespace ClassicUO.Game.UI.Gumps
         private Checkbox _dust765MultiUnderlinesParty;
         private Checkbox _dust765MultiUnderlinesBigBars;
         private Checkbox _dust765BandageGump, _dust765BandageGumpUpDown;
-        private Checkbox _dust765OnCastingGump, _dust765OnCastingGumpHidden, _dust765OnCastingUnderPlayerBar;
+        private Checkbox _dust765OnCastingGump, _dust765OnCastingGumpHidden, _dust765OnCastingHarmfulHueOnPlayer;
         private Checkbox _dust765TransparentHouses;
         private Checkbox _dust765InvisibleHouses;
         private Checkbox _dust765ShowDeathOnWorldmap;
@@ -138,7 +138,7 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765NamePlateHealthBar = AddCheckBox
                 (
                     null,
-                    "HP/Mana/Stam under your name",
+                    "Resize life bar to nameplate width",
                     _currentProfile.NamePlateHealthBar,
                     startX,
                     startY
@@ -165,7 +165,7 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765UseOldHealthBars = AddCheckBox
                 (
                     null,
-                    "Thin HP lines under mobiles",
+                    "Show HP lines both mobiles",
                     _currentProfile.UseOldHealthBars,
                     startX,
                     startY
@@ -232,7 +232,7 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765MultiUnderlinesParty = AddCheckBox
                 (
                     null,
-                    "Stam underlines (you/party)",
+                    "Show Mana/Stam lines both (you/party)",
                     _currentProfile.MultipleUnderlinesSelfParty,
                     startX,
                     startY
@@ -301,7 +301,7 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765OnCastingGump = AddCheckBox
                 (
                     null,
-                    "Casting timer gump",
+                    "OnCasting gump (anti-rubberbanding) on mouse",
                     _currentProfile.OnCastingGump,
                     startX,
                     startY
@@ -313,7 +313,7 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765OnCastingGumpHidden = AddCheckBox
                 (
                     null,
-                    "Hidden (track only)",
+                    "hide the gump",
                     _currentProfile.OnCastingGump_hidden,
                     startX,
                     startY
@@ -322,11 +322,11 @@ namespace ClassicUO.Game.UI.Gumps
 
             sectionCasting.Add
             (
-                _dust765OnCastingUnderPlayerBar = AddCheckBox
+                _dust765OnCastingHarmfulHueOnPlayer = AddCheckBox
                 (
                     null,
-                    "Below status bar",
-                    _currentProfile.OnCastingUnderPlayerBar,
+                    "paint player harmful (red) while casting",
+                    _currentProfile.OnCastingHarmfulHueOnPlayer,
                     startX,
                     startY
                 )
@@ -929,7 +929,7 @@ namespace ClassicUO.Game.UI.Gumps
             _currentProfile.BandageGumpUpDownToggle = _dust765BandageGumpUpDown.IsChecked;
             _currentProfile.OnCastingGump = _dust765OnCastingGump.IsChecked;
             _currentProfile.OnCastingGump_hidden = _dust765OnCastingGumpHidden.IsChecked;
-            _currentProfile.OnCastingUnderPlayerBar = _dust765OnCastingUnderPlayerBar.IsChecked;
+            _currentProfile.OnCastingHarmfulHueOnPlayer = _dust765OnCastingHarmfulHueOnPlayer.IsChecked;
 
             if (int.TryParse(_dust765MovementTurnDelay.Text, out int movementTurnDelay))
             {

@@ -35,7 +35,9 @@ namespace ClassicUO.Game.UI.Gumps
     internal class SystemChatControl : Control
     {
         private const int MAX_MESSAGE_LENGTH = 100;
-        private const int TEXTBOX_LENGTH = 500;
+        private const int TEXTBOX_LENGTH = 20000;
+        private const int CHAT_INPUT_MAX_CHARS_PER_LINE_MIN = 1000;
+        private const int CHAT_INPUT_MAX_CHARS_PER_LINE_MAX = 20000;
         private const int CHAT_X_OFFSET = 3;
         private const int CHAT_HEIGHT = 15;
         private static readonly List<Tuple<ChatMode, string>> _messageHistory = new List<Tuple<ChatMode, string>>();
@@ -152,19 +154,25 @@ namespace ClassicUO.Game.UI.Gumps
 
         private void TextBoxControl_BeforeTextChanged(object sender, StbTextBox.BeforeTextChangedEventArgs e)
         {
-            // Normalize text before creating new newlines
+            if (!ProfileManager.CurrentProfile.ChatInputAutoLineBreak)
+            {
+                return;
+            }
+
             string text = e.NewText.Replace("\n", " ");
+
+            int maxLineChars = Math.Clamp(
+                ProfileManager.CurrentProfile.ChatInputMaxCharsPerLine,
+                CHAT_INPUT_MAX_CHARS_PER_LINE_MIN,
+                CHAT_INPUT_MAX_CHARS_PER_LINE_MAX
+            );
 
             string result = string.Empty;
             string message;
 
             int relativeCursorIndex = e.NewCaretIndex;
 
-            // repeatedly split the message up, create line breaks
-            // and move the caret accordingly in case we had to add a new character instead of just replacing
-            // a space with a newline
-            // The latter happens only if there are no candidate spaces to break in the overflowing line
-            while (TrySplitMessage(text, Mode, out message, out string remainder))
+            while (TrySplitMessage(text, Mode, out message, out string remainder, maxLineChars))
             {
                 result = AppendMultilinePart(result, message);
                 if (relativeCursorIndex >= message.Length)
@@ -761,6 +769,11 @@ namespace ClassicUO.Game.UI.Gumps
                 ResetTextBox();
             }
 
+            if (!ProfileManager.CurrentProfile.ChatInputAutoLineBreak)
+            {
+                text = text.Replace("\r\n", "\n").Replace('\n', ' ');
+            }
+
             if (TryHandleMessageMultipartSend(text, Mode, out var remainder))
             {
                 TextBoxControl.SetText(remainder);
@@ -797,18 +810,24 @@ namespace ClassicUO.Game.UI.Gumps
 
         private bool TrySplitMessage(string text, ChatMode mode, out string message, out string remainder)
         {
-            // Prompt response messages cannot be multiple parts
-            if (text.Length <= MAX_MESSAGE_LENGTH || SINGLE_LINE_CHAT_MODES.Contains(mode))
+            return TrySplitMessage(text, mode, out message, out remainder, MAX_MESSAGE_LENGTH);
+        }
+
+        private bool TrySplitMessage(string text, ChatMode mode, out string message, out string remainder, int maxLineChars)
+        {
+            if (text.Length <= maxLineChars || SINGLE_LINE_CHAT_MODES.Contains(mode))
             {
                 message = text;
                 remainder = string.Empty;
                 return false;
             }
 
-            int lastSpaceIndex = text.LastIndexOfAny([' ', '\n'], MAX_MESSAGE_LENGTH);
+            int lastSpaceIndex = ProfileManager.CurrentProfile.ChatInputAutoLineBreak
+                ? text.LastIndexOfAny([' ', '\n'], maxLineChars)
+                : text.LastIndexOf(' ', maxLineChars);
             if (lastSpaceIndex < 0)
             {
-                lastSpaceIndex = MAX_MESSAGE_LENGTH;
+                lastSpaceIndex = maxLineChars;
             }
 
             message = text[..lastSpaceIndex];

@@ -520,6 +520,19 @@ namespace ClassicUO.Game.GameObjects
                     return false;
                 }
 
+                if (ProfileManager.CurrentProfile.InvisibleHousesEnabled && World.Player != null)
+                {
+                    GameObject tile = World.Map?.GetTile(X, Y);
+                    if (
+                        tile != null
+                        && (Z - World.Player.Z) > ProfileManager.CurrentProfile.InvisibleHousesZ
+                        && (Z - tile.Z) > ProfileManager.CurrentProfile.DontRemoveHouseBelowZ
+                    )
+                    {
+                        return false;
+                    }
+                }
+
                 ushort graphic = DisplayedGraphic;
 
                 if (OnGround && ItemData.IsAnimated)
