@@ -41,7 +41,6 @@ namespace ClassicUO.Game.Managers
                 return;
             }
 
-            int showWhen = ProfileManager.CurrentProfile.MobileHPShowWhen;
             var useNewTargetSystem = ProfileManager.CurrentProfile.UseNewTargetSystem;
             var animations = Client.Game.UO.Animations;
             var isEnabled = IsEnabled;
@@ -78,19 +77,7 @@ namespace ClassicUO.Game.Managers
 
                 int current = mobile.Hits;
                 int max = mobile.HitsMax;
-
-                if (!newTargSystem)
-                {
-                    if (max == 0 && !forceDraw)
-                    {
-                        continue;
-                    }
-
-                    if (showWhen == 1 && current == max && !forceDraw)
-                    {
-                        continue;
-                    }
-                }
+                bool fallbackToLine = mode == 0 && max == 0;
 
                 Point p = mobile.RealScreenPosition;
                 p.X += (int)mobile.Offset.X + 22 + 5;
@@ -101,70 +88,67 @@ namespace ClassicUO.Game.Managers
                 {
                     if (mode != 1 && !mobile.IsDead)
                     {
-                        if ((showWhen == 2 && (current != max || forceDraw)) || showWhen <= 1)
+                        if (max > 0)
                         {
-                            if (max > 0)
+                            int hpPercent = Math.Clamp(current * 100 / max, 0, 100);
+                            if (mobile.HitsPercentage != hpPercent)
                             {
-                                int hpPercent = Math.Clamp(current * 100 / max, 0, 100);
-                                if (mobile.HitsPercentage != hpPercent)
-                                {
-                                    mobile.UpdateHits((byte) hpPercent);
-                                }
+                                mobile.UpdateHits((byte) hpPercent);
+                            }
 
-                                var hitsTexture = mobile.HitsTexture;
-                                if (hitsTexture == null || hitsTexture.IsDestroyed)
-                                {
-                                    continue;
-                                }
+                            var hitsTexture = mobile.HitsTexture;
+                            if (hitsTexture == null || hitsTexture.IsDestroyed)
+                            {
+                                continue;
+                            }
 
-                                animations.GetAnimationDimensions(
-                                    mobile.AnimIndex,
-                                    mobile.GetGraphicForAnimation(),
-                                    /*(byte) m.GetDirectionForAnimation()*/
-                                    0,
-                                    /*Mobile.GetGroupForAnimation(m, isParent:true)*/
-                                    0,
-                                    mobile.IsMounted,
-                                    /*(byte) m.AnimIndex*/
-                                    0,
-                                    out _,
-                                    out int centerY,
-                                    out _,
-                                    out int height
-                                );
+                            animations.GetAnimationDimensions(
+                                mobile.AnimIndex,
+                                mobile.GetGraphicForAnimation(),
+                                /*(byte) m.GetDirectionForAnimation()*/
+                                0,
+                                /*Mobile.GetGroupForAnimation(m, isParent:true)*/
+                                0,
+                                mobile.IsMounted,
+                                /*(byte) m.AnimIndex*/
+                                0,
+                                out _,
+                                out int centerY,
+                                out _,
+                                out int height
+                            );
 
-                                Point p1 = mobile.RealScreenPosition;
-                                p1.X += (int) mobile.Offset.X + 22;
-                                p1.Y += (int) (mobile.Offset.Y - mobile.Offset.Z - (height + centerY + 8));
-                                p1 = Client.Game.Scene.Camera.WorldToScreen(p1, true);
-                                p1.X -= hitsTexture.Width >> 1;
-                                p1.Y -= hitsTexture.Height;
+                            Point p1 = mobile.RealScreenPosition;
+                            p1.X += (int) mobile.Offset.X + 22;
+                            p1.Y += (int) (mobile.Offset.Y - mobile.Offset.Z - (height + centerY + 8));
+                            p1 = Client.Game.Scene.Camera.WorldToScreen(p1, true);
+                            p1.X -= hitsTexture.Width >> 1;
+                            p1.Y -= hitsTexture.Height;
 
-                                if (mobile.ObjectHandlesStatus == ObjectHandlesStatus.DISPLAYING)
-                                {
-                                    int ohHeight = Constants.OBJECT_HANDLES_GUMP_HEIGHT
-                                        + (ProfileManager.CurrentProfile.NameOverheadShowHpBar
-                                            ? Constants.OBJECT_HANDLES_HP_BAR_HEIGHT + 1 : 0);
-                                    p1.Y -= ohHeight + 5;
-                                    offsetY += ohHeight + 5;
-                                }
+                            if (mobile.ObjectHandlesStatus == ObjectHandlesStatus.DISPLAYING)
+                            {
+                                int ohHeight = Constants.OBJECT_HANDLES_GUMP_HEIGHT
+                                    + (ProfileManager.CurrentProfile.NameOverheadShowHpBar
+                                        ? Constants.OBJECT_HANDLES_HP_BAR_HEIGHT + 1 : 0);
+                                p1.Y -= ohHeight + 5;
+                                offsetY += ohHeight + 5;
+                            }
 
-                                if (
-                                    !(
-                                        p1.X < 0
-                                        || p1.X > camera.Bounds.Width - hitsTexture.Width
-                                        || p1.Y < 0
-                                        || p1.Y > camera.Bounds.Height
-                                    )
+                            if (
+                                !(
+                                    p1.X < 0
+                                    || p1.X > camera.Bounds.Width - hitsTexture.Width
+                                    || p1.Y < 0
+                                    || p1.Y > camera.Bounds.Height
                                 )
-                                {
-                                    hitsTexture.Draw(batcher, p1.X, p1.Y, layerDepth);
-                                }
+                            )
+                            {
+                                hitsTexture.Draw(batcher, p1.X, p1.Y, layerDepth);
+                            }
 
-                                if (newTargSystem)
-                                {
-                                    offsetY += hitsTexture.Height;
-                                }
+                            if (newTargSystem)
+                            {
+                                offsetY += hitsTexture.Height;
                             }
                         }
                     }
@@ -186,7 +170,7 @@ namespace ClassicUO.Game.Managers
                     continue;
                 }
 
-                if ((isEnabled && mode >= 1) || newTargSystem || forceDraw)
+                if ((isEnabled && (mode >= 1 || fallbackToLine)) || newTargSystem || forceDraw)
                 {
                     var prof = ProfileManager.CurrentProfile;
 
