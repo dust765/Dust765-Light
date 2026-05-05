@@ -987,7 +987,11 @@ namespace ClassicUO.Game.GameObjects
                 health
                 && HitsTexture != null
                 && mode != 1
-                && (alwaysHP >= 1 && Hits != HitsMax || alwaysHP == 0)
+                && (
+                    alwaysHP == 0
+                    || alwaysHP == 2
+                    || (alwaysHP == 1 && Hits != HitsMax)
+                )
             )
             {
                 p.Y -= HitsTexture.Height;
