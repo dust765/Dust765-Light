@@ -97,58 +97,56 @@ namespace ClassicUO.Game.Managers
                             }
 
                             var hitsTexture = mobile.HitsTexture;
-                            if (hitsTexture == null || hitsTexture.IsDestroyed)
+                            if (hitsTexture != null && !hitsTexture.IsDestroyed)
                             {
-                                continue;
-                            }
+                                animations.GetAnimationDimensions(
+                                    mobile.AnimIndex,
+                                    mobile.GetGraphicForAnimation(),
+                                    /*(byte) m.GetDirectionForAnimation()*/
+                                    0,
+                                    /*Mobile.GetGroupForAnimation(m, isParent:true)*/
+                                    0,
+                                    mobile.IsMounted,
+                                    /*(byte) m.AnimIndex*/
+                                    0,
+                                    out _,
+                                    out int centerY,
+                                    out _,
+                                    out int height
+                                );
 
-                            animations.GetAnimationDimensions(
-                                mobile.AnimIndex,
-                                mobile.GetGraphicForAnimation(),
-                                /*(byte) m.GetDirectionForAnimation()*/
-                                0,
-                                /*Mobile.GetGroupForAnimation(m, isParent:true)*/
-                                0,
-                                mobile.IsMounted,
-                                /*(byte) m.AnimIndex*/
-                                0,
-                                out _,
-                                out int centerY,
-                                out _,
-                                out int height
-                            );
+                                Point p1 = mobile.RealScreenPosition;
+                                p1.X += (int) mobile.Offset.X + 22;
+                                p1.Y += (int) (mobile.Offset.Y - mobile.Offset.Z - (height + centerY + 8));
+                                p1 = Client.Game.Scene.Camera.WorldToScreen(p1, true);
+                                p1.X -= hitsTexture.Width >> 1;
+                                p1.Y -= hitsTexture.Height;
 
-                            Point p1 = mobile.RealScreenPosition;
-                            p1.X += (int) mobile.Offset.X + 22;
-                            p1.Y += (int) (mobile.Offset.Y - mobile.Offset.Z - (height + centerY + 8));
-                            p1 = Client.Game.Scene.Camera.WorldToScreen(p1, true);
-                            p1.X -= hitsTexture.Width >> 1;
-                            p1.Y -= hitsTexture.Height;
+                                if (mobile.ObjectHandlesStatus == ObjectHandlesStatus.DISPLAYING)
+                                {
+                                    int ohHeight = Constants.OBJECT_HANDLES_GUMP_HEIGHT
+                                        + (ProfileManager.CurrentProfile.NameOverheadShowHpBar
+                                            ? Constants.OBJECT_HANDLES_HP_BAR_HEIGHT + 1 : 0);
+                                    p1.Y -= ohHeight + 5;
+                                    offsetY += ohHeight + 5;
+                                }
 
-                            if (mobile.ObjectHandlesStatus == ObjectHandlesStatus.DISPLAYING)
-                            {
-                                int ohHeight = Constants.OBJECT_HANDLES_GUMP_HEIGHT
-                                    + (ProfileManager.CurrentProfile.NameOverheadShowHpBar
-                                        ? Constants.OBJECT_HANDLES_HP_BAR_HEIGHT + 1 : 0);
-                                p1.Y -= ohHeight + 5;
-                                offsetY += ohHeight + 5;
-                            }
-
-                            if (
-                                !(
-                                    p1.X < 0
-                                    || p1.X > camera.Bounds.Width - hitsTexture.Width
-                                    || p1.Y < 0
-                                    || p1.Y > camera.Bounds.Height
+                                if (
+                                    !(
+                                        p1.X < 0
+                                        || p1.X > camera.Bounds.Width - hitsTexture.Width
+                                        || p1.Y < 0
+                                        || p1.Y > camera.Bounds.Height
+                                    )
                                 )
-                            )
-                            {
-                                hitsTexture.Draw(batcher, p1.X, p1.Y, layerDepth);
-                            }
+                                {
+                                    hitsTexture.Draw(batcher, p1.X, p1.Y, layerDepth);
+                                }
 
-                            if (newTargSystem)
-                            {
-                                offsetY += hitsTexture.Height;
+                                if (newTargSystem)
+                                {
+                                    offsetY += hitsTexture.Height;
+                                }
                             }
                         }
                     }
@@ -160,12 +158,12 @@ namespace ClassicUO.Game.Managers
                 p.X -= BAR_WIDTH_HALF;
                 p.Y -= BAR_HEIGHT_HALF;
 
-                if (p.X < 0 || p.X > camera.Bounds.Width - BAR_WIDTH)
+                if (p.X < -BAR_WIDTH || p.X > camera.Bounds.Width)
                 {
                     continue;
                 }
 
-                if (p.Y < 0 || p.Y > camera.Bounds.Height - BAR_HEIGHT)
+                if (p.Y < -BAR_HEIGHT || p.Y > camera.Bounds.Height)
                 {
                     continue;
                 }
