@@ -21,6 +21,8 @@ namespace ClassicUO.Game.Managers
             return ProfileManager.CurrentProfile?.MovementWalkingDelay ?? Constants.WALKING_DELAY;
         }
 
+        public static int WalkingDelay => GetWalkingDelay();
+
         public static int GetPlayerWalkingDelay()
         {
             return ProfileManager.CurrentProfile?.MovementPlayerWalkingDelay ?? Constants.PLAYER_WALKING_DELAY;

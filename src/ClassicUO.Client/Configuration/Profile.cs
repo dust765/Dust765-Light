@@ -111,6 +111,7 @@ namespace ClassicUO.Configuration
         public bool UseOldStatusGump { get; set; }
         public bool StatusGumpBarMutuallyExclusive { get; set; } = true;
         public int BackpackStyle { get; set; }
+        public bool ShowAllLayersPaperdoll { get; set; } = true;
         public bool HighlightGameObjects { get; set; }
         public bool HighlightMobilesByParalize { get; set; } = true;
         public bool HighlightMobilesByPoisoned { get; set; } = true;
@@ -366,8 +367,8 @@ namespace ClassicUO.Configuration
         public bool OverheadPartyMessages { get; set; }
 
         // Movement tuning
-        public int MovementTurnDelay { get; set; } = 100;
-        public int MovementTurnDelayFast { get; set; } = 80;
+        public int MovementTurnDelay { get; set; } = 80;
+        public int MovementTurnDelayFast { get; set; } = 45;
         public int MovementWalkingDelay { get; set; } = 150;
         public int MovementPlayerWalkingDelay { get; set; } = 150;
         public bool MovementEnableAdaptiveDelays { get; set; } = false;

@@ -22,6 +22,7 @@ namespace ClassicUO.Game.UI.Gumps
         private Checkbox _dust765InvisibleHouses;
         private Checkbox _dust765ShowDeathOnWorldmap;
         private Checkbox _dust765GridContainer;
+        private Checkbox _dust765ShowAllLayersPaperdoll;
         private HSliderBar _dust765NamePlateOpacity;
         private HSliderBar _dust765MultiUnderlinesTransparency;
         private HSliderBar _dust765TransparentHousesZ;
@@ -569,8 +570,23 @@ namespace ClassicUO.Game.UI.Gumps
                 )
             );
 
+            SettingsSection sectionPaperdoll = AddSettingsSection(box, "Paperdoll");
+            sectionPaperdoll.Y = sectionGrid.Bounds.Bottom + 40;
+
+            sectionPaperdoll.Add
+            (
+                _dust765ShowAllLayersPaperdoll = AddCheckBox
+                (
+                    null,
+                    "Show all layers (ignore covered)",
+                    _currentProfile.ShowAllLayersPaperdoll,
+                    startX,
+                    startY
+                )
+            );
+
             SettingsSection sectionArt = AddSettingsSection(box, "Stealth");
-            sectionArt.Y = sectionGrid.Bounds.Bottom + 40;
+            sectionArt.Y = sectionPaperdoll.Bounds.Bottom + 40;
 
             sectionArt.Add
             (
@@ -958,6 +974,7 @@ namespace ClassicUO.Game.UI.Gumps
             _currentProfile.DontRemoveHouseBelowZ = Math.Clamp(_dust765DontRemoveHouseBelowZ.Value, 1, 100);
             _currentProfile.ShowDeathOnWorldmap = _dust765ShowDeathOnWorldmap.IsChecked;
             _currentProfile.GridContainerEnabled = _dust765GridContainer.IsChecked;
+            _currentProfile.ShowAllLayersPaperdoll = _dust765ShowAllLayersPaperdoll.IsChecked;
 
             // Art / Hue Changes
             _currentProfile.ColorStealth = _dust765ColorStealth.IsChecked;

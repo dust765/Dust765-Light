@@ -45,6 +45,7 @@ namespace ClassicUO.Game.Scenes
 
         private const float MAX_LAYER_DEPTH = 0x8000;
         private uint _time_cleanup = Time.Ticks + 5000;
+        private ushort _lastPreloadX, _lastPreloadY;
         private bool _alphaChanged;
         private long _alphaTimer;
         private bool _forceStopScene;
@@ -754,6 +755,16 @@ namespace ClassicUO.Game.Scenes
             {
                 _world.Map?.ClearUnusedBlocks();
                 _time_cleanup = Time.Ticks + 500;
+            }
+
+            if (_world.InGame && _world.Map != null && _world.Player != null)
+            {
+                if (_world.Player.X != _lastPreloadX || _world.Player.Y != _lastPreloadY)
+                {
+                    _lastPreloadX = _world.Player.X;
+                    _lastPreloadY = _world.Player.Y;
+                    _world.Map.PreloadChunksAround(_world.Player.X, _world.Player.Y, 3, 8);
+                }
             }
 
             PacketHandlers.SendMegaClilocRequests(_world);

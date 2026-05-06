@@ -118,7 +118,6 @@ namespace ClassicUO.Game.Managers
 
             ClearEntities(serial);
             _timePacket = Time.Ticks;
-            Console.WriteLine("CURRENT PACKET TIME: {0}", _timePacket);
         }
 
         public void ClearSteps(uint serial)

@@ -6538,6 +6538,8 @@ namespace ClassicUO.Network
                 world.Player.CloseRangedGumps();
                 world.Player.SetInWorldTile(x, y, z);
 
+                world.Map?.PreloadChunksAround(x, y, 4, int.MaxValue);
+
                 world.Player.UpdateAbilities();
             }
         }

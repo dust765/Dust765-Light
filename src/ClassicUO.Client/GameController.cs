@@ -107,6 +107,8 @@ namespace ClassicUO
             _filter = HandleSdlEvent;
             SDL_SetEventFilter(_filter, IntPtr.Zero);
 
+            OptimizeSDLForHighFPS();
+
             Microsoft.Xna.Framework.Input.TextInputEXT.StartTextInput();
 
             _displayScale = DpiScale;
@@ -203,6 +205,22 @@ namespace ClassicUO
         public void SetVSync(bool value)
         {
             GraphicManager.SynchronizeWithVerticalRetrace = value;
+        }
+
+        private void OptimizeSDLForHighFPS()
+        {
+            SDL_SetHint("SDL_RENDER_VSYNC", "0");
+            SDL_SetHint("SDL_VIDEO_MINIMIZE_ON_FOCUS_LOSS", "0");
+            SDL_SetHint("SDL_TIMER_RESOLUTION", "1");
+            SDL_SetHint("SDL_HINT_TIMER_RESOLUTION", "1");
+
+            if (Environment.OSVersion.Platform == PlatformID.Win32NT)
+            {
+                SDL_SetHint("SDL_WINDOWS_DISABLE_THREAD_NAMING", "1");
+                SDL_SetHint("SDL_VIDEO_WINDOW_SHARE_PIXEL_FORMAT", "1");
+            }
+
+            Log.Trace("SDL optimized for high FPS");
         }
 
         public void SetRefreshRate(int rate)
@@ -446,7 +464,7 @@ namespace ClassicUO
 
                 if (!gameTime.IsRunningSlowly)
                 {
-                    Thread.Sleep(1);
+                    Thread.Sleep(0);
                 }
             }
 

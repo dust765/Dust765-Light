@@ -25,6 +25,11 @@ namespace ClassicUO.Game.Managers
         private static readonly Texture2D _oldEdge = SolidColorTextureCache.GetTexture(Color.Black);
         private static readonly Texture2D _oldBack = SolidColorTextureCache.GetTexture(Color.Red);
 
+        private float _cachedAlphaMod = -1f;
+        private Texture2D _cachedEdge;
+        private Texture2D _cachedBack;
+        private Texture2D _cachedMana;
+
         private readonly World _world;
 
         public HealthLinesManager(World world) { _world = world; }
@@ -368,24 +373,24 @@ namespace ClassicUO.Game.Managers
                     bigHalf = bigW / 2 - 17;
                 }
 
-                Texture2D edgeH = SolidColorTextureCache.GetTexture(Color.Black * alphaMod);
-                Texture2D backH = SolidColorTextureCache.GetTexture(Color.Red * alphaMod);
-                Texture2D edgeM = SolidColorTextureCache.GetTexture(Color.Black * alphaMod);
-                Texture2D backM = SolidColorTextureCache.GetTexture(Color.Red * alphaMod);
-                Texture2D edgeS = SolidColorTextureCache.GetTexture(Color.Black * alphaMod);
-                Texture2D backS = SolidColorTextureCache.GetTexture(Color.Red * alphaMod);
+                if (alphaMod != _cachedAlphaMod)
+                {
+                    _cachedAlphaMod = alphaMod;
+                    _cachedEdge = SolidColorTextureCache.GetTexture(Color.Black * alphaMod);
+                    _cachedBack = SolidColorTextureCache.GetTexture(Color.Red * alphaMod);
+                    _cachedMana = SolidColorTextureCache.GetTexture(Color.CornflowerBlue * alphaMod);
+                }
 
                 (Color hpcolor, int maxhp, int maxmana, int maxstam) = CalcUnderlines(mobile, bigW, alphaMod);
-                Color manaColor = Color.CornflowerBlue * alphaMod;
 
                 batcher.Draw(
-                    edgeH,
+                    _cachedEdge,
                     new Rectangle(x - 1 - bigHalf, y - 1, bigW + 2, bigH + 1),
                     hueVec,
                     layerDepth
                 );
                 batcher.Draw(
-                    backH,
+                    _cachedBack,
                     new Rectangle(x - bigHalf + maxhp, y, bigW - maxhp, bigH),
                     hueVec,
                     layerDepth
@@ -398,26 +403,26 @@ namespace ClassicUO.Game.Managers
                 );
 
                 batcher.Draw(
-                    edgeM,
+                    _cachedEdge,
                     new Rectangle(x - 1 - bigHalf, y + bigH + ySpacing - 1, bigW + 2, bigH + 1),
                     hueVec,
                     layerDepth
                 );
                 batcher.Draw(
-                    backM,
+                    _cachedBack,
                     new Rectangle(x - bigHalf + maxmana, y + bigH + ySpacing, bigW - maxmana, bigH),
                     hueVec,
                     layerDepth
                 );
                 batcher.Draw(
-                    SolidColorTextureCache.GetTexture(manaColor),
+                    _cachedMana,
                     new Rectangle(x - bigHalf, y + bigH + ySpacing, maxmana, bigH),
                     hueVec,
                     layerDepth
                 );
 
                 batcher.Draw(
-                    edgeS,
+                    _cachedEdge,
                     new Rectangle(
                         x - 1 - bigHalf,
                         y + bigH + bigH + ySpacing + ySpacing - 1,
@@ -428,7 +433,7 @@ namespace ClassicUO.Game.Managers
                     layerDepth
                 );
                 batcher.Draw(
-                    backS,
+                    _cachedBack,
                     new Rectangle(
                         x - bigHalf + maxstam,
                         y + bigH + bigH + ySpacing + ySpacing,
@@ -439,7 +444,7 @@ namespace ClassicUO.Game.Managers
                     layerDepth
                 );
                 batcher.Draw(
-                    SolidColorTextureCache.GetTexture(manaColor),
+                    _cachedMana,
                     new Rectangle(x - bigHalf, y + bigH + bigH + ySpacing + ySpacing, maxstam, bigH),
                     hueVec,
                     layerDepth

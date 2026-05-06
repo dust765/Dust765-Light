@@ -244,6 +244,32 @@ namespace ClassicUO.Game.Map
         }
 
 
+        public void PreloadChunksAround(int centerX, int centerY, int radius, int maxPerCall = 4)
+        {
+            int mapW = Client.Game.UO.FileManager.Maps.MapBlocksSize[Index, 0];
+            int mapH = Client.Game.UO.FileManager.Maps.MapBlocksSize[Index, 1];
+            int startBlockX = Math.Max(0, (centerX >> 3) - radius);
+            int startBlockY = Math.Max(0, (centerY >> 3) - radius);
+            int endBlockX = Math.Min(mapW - 1, (centerX >> 3) + radius);
+            int endBlockY = Math.Min(mapH - 1, (centerY >> 3) + radius);
+            int loaded = 0;
+
+            for (int bx = startBlockX; bx <= endBlockX && loaded < maxPerCall; bx++)
+            {
+                for (int by = startBlockY; by <= endBlockY && loaded < maxPerCall; by++)
+                {
+                    int block = GetBlock(bx, by);
+                    if (block < 0 || block >= BlocksCount || block >= _terrainChunks.Length)
+                        continue;
+                    if (_terrainChunks[block] != null && !_terrainChunks[block].IsDestroyed)
+                        continue;
+
+                    GetChunk2(bx, by, true);
+                    loaded++;
+                }
+            }
+        }
+
         public void ClearUnusedBlocks()
         {
             int count = 0;
