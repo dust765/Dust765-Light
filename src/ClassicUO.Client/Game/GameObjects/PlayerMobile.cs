@@ -564,7 +564,9 @@ namespace ClassicUO.Game.GameObjects
             }
 
             sbyte oldZ = z;
-            ushort walkTime = (ushort)MovementSpeed.TurnDelay;
+            int turnPacketDelay = MovementSpeed.GetTurnPacketDelay(Walker.UnacceptedPacketsCount);
+            ushort walkTime = (ushort)turnPacketDelay;
+            bool directionOnlyStep = true;
 
             // Dust765: Avoid Obstacles
             if (ProfileManager.CurrentProfile.AvoidObstacles && IsCardinalDirection(direction))
@@ -617,7 +619,8 @@ namespace ClassicUO.Game.GameObjects
                     y = newY;
                     z = newZ;
 
-                    walkTime = (ushort) MovementSpeed.TimeToCompleteMovement(run, IsMounted || SpeedMode == CharacterSpeedType.FastUnmount || SpeedMode == CharacterSpeedType.FastUnmountAndCantRun || IsFlying);
+                    walkTime = (ushort) MovementSpeed.TimeToCompleteMovement(run, IsMounted || SpeedMode == CharacterSpeedType.FastUnmount || SpeedMode == CharacterSpeedType.FastUnmountAndCantRun || IsFlyingVisual);
+                    directionOnlyStep = false;
                 }
             }
             else
@@ -641,7 +644,8 @@ namespace ClassicUO.Game.GameObjects
                     y = newY;
                     z = newZ;
 
-                    walkTime = (ushort) MovementSpeed.TimeToCompleteMovement(run, IsMounted || SpeedMode == CharacterSpeedType.FastUnmount || SpeedMode == CharacterSpeedType.FastUnmountAndCantRun || IsFlying);
+                    walkTime = (ushort) MovementSpeed.TimeToCompleteMovement(run, IsMounted || SpeedMode == CharacterSpeedType.FastUnmount || SpeedMode == CharacterSpeedType.FastUnmountAndCantRun || IsFlyingVisual);
+                    directionOnlyStep = false;
                 }
 
                 direction = newDir;
@@ -650,7 +654,7 @@ namespace ClassicUO.Game.GameObjects
             // Adaptive coalescing: only suppress direction-only packets when the server
             // is falling behind (3+ unconfirmed packets). This allows full-speed spinning
             // when the connection is healthy and automatically backs off under congestion.
-            if (walkTime == (ushort)MovementSpeed.TurnDelay && Walker.UnacceptedPacketsCount >= 3)
+            if (directionOnlyStep && Walker.UnacceptedPacketsCount >= 3)
             {
                 Direction = direction;
                 Walker.LastStepRequestTime = Time.Ticks + walkTime;

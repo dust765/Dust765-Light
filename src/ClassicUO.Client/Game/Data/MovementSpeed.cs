@@ -1,6 +1,6 @@
 ﻿// SPDX-License-Identifier: BSD-2-Clause
 
-using ClassicUO.Game.Managers;
+using ClassicUO.Game;
 using System;
 
 namespace ClassicUO.Game.Data
@@ -13,7 +13,17 @@ namespace ClassicUO.Game.Data
         public const int STEP_DELAY_WALK = 400;
 
         public static bool FastRotation;
-        public static int TurnDelay => FastRotation ? MovementTimingManager.GetTurnDelayFast() : MovementTimingManager.GetTurnDelay();
+        public static int TurnDelay => FastRotation ? Constants.TURN_DELAY_FAST : Constants.TURN_DELAY;
+
+        public static int GetTurnPacketDelay(int unacceptedPacketsCount)
+        {
+            if (!FastRotation)
+            {
+                return Constants.TURN_DELAY;
+            }
+
+            return unacceptedPacketsCount == 0 ? Constants.TURN_DELAY_FAST : Constants.TURN_DELAY;
+        }
 
         public static int TimeToCompleteMovement(bool run, bool mounted)
         {

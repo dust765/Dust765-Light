@@ -9,6 +9,7 @@ namespace ClassicUO.Game.UI.Gumps
     internal partial class OptionsGump
     {
         private Checkbox _dust765AvoidObstacles;
+        private Checkbox _dust765ForceGargoyleWalk;
         private Checkbox _dust765UccBuffbar;
         private Checkbox _dust765UccSwing;
         private Checkbox _dust765UccLocked;
@@ -53,10 +54,6 @@ namespace ClassicUO.Game.UI.Gumps
         private Checkbox _dust765NameOverheadBgToggled;
         private Checkbox _dust765NamePlateHideAtFullHealth;
         private HSliderBar _dust765NamePlateBgOpacity;
-        private InputField _dust765MovementTurnDelay;
-        private InputField _dust765MovementTurnDelayFast;
-        private InputField _dust765MovementWalkingDelay;
-        private InputField _dust765MovementPlayerWalkingDelay;
 
         internal void BuildDust765()
         {
@@ -87,6 +84,18 @@ namespace ClassicUO.Game.UI.Gumps
                     null,
                     "Avoid obstacles",
                     _currentProfile.AvoidObstacles,
+                    startX,
+                    startY
+                )
+            );
+
+            sectionMove.Add
+            (
+                _dust765ForceGargoyleWalk = AddCheckBox
+                (
+                    null,
+                    "Gargoyle: show walking instead of flying",
+                    _currentProfile.ForceGargoyleWalk,
                     startX,
                     startY
                 )
@@ -332,118 +341,6 @@ namespace ClassicUO.Game.UI.Gumps
                     startY
                 )
             );
-
-            sectionCasting.Add(AddLabel(null, "Movement turn delay (ms)", startX, startY));
-            sectionCasting.AddRight
-            (
-                _dust765MovementTurnDelay = new InputField
-                (
-                    0x0BB8,
-                    FONT,
-                    HUE_FONT,
-                    true,
-                    60,
-                    TEXTBOX_HEIGHT,
-                    80,
-                    4
-                )
-                {
-                    NumbersOnly = true
-                },
-                2
-            );
-            _dust765MovementTurnDelay.SetText(Math.Clamp(_currentProfile.MovementTurnDelay, 20, 1000).ToString());
-
-            sectionCasting.Add(AddLabel(null, "Movement fast turn delay (ms)", startX, startY));
-            sectionCasting.AddRight
-            (
-                _dust765MovementTurnDelayFast = new InputField
-                (
-                    0x0BB8,
-                    FONT,
-                    HUE_FONT,
-                    true,
-                    60,
-                    TEXTBOX_HEIGHT,
-                    80,
-                    4
-                )
-                {
-                    NumbersOnly = true
-                },
-                2
-            );
-            _dust765MovementTurnDelayFast.SetText(Math.Clamp(_currentProfile.MovementTurnDelayFast, 20, 1000).ToString());
-
-            sectionCasting.Add(AddLabel(null, "Movement walking delay (ms)", startX, startY));
-            sectionCasting.AddRight
-            (
-                _dust765MovementWalkingDelay = new InputField
-                (
-                    0x0BB8,
-                    FONT,
-                    HUE_FONT,
-                    true,
-                    60,
-                    TEXTBOX_HEIGHT,
-                    80,
-                    4
-                )
-                {
-                    NumbersOnly = true
-                },
-                2
-            );
-            _dust765MovementWalkingDelay.SetText(Math.Clamp(_currentProfile.MovementWalkingDelay, 20, 1000).ToString());
-
-            sectionCasting.Add(AddLabel(null, "Movement player walking delay (ms)", startX, startY));
-            sectionCasting.AddRight
-            (
-                _dust765MovementPlayerWalkingDelay = new InputField
-                (
-                    0x0BB8,
-                    FONT,
-                    HUE_FONT,
-                    true,
-                    60,
-                    TEXTBOX_HEIGHT,
-                    80,
-                    4
-                )
-                {
-                    NumbersOnly = true
-                },
-                2
-            );
-            _dust765MovementPlayerWalkingDelay.SetText(Math.Clamp(_currentProfile.MovementPlayerWalkingDelay, 20, 1000).ToString());
-
-            NiceButton lowPingPresetButton = new NiceButton(startX, startY, 90, 22, ButtonAction.Activate, "Low Ping")
-            {
-                IsSelectable = false
-            };
-            lowPingPresetButton.MouseUp += (_, _) => SetMovementDelayInputs(70, 35, 120, 120);
-            sectionCasting.Add(lowPingPresetButton);
-
-            NiceButton balancedPresetButton = new NiceButton(0, 0, 90, 22, ButtonAction.Activate, "Balanced")
-            {
-                IsSelectable = false
-            };
-            balancedPresetButton.MouseUp += (_, _) => SetMovementDelayInputs(100, 45, 150, 150);
-            sectionCasting.Add(balancedPresetButton);
-
-            NiceButton highJitterPresetButton = new NiceButton(0, 0, 100, 22, ButtonAction.Activate, "High Jitter")
-            {
-                IsSelectable = false
-            };
-            highJitterPresetButton.MouseUp += (_, _) => SetMovementDelayInputs(140, 70, 220, 220);
-            sectionCasting.Add(highJitterPresetButton);
-
-            NiceButton resetPresetButton = new NiceButton(0, 0, 70, 22, ButtonAction.Activate, "Reset")
-            {
-                IsSelectable = false
-            };
-            resetPresetButton.MouseUp += (_, _) => SetMovementDelayInputs(100, 45, 150, 150);
-            sectionCasting.Add(resetPresetButton);
 
             SettingsSection sectionHouse = AddSettingsSection(box, "Houses & map");
             sectionHouse.Y = sectionCasting.Bounds.Bottom + 40;
@@ -931,6 +828,7 @@ namespace ClassicUO.Game.UI.Gumps
         internal void ApplyDust765Profile()
         {
             _currentProfile.AvoidObstacles = _dust765AvoidObstacles.IsChecked;
+            _currentProfile.ForceGargoyleWalk = _dust765ForceGargoyleWalk.IsChecked;
             _currentProfile.UOClassicCombatBuffbar = _dust765UccBuffbar.IsChecked;
             _currentProfile.UOClassicCombatBuffbar_SwingEnabled = _dust765UccSwing.IsChecked;
             _currentProfile.UOClassicCombatBuffbar_Locked = _dust765UccLocked.IsChecked;
@@ -947,25 +845,6 @@ namespace ClassicUO.Game.UI.Gumps
             _currentProfile.OnCastingGump_hidden = _dust765OnCastingGumpHidden.IsChecked;
             _currentProfile.OnCastingHarmfulHueOnPlayer = _dust765OnCastingHarmfulHueOnPlayer.IsChecked;
 
-            if (int.TryParse(_dust765MovementTurnDelay.Text, out int movementTurnDelay))
-            {
-                _currentProfile.MovementTurnDelay = Math.Clamp(movementTurnDelay, 20, 1000);
-            }
-
-            if (int.TryParse(_dust765MovementTurnDelayFast.Text, out int movementTurnDelayFast))
-            {
-                _currentProfile.MovementTurnDelayFast = Math.Clamp(movementTurnDelayFast, 20, 1000);
-            }
-
-            if (int.TryParse(_dust765MovementWalkingDelay.Text, out int movementWalkingDelay))
-            {
-                _currentProfile.MovementWalkingDelay = Math.Clamp(movementWalkingDelay, 20, 1000);
-            }
-
-            if (int.TryParse(_dust765MovementPlayerWalkingDelay.Text, out int movementPlayerWalkingDelay))
-            {
-                _currentProfile.MovementPlayerWalkingDelay = Math.Clamp(movementPlayerWalkingDelay, 20, 1000);
-            }
             _currentProfile.TransparentHousesEnabled = _dust765TransparentHouses.IsChecked;
             _currentProfile.TransparentHousesZ = Math.Clamp(_dust765TransparentHousesZ.Value, 1, 100);
             _currentProfile.TransparentHousesTransparency = Math.Clamp(_dust765TransparentHousesTransparency.Value, 1, 9);
@@ -1073,14 +952,6 @@ namespace ClassicUO.Game.UI.Gumps
             _currentProfile.NameOverheadBackgroundToggled = _dust765NameOverheadBgToggled.IsChecked;
             _currentProfile.NamePlateHideAtFullHealth = _dust765NamePlateHideAtFullHealth.IsChecked;
             _currentProfile.NamePlateOpacity = (byte)Math.Clamp(_dust765NamePlateBgOpacity.Value, 0, 100);
-        }
-
-        private void SetMovementDelayInputs(int turnDelay, int fastTurnDelay, int walkingDelay, int playerWalkingDelay)
-        {
-            _dust765MovementTurnDelay?.SetText(Math.Clamp(turnDelay, 20, 1000).ToString());
-            _dust765MovementTurnDelayFast?.SetText(Math.Clamp(fastTurnDelay, 20, 1000).ToString());
-            _dust765MovementWalkingDelay?.SetText(Math.Clamp(walkingDelay, 20, 1000).ToString());
-            _dust765MovementPlayerWalkingDelay?.SetText(Math.Clamp(playerWalkingDelay, 20, 1000).ToString());
         }
     }
 }

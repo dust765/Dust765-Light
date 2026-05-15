@@ -377,7 +377,7 @@ namespace ClassicUO.Game
             }
             else
             {
-                if (_world.Player.IsGargoyle && _world.Player.IsFlying)
+                if (_world.Player.IsGargoyle && _world.Player.IsFlyingVisual)
                 {
                     stepState = (int) PATH_STEP_STATE.PSS_FLYING;
                 }

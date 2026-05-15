@@ -157,7 +157,7 @@ namespace ClassicUO.Game.GameObjects
 
                 if (Parent is Mobile m)
                 {
-                    if (m.IsGargoyle && m.IsFlying)
+                    if (m.IsGargoyle && m.IsFlyingVisual)
                     {
                         offY += 22;
                     }

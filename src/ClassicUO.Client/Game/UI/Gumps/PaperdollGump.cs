@@ -32,6 +32,7 @@ namespace ClassicUO.Game.UI.Gumps
         private GumpPic _picBase;
         private GumpPic _profilePic;
         private readonly List<EquipmentSlot> _slots = new List<EquipmentSlot>();
+        private const int PaperdollLeftSlotCount = 9;
         private Label _titleLabel;
         private GumpPic _virtueMenuPic;
         private Button _warModeBtn;
@@ -70,6 +71,10 @@ namespace ClassicUO.Game.UI.Gumps
                     }
 
                     _picBase.IsVisible = true;
+                    if (!value)
+                    {
+                        UpdateSlotVisibility();
+                    }
                     WantUpdateSize = true;
                 }
             }
@@ -273,17 +278,16 @@ namespace ClassicUO.Game.UI.Gumps
             _slots.Add(new EquipmentSlot(0, initialPos.X, initialPos.Y + 21 * 7, Layer.TwoHanded, this));
             _slots.Add(new EquipmentSlot(0, initialPos.X, initialPos.Y + 21 * 8, Layer.Talisman, this));
 
-            // add right
+            // add right (Robe, Gloves, Torso, Arms, Pants, Cloak, Waist, Shoes — alinhado a paperdoll expandido / OOCAP)
             initialPos.X = 160 + 2;
             _slots.Add(new EquipmentSlot(0, initialPos.X, initialPos.Y, Layer.Robe, this));
             _slots.Add(new EquipmentSlot(0, initialPos.X, initialPos.Y + 21, Layer.Gloves, this));
-            _slots.Add(new EquipmentSlot(0, initialPos.X, initialPos.Y + 21 * 2, Layer.Pants, this));
+            _slots.Add(new EquipmentSlot(0, initialPos.X, initialPos.Y + 21 * 2, Layer.Torso, this));
             _slots.Add(new EquipmentSlot(0, initialPos.X, initialPos.Y + 21 * 3, Layer.Arms, this));
-            _slots.Add(new EquipmentSlot(0, initialPos.X, initialPos.Y + 21 * 4, Layer.Cloak, this));
-            _slots.Add(new EquipmentSlot(0, initialPos.X, initialPos.Y + 21 * 5, Layer.Shoes, this));
-
-            foreach (var slot in _slots)
-                Add(slot);
+            _slots.Add(new EquipmentSlot(0, initialPos.X, initialPos.Y + 21 * 4, Layer.Pants, this));
+            _slots.Add(new EquipmentSlot(0, initialPos.X, initialPos.Y + 21 * 5, Layer.Cloak, this));
+            _slots.Add(new EquipmentSlot(0, initialPos.X, initialPos.Y + 21 * 6, Layer.Waist, this));
+            _slots.Add(new EquipmentSlot(0, initialPos.X, initialPos.Y + 21 * 7, Layer.Shoes, this));
 
             // Paperdoll control!
             _paperDollInteractable = new PaperDollInteractable(8, 19, LocalSerial, this);
@@ -291,7 +295,7 @@ namespace ClassicUO.Game.UI.Gumps
 
             if (showPaperdollBooks)
             {
-                Add(_combatBook = new GumpPic(156, 200, 0x2B34, 0));
+                Add(_combatBook = new GumpPic(156, 200, 0x2B34, 0) { Priority = ClickPriority.Low });
                 _combatBook.MouseDoubleClick += (sender, e) =>
                 {
                     GameActions.OpenAbilitiesBook(World);
@@ -299,7 +303,7 @@ namespace ClassicUO.Game.UI.Gumps
 
                 if (showRacialAbilitiesBook)
                 {
-                    Add(_racialAbilitiesBook = new GumpPic(23, 200, 0x2B28, 0));
+                    Add(_racialAbilitiesBook = new GumpPic(23, 200, 0x2B28, 0) { Priority = ClickPriority.Low });
 
                     _racialAbilitiesBook.MouseDoubleClick += (sender, e) =>
                     {
@@ -311,10 +315,16 @@ namespace ClassicUO.Game.UI.Gumps
                 }
             }
 
-            // Name and title
+            UpdateSlotVisibility();
+
             _titleLabel = new Label("", false, 0x0386, 185, font: 1) { X = 39, Y = 262 };
 
             Add(_titleLabel);
+
+            foreach (var slot in _slots)
+            {
+                Add(slot);
+            }
 
             RequestUpdateContents();
         }
@@ -330,6 +340,25 @@ namespace ClassicUO.Game.UI.Gumps
         public void UpdateTitle(string text)
         {
             _titleLabel.Text = text;
+        }
+
+        private void UpdateSlotVisibility()
+        {
+            bool isOwnPaperdoll = World.Player != null && LocalSerial == World.Player.Serial;
+            bool showAll =
+                isOwnPaperdoll && (ProfileManager.CurrentProfile?.ShowAllLayersPaperdoll ?? false);
+
+            for (int i = 0; i < _slots.Count; i++)
+            {
+                if (i < PaperdollLeftSlotCount)
+                {
+                    _slots[i].IsVisible = showAll || i < 6;
+                }
+                else
+                {
+                    _slots[i].IsVisible = showAll;
+                }
+            }
         }
 
         private void VirtueMenu_MouseDoubleClickEvent(object sender, MouseDoubleClickEventArgs args)
@@ -567,6 +596,8 @@ namespace ClassicUO.Game.UI.Gumps
                     _slots[i].LocalSerial = mobile.FindItemByLayer((Layer)idx)?.Serial ?? 0;
                 }
             }
+
+            UpdateSlotVisibility();
         }
 
         public override void OnButtonClick(int buttonID)

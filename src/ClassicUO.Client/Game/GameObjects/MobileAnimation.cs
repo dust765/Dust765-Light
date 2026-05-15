@@ -129,7 +129,7 @@ namespace ClassicUO.Game.GameObjects
             }
             else
             {
-                if (mobile.IsFlying)
+                if (mobile.IsFlyingVisual)
                 {
                     result = 19;
                 }
@@ -1151,7 +1151,7 @@ namespace ClassicUO.Game.GameObjects
                                     result = 25;
                                 }
                             }
-                            else if (mobile.IsGargoyle && mobile.IsFlying) // TODO: what's up when it is dead?
+                            else if (mobile.IsGargoyle && mobile.IsFlyingVisual) // TODO: what's up when it is dead?
                             {
                                 if (mobile.InWarMode)
                                 {
@@ -1252,7 +1252,7 @@ namespace ClassicUO.Game.GameObjects
                                                 }
                                             }
                                         }
-                                        else if (mobile.IsGargoyle && mobile.IsFlying)
+                                        else if (mobile.IsGargoyle && mobile.IsFlyingVisual)
                                         {
                                             result = 64;
                                         }
@@ -1289,7 +1289,7 @@ namespace ClassicUO.Game.GameObjects
                         if ((flags & AnimationFlags.UseUopAnimation) != 0)
                         {
                             // i'm not sure here if it's necessary the isgargoyle
-                            if (mobile.IsGargoyle && mobile.IsFlying)
+                            if (mobile.IsGargoyle && mobile.IsFlyingVisual)
                             {
                                 if (isRun)
                                 {
@@ -1364,7 +1364,7 @@ namespace ClassicUO.Game.GameObjects
 
                             if (hand2Graphic < 0x0240 || hand2Graphic > 0x03E1)
                             {
-                                if (mobile.IsGargoyle && mobile.IsFlying)
+                                if (mobile.IsGargoyle && mobile.IsFlyingVisual)
                                 {
                                     if (isRun)
                                     {
@@ -1393,7 +1393,7 @@ namespace ClassicUO.Game.GameObjects
                                 {
                                     if (HAND2_BASE_ANIMID[i] == hand2Graphic)
                                     {
-                                        if (mobile.IsGargoyle && mobile.IsFlying)
+                                        if (mobile.IsGargoyle && mobile.IsFlyingVisual)
                                         {
                                             if (isRun)
                                             {
@@ -1422,7 +1422,7 @@ namespace ClassicUO.Game.GameObjects
                             }
                         }
                     }
-                    else if (mobile.IsGargoyle && mobile.IsFlying)
+                    else if (mobile.IsGargoyle && mobile.IsFlyingVisual)
                     {
                         result = 62;
                     }
@@ -1662,7 +1662,7 @@ namespace ClassicUO.Game.GameObjects
                     default:
                         if (
                             mobile.IsGargoyle
-                            && mobile.IsFlying
+                            && mobile.IsFlyingVisual
                             && animations.AnimationExists(mobile.Graphic, 71)
                         )
                         {
@@ -1687,7 +1687,7 @@ namespace ClassicUO.Game.GameObjects
                     case 7:
                         if (
                             mobile.IsGargoyle
-                            && mobile.IsFlying
+                            && mobile.IsFlyingVisual
                             && animations.AnimationExists(mobile.Graphic, 72)
                         )
                         {
@@ -1813,7 +1813,7 @@ namespace ClassicUO.Game.GameObjects
                 {
                     if (
                         mobile.IsGargoyle
-                        && mobile.IsFlying
+                        && mobile.IsFlyingVisual
                         && animations.AnimationExists(mobile.Graphic, 77)
                     )
                     {
@@ -2046,7 +2046,7 @@ namespace ClassicUO.Game.GameObjects
                     {
                         case 1:
                         case 2:
-                            if (mobile.IsGargoyle && mobile.IsFlying)
+                            if (mobile.IsGargoyle && mobile.IsFlyingVisual)
                             {
                                 return 76;
                             }
@@ -2054,7 +2054,7 @@ namespace ClassicUO.Game.GameObjects
                             return 17;
                     }
 
-                    if (mobile.IsGargoyle && mobile.IsFlying)
+                    if (mobile.IsGargoyle && mobile.IsFlyingVisual)
                     {
                         return 75;
                     }
