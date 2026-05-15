@@ -2,6 +2,7 @@
 
 using ClassicUO.Assets;
 using ClassicUO.Configuration;
+using ClassicUO.Dust765;
 using ClassicUO.Game;
 using ClassicUO.Game.Data;
 using ClassicUO.Game.GameObjects;
@@ -2265,8 +2266,22 @@ namespace ClassicUO.Network
 
         private static void LoginComplete(World world, ref StackDataReader p)
         {
-            if (world.Player != null && Client.Game.Scene is LoginScene)
+            if (world.Player != null && Client.Game.Scene is LoginScene loginScene)
             {
+                string lastCharName = LastCharacterManager.GetLastCharacter(
+                    LoginScene.Account,
+                    world.ServerName
+                );
+
+                if (BlockedCharacterLogin.IsBlocked(lastCharName))
+                {
+                    world.Clear();
+                    ProfileManager.UnLoadProfile();
+                    loginScene.ReturnToMainLoginScreen();
+
+                    return;
+                }
+
                 var scene = new GameScene(world);
                 Client.Game.SetScene(scene);
 

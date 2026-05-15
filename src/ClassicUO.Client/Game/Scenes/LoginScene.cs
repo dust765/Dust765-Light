@@ -1,6 +1,7 @@
 ﻿// SPDX-License-Identifier: BSD-2-Clause
 
 using ClassicUO.Configuration;
+using ClassicUO.Dust765;
 using ClassicUO.Game.Data;
 using ClassicUO.Game.GameObjects;
 using ClassicUO.Game.Managers;
@@ -390,6 +391,13 @@ namespace ClassicUO.Game.Scenes
         {
             if (CurrentLoginStep == LoginSteps.CharacterSelection)
             {
+                if (BlockedCharacterLogin.IsBlocked(Characters[index]))
+                {
+                    ReturnToMainLoginScreen();
+
+                    return;
+                }
+
                 LastCharacterManager.Save(Account, _world.ServerName, Characters[index]);
 
                 CurrentLoginStep = LoginSteps.EnteringBritania;
@@ -407,6 +415,13 @@ namespace ClassicUO.Game.Scenes
 
         public void CreateCharacter(PlayerMobile character, int cityIndex, byte profession)
         {
+            if (BlockedCharacterLogin.IsBlocked(character.Name))
+            {
+                ReturnToMainLoginScreen();
+
+                return;
+            }
+
             int i = 0;
 
             for (; i < Characters.Length; i++)
@@ -912,6 +927,18 @@ namespace ClassicUO.Game.Scenes
 
                 Servers = null;
             }
+        }
+
+        internal void ReturnToMainLoginScreen()
+        {
+            if (NetClient.Socket.IsConnected)
+            {
+                NetClient.Socket.Disconnect();
+            }
+
+            Characters = null;
+            DisposeAllServerEntries();
+            CurrentLoginStep = LoginSteps.Main;
         }
     }
 
