@@ -24,13 +24,11 @@ env:
 
 jobs:
   build:
-    #if: ${{ github.event.workflow_run.conclusion == 'success' }} && "${{ env.GITHUB_REPOSITORY }}" == 'ClassicUO/ClassicUO'
     runs-on: ${{ matrix.os }}
 
     env:
-      # Branch/commit detection: use triggering run for workflow_run, otherwise current ref for manual dispatch
       BRANCH_NAME: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || github.ref_name }}
-      COMMIT_SHA:  ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha    || github.sha }}
+      COMMIT_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
 
     strategy:
       matrix:
@@ -45,7 +43,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # For workflow_run, check out the triggering commit (not main)
           ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
           token: ${{ secrets.GITHUB_TOKEN }}
           persist-credentials: true
@@ -81,7 +78,7 @@ jobs:
             echo "RELEASE_PRERELEASE=false" >> "$GITHUB_ENV"
             echo "RELEASE_ALLOW_UPDATES=true" >> "$GITHUB_ENV"
             echo "RELEASE_MAKE_LATEST=true" >> "$GITHUB_ENV"
-            echo "RELEASE_FORCE_TAG=false" >> "$GITHUB_ENV"
+            echo "RELEASE_FORCE_TAG=true" >> "$GITHUB_ENV"
           elif [[ "${BRANCH_NAME}" == "develop" ]]; then
             echo "CUO_ZIP_NAME=Dust765-Light-${{ matrix.target }}-dev.zip" >> "$GITHUB_ENV"
             echo "RELEASE_TAG=v${CUO_PKG_VERSION}-develop" >> "$GITHUB_ENV"
@@ -115,9 +112,72 @@ jobs:
       - name: Move output
         run: mv "${{ env.CUO_OUTPUT_PATH }}/${{ env.CUO_ZIP_NAME }}" upload
 
-      # One matrix job only: avoids concurrent force-pushes and needs contents:write on GITHUB_TOKEN
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ matrix.target }}
+          path: upload/
+          retention-days: 7
+
+  release:
+    needs: build
+    runs-on: ubuntu-22.04
+
+    env:
+      BRANCH_NAME: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || github.ref_name }}
+      COMMIT_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.COMMIT_SHA }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: true
+
+      - name: Setup dotnet
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+          include-prerelease: false
+
+      - name: Read Version from csproj
+        shell: bash
+        run: |
+          set -e
+          V=$(dotnet msbuild "${{ env.CUO_PROJECT_PATH }}" -getProperty:Version -nologo | tail -n 1 | tr -d '\r' | xargs)
+          echo "CUO_PKG_VERSION=${V}" >> "$GITHUB_ENV"
+          echo "CUO_ASSEMBLY_VERSION=${V}.${{ github.run_number }}" >> "$GITHUB_ENV"
+
+      - name: Set release metadata
+        shell: bash
+        run: |
+          if [[ "${BRANCH_NAME}" == "main" ]]; then
+            echo "RELEASE_TAG=v${CUO_ASSEMBLY_VERSION}" >> "$GITHUB_ENV"
+            echo "RELEASE_NAME=Dust765-Light ${CUO_PKG_VERSION} (${{ github.run_number }})" >> "$GITHUB_ENV"
+            echo "RELEASE_PRERELEASE=false" >> "$GITHUB_ENV"
+            echo "RELEASE_ALLOW_UPDATES=true" >> "$GITHUB_ENV"
+            echo "RELEASE_MAKE_LATEST=true" >> "$GITHUB_ENV"
+            echo "RELEASE_FORCE_TAG=true" >> "$GITHUB_ENV"
+          elif [[ "${BRANCH_NAME}" == "develop" ]]; then
+            echo "RELEASE_TAG=v${CUO_PKG_VERSION}-develop" >> "$GITHUB_ENV"
+            echo "RELEASE_NAME=Dust765-Light ${CUO_PKG_VERSION} develop" >> "$GITHUB_ENV"
+            echo "RELEASE_PRERELEASE=true" >> "$GITHUB_ENV"
+            echo "RELEASE_ALLOW_UPDATES=true" >> "$GITHUB_ENV"
+            echo "RELEASE_MAKE_LATEST=false" >> "$GITHUB_ENV"
+            echo "RELEASE_FORCE_TAG=true" >> "$GITHUB_ENV"
+          else
+            echo "Unsupported branch for deploy: ${BRANCH_NAME}"
+            exit 1
+          fi
+
+      - name: Download all platform artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-upload
+          pattern: dist-*
+          merge-multiple: true
+
       - name: Move tag to latest commit
-        if: matrix.os == 'windows-latest'
         env:
           TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -128,19 +188,13 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git remote set-url origin "https://x-access-token:${TOKEN}@github.com/${{ github.repository }}.git"
           git fetch --no-tags --prune --depth=1 origin "${{ env.BRANCH_NAME }}"
-          if ("${{ env.RELEASE_FORCE_TAG }}" -eq "true") {
-            git tag -f "${{ env.RELEASE_TAG }}" "${{ env.COMMIT_SHA }}"
-            git push -f origin "${{ env.RELEASE_TAG }}"
-          } else {
-            git tag "${{ env.RELEASE_TAG }}" "${{ env.COMMIT_SHA }}"
-            git push origin "${{ env.RELEASE_TAG }}"
-          }
-
+          git tag -f "${{ env.RELEASE_TAG }}" "${{ env.COMMIT_SHA }}"
+          git push -f origin "${{ env.RELEASE_TAG }}"
 
       - name: Upload Release
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "upload/${{ env.CUO_ZIP_NAME }}"
+          artifacts: "release-upload/*.zip"
           name: "${{ env.RELEASE_NAME }}"
           body: "This build may not be safe: use it at your own risk."
           draft: false
@@ -150,26 +204,3 @@ jobs:
           tag: "${{ env.RELEASE_TAG }}"
           token: ${{ secrets.GITHUB_TOKEN }}
           commit: ${{ env.COMMIT_SHA }}
-
-  #   - name: Repo Preparation - clone
-  #     uses: actions/checkout@master
-  #     with:
-  #       repository: ClassicUO/deploy
-  #       path: deploy
-  #       ssh-key: ${{ secrets.SSH_DEPLOY_KEY }}
-  #
-  #   - name: Repo Preparation - prepare
-  #     run: |
-  #       cp -rdf ${{ env.CUO_OUTPUT_PATH }}/* deploy/client/${{ matrix.target }}/
-  #       cp upload/manifest.xml deploy/client/${{ matrix.target }}_manifest.xml
-  #
-  #   - name: Pushes to another repository
-  #     uses: cpina/github-action-push-to-another-repository@main
-  #     env:
-  #       SSH_DEPLOY_KEY: ${{ secrets.SSH_DEPLOY_KEY }}
-  #     with:
-  #       source-directory: deploy/
-  #       destination-github-username: "ClassicUO"
-  #       destination-repository-name: "deploy"
-  #       commit-message: "release ${{ env.CUO_ASSEMBLY_VERSION }} on ${{ matrix.target }}"
-  #       target-branch: main
