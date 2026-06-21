@@ -1808,6 +1808,10 @@ namespace ClassicUO.Game.Managers
                 case MacroType.ToggleAvoidObstacles:
                     ProfileManager.CurrentProfile.AvoidObstacles = !ProfileManager.CurrentProfile.AvoidObstacles;
                     break;
+                case MacroType.ToggleGargoyleWalk:
+                    ProfileManager.CurrentProfile.ForceGargoyleWalk = !ProfileManager.CurrentProfile.ForceGargoyleWalk;
+                    _world.Player?.SetAnimation(0xFF);
+                    break;
             }
 
 
@@ -2358,7 +2362,8 @@ namespace ClassicUO.Game.Managers
         LookAtMouse,
         UseCounterBarSlot,
         ToggleInvisibleHouses, // Dust765
-        ToggleAvoidObstacles // Dust765
+        ToggleAvoidObstacles, // Dust765
+        ToggleGargoyleWalk // Dust765
     }
 
     internal enum MacroSubType

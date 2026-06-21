@@ -249,6 +249,45 @@ namespace ClassicUO.Network
             Statistics.TotalPacketsSent++;
         }
 
+        public void SendUrgent(Span<byte> message, bool ignorePlugin = false, bool skipEncryption = false)
+        {
+            if (!IsConnected || message.IsEmpty)
+            {
+                return;
+            }
+
+            if (!ignorePlugin && !Plugin.ProcessSendPacket(ref message))
+            {
+                return;
+            }
+
+            if (message.IsEmpty)
+            {
+                return;
+            }
+
+            PacketLogger.Default?.Log(message, true);
+
+            bool isPing = message.Length >= 2 && message[0] == 0x73;
+            byte pingIdx = isPing ? message[1] : (byte)0;
+
+            if (!skipEncryption)
+            {
+                Encryption?.Encrypt(!_isCompressionEnabled, message, message, message.Length);
+            }
+
+            if (isPing)
+            {
+                Statistics.MarkPingSentAtWire(pingIdx);
+            }
+
+            message.CopyTo(_sendingBuffer.AsSpan(0, message.Length));
+            _socket.Send(_sendingBuffer, 0, message.Length);
+
+            Statistics.TotalBytesSent += (uint)message.Length;
+            Statistics.TotalPacketsSent++;
+        }
+
         private void ProcessEncryption(Span<byte> buffer)
         {
             if (!_isCompressionEnabled)

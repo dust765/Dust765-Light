@@ -33,6 +33,7 @@ namespace ClassicUO
         private readonly float[] _intervalFixedUpdate = new float[2];
         private double _totalElapsed, _currentFpsTime;
         private uint _totalFrames;
+        private long _timePing;
         private UltimaBatcher2D _uoSpriteBatch;
         private RenderTargets _renderTargets = new();
         private readonly RenderLists _renderLists = new();
@@ -396,6 +397,26 @@ namespace ClassicUO
             }
         }
 
+        internal void DrainIncomingPackets()
+        {
+            var packetsCount = 0;
+            ArraySegment<byte> recv;
+
+            do
+            {
+                recv = NetClient.Socket.CollectAvailableData();
+                if (recv.Count != 0)
+                {
+                    packetsCount += PacketHandlers.Handler.ParsePackets(NetClient.Socket, UO.World, recv);
+                }
+            } while (recv.Count != 0);
+
+            if (packetsCount != 0)
+            {
+                NetClient.Socket.Statistics.TotalPacketsReceived += (uint)packetsCount;
+            }
+        }
+
         protected override void Update(GameTime gameTime)
         {
             if (Profiler.InContext(Profiler.ProfilerContext.OUT_OF_CONTEXT))
@@ -408,19 +429,7 @@ namespace ClassicUO
 
             Mouse.Update();
 
-            var packetsCount = 0;
-            ArraySegment<byte> recv;
-            do
-            {
-                recv = NetClient.Socket.CollectAvailableData();
-                if (recv.Count != 0)
-                {
-                    packetsCount += PacketHandlers.Handler.ParsePackets(NetClient.Socket, UO.World, recv);
-                }
-            } while (recv.Count != 0);
-
-            NetClient.Socket.Statistics.TotalPacketsReceived += (uint)packetsCount;
-            NetClient.Socket.Flush();
+            DrainIncomingPackets();
 
             Plugin.Tick();
 
@@ -430,6 +439,16 @@ namespace ClassicUO
                 Scene.Update();
                 Profiler.ExitContext(Profiler.ProfilerContext.UPDATE_WORLD);
             }
+
+            NetClient.Socket.Flush();
+
+            if (UO.World?.InGame == true && Time.Ticks > _timePing)
+            {
+                NetClient.Socket.Statistics.SendPing();
+                _timePing = Time.Ticks + 1000;
+            }
+
+            DrainIncomingPackets();
 
             UIManager.Update();
 
@@ -508,12 +527,16 @@ namespace ClassicUO
 
             _totalFrames++;
 
+            DrainIncomingPackets();
+
             GraphicsDevice.Clear(Color.Black);
 
             if (Scene != null && Scene.IsLoaded && !Scene.IsDestroyed)
             {
                 Scene.Draw(_uoSpriteBatch, _renderTargets);
             }
+
+            DrainIncomingPackets();
 
             _uoSpriteBatch.GraphicsDevice.SetRenderTarget(_renderTargets.UiRenderTarget);
             GraphicsDevice.Clear(Color.Transparent);

@@ -112,7 +112,7 @@ namespace ClassicUO.Network
                 writer.WriteZero(length - writer.BytesWritten);
             }
 
-            socket.Send(writer.BufferWritten);
+            socket.SendUrgent(writer.BufferWritten);
 
             writer.Dispose();
         }

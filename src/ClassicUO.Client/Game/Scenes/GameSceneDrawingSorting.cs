@@ -53,6 +53,15 @@ namespace ClassicUO.Game.Scenes
 
         private readonly RenderLists _renderLists = new();
         private readonly List<Map.Chunk> _visibleChunks = new();
+        private readonly List<DirtyMeshChunk> _dirtyMeshChunks = new();
+
+        private struct DirtyMeshChunk : IComparable<DirtyMeshChunk>
+        {
+            public Map.Chunk Chunk;
+            public int DistSq;
+
+            public int CompareTo(DirtyMeshChunk other) => DistSq.CompareTo(other.DistSq);
+        }
 
         public sbyte FoliageIndex { get; private set; }
 
@@ -483,12 +492,11 @@ namespace ClassicUO.Game.Scenes
                 return false;
             }
 
-            // Dust765: skip cache when InvisibleHouses is active — the result depends on
-            // InvisibleHousesEnabled state which is not part of the cache key.
-            if (!ProfileManager.CurrentProfile.InvisibleHousesEnabled
-                && mob._surfaceOverheadCacheX == mob.X
+            if (mob._surfaceOverheadCacheX == mob.X
                 && mob._surfaceOverheadCacheY == mob.Y
-                && mob._surfaceOverheadCacheMaxZ == _maxZ)
+                && mob._surfaceOverheadCacheMaxZ == _maxZ
+                && mob._surfaceOverheadCacheInvHouses == ProfileManager.CurrentProfile.InvisibleHousesEnabled
+                && mob._surfaceOverheadCachePlayerZ == (_world.Player?.Z ?? int.MinValue))
             {
                 return mob._surfaceOverheadCache;
             }
@@ -525,16 +533,10 @@ namespace ClassicUO.Game.Scenes
                                 }
                             }
 
-                            // Dust765: InvisibleHouses — skip tiles that would be hidden (Static and Multi)
-                            if (ProfileManager.CurrentProfile.InvisibleHousesEnabled && _world.Player != null)
+                            if (HouseVisibilityHelper.IsInvisibleHouseTile(tile))
                             {
-                                int gt_z = groundTile?.Z ?? 0;
-                                if ((tile.Z - _world.Player.Z) > ProfileManager.CurrentProfile.InvisibleHousesZ
-                                    && (tile.Z - gt_z) > ProfileManager.CurrentProfile.DontRemoveHouseBelowZ)
-                                {
-                                    tile = next;
-                                    continue;
-                                }
+                                tile = next;
+                                continue;
                             }
 
                             ref var itemData = ref Client.Game.UO.FileManager.TileData.StaticData[tile.Graphic];
@@ -568,6 +570,8 @@ namespace ClassicUO.Game.Scenes
             mob._surfaceOverheadCacheX = (ushort)mob.X;
             mob._surfaceOverheadCacheY = (ushort)mob.Y;
             mob._surfaceOverheadCacheMaxZ = _maxZ;
+            mob._surfaceOverheadCacheInvHouses = ProfileManager.CurrentProfile.InvisibleHousesEnabled;
+            mob._surfaceOverheadCachePlayerZ = _world.Player?.Z ?? int.MinValue;
             mob._surfaceOverheadCache = found;
 
             return found;
@@ -582,21 +586,15 @@ namespace ClassicUO.Game.Scenes
             ref int maxObjectZ,
             int maxZ,
             out bool retValue,
-            ChunkMesh mesh
+            ChunkMesh mesh,
+            Chunk chunk
         )
         {
             retValue = false;
 
-            // Dust765: Invisible Houses filter for static tiles
-            if (ProfileManager.CurrentProfile.InvisibleHousesEnabled && !(obj is Mobile) && _world.Player != null)
+            if (HouseVisibilityHelper.IsInvisibleHouseTile(obj, chunk))
             {
-                var groundTile = _world.Map?.GetTile(obj.X, obj.Y);
-                if (groundTile != null &&
-                    (obj.Z - _world.Player.Z) > ProfileManager.CurrentProfile.InvisibleHousesZ &&
-                    (obj.Z - groundTile.Z) > ProfileManager.CurrentProfile.DontRemoveHouseBelowZ)
-                {
-                    return 1; // skip this tile only, continue with next object in list
-                }
+                return 1;
             }
 
             byte height = 0;
@@ -875,16 +873,9 @@ namespace ClassicUO.Game.Scenes
                     if (screenY < _minPixel.Y || screenY > _maxPixel.Y)
                         continue;
 
-                    // Dust765: Invisible Houses filter for meshed statics/multis
-                    if (ProfileManager.CurrentProfile.InvisibleHousesEnabled && _world.Player != null)
+                    if (HouseVisibilityHelper.IsInvisibleHouseTile(obj, chunk))
                     {
-                        var groundTile = _world.Map?.GetTile(obj.X, obj.Y);
-                        if (groundTile != null
-                            && (obj.Z - _world.Player.Z) > ProfileManager.CurrentProfile.InvisibleHousesZ
-                            && (obj.Z - groundTile.Z) > ProfileManager.CurrentProfile.DontRemoveHouseBelowZ)
-                        {
-                            continue;
-                        }
+                        continue;
                     }
 
                     // Static or Multi — meshed objects are never foliage/trees/internal/animated
@@ -1048,7 +1039,7 @@ namespace ClassicUO.Game.Scenes
                                 continue;
                             }
 
-                            int cf = ProcessStaticLikeTail(obj, ref itemData, allowSelection, screenY, ref maxObjectZ, maxZ, out bool retVal, mesh);
+                            int cf = ProcessStaticLikeTail(obj, ref itemData, allowSelection, screenY, ref maxObjectZ, maxZ, out bool retVal, mesh, chunk);
                             if (cf == 1) continue;
                             if (cf == 2) return retVal;
                             break;
@@ -1087,7 +1078,7 @@ namespace ClassicUO.Game.Scenes
                                 }
                             }
 
-                            int cf = ProcessStaticLikeTail(obj, ref itemData, allowSelection, screenY, ref maxObjectZ, maxZ, out bool retVal, mesh);
+                            int cf = ProcessStaticLikeTail(obj, ref itemData, allowSelection, screenY, ref maxObjectZ, maxZ, out bool retVal, mesh, chunk);
                             if (cf == 1) continue;
                             if (cf == 2) return retVal;
                             break;

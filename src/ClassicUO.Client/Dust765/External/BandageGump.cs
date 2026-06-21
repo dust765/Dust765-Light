@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: BSD-2-Clause
-// Ported from Dust765 reference implementation
 
-using ClassicUO.Assets;
+using System;
 using ClassicUO.Configuration;
 using ClassicUO.Game;
 using ClassicUO.Game.GameObjects;
@@ -10,27 +9,26 @@ using ClassicUO.Game.UI.Controls;
 using ClassicUO.Game.UI.Gumps;
 using ClassicUO.Renderer;
 using Microsoft.Xna.Framework;
-using System;
 
 namespace ClassicUO.Dust765.External
 {
     internal class BandageGump : Gump
     {
-        private const byte _iconSize  = 16;
-        private const byte _spaceSize = 3;
-        private const byte _borderSize = 3;
+        private const byte FONT = 0xFF;
+        private const ushort HUE_LABEL = 999;
+        private const ushort HUE_YELLOW = 0x35;
+        private const ushort HUE_RED = 0x26;
+        private const ushort HUE_GREEN = 0x3F;
 
-        public uint Timer { get; set; }
+        private readonly AlphaBlendControl _background;
+        private readonly Label _titleLabel;
+        private readonly UccSwingFillLine _fillLine;
+        private readonly Label _timerLabel;
 
         private bool _useTime;
         private uint _startTime;
         private uint _initialTimer;
-
-        private static bool _upDownToggle => ProfileManager.CurrentProfile.BandageGumpUpDownToggle;
-
-        private AlphaBlendControl _background;
-        private Label _text;
-        private StaticPic _icon;
+        private uint _maxSeconds;
 
         private static readonly int[] _startAtClilocs =
         {
@@ -46,14 +44,44 @@ namespace ClassicUO.Dust765.External
 
         public BandageGump(World world) : base(world, 0, 0)
         {
-            CanMove = false;
-            AcceptMouseInput = false;
+            CanMove = true;
             CanCloseWithEsc = false;
             CanCloseWithRightClick = false;
-            _useTime = false;
+            AcceptMouseInput = true;
+            LayerOrder = UILayer.Over;
             IsVisible = false;
 
-            BuildGump();
+            Width = 141;
+            Height = 24;
+
+            Add(
+                _background = new AlphaBlendControl(0.6f)
+                {
+                    Width = Width,
+                    Height = Height
+                }
+            );
+
+            _titleLabel = new Label("Bandage", true, HUE_YELLOW, font: FONT, style: FontStyle.BlackBorder)
+            {
+                X = 0,
+                Y = 0,
+                Width = 52,
+                Height = 20
+            };
+            Add(_titleLabel);
+
+            _fillLine = new UccSwingFillLine(_titleLabel.Width + 1, 0, 100, 20, Color.Red.PackedValue);
+            Add(_fillLine);
+
+            _timerLabel = new Label("0", true, HUE_GREEN, font: FONT, style: FontStyle.BlackBorder)
+            {
+                X = _titleLabel.Width + 10,
+                Y = 0
+            };
+            Add(_timerLabel);
+
+            WantUpdateSize = false;
         }
 
         public void Start()
@@ -65,20 +93,28 @@ namespace ClassicUO.Dust765.External
             if (World.Player.Dexterity >= 80)
             {
                 ushort dex = World.Player.Dexterity;
-                if (dex >= 181) dex = 180;
+                if (dex >= 181)
+                {
+                    dex = 180;
+                }
+
                 _initialTimer = Convert.ToUInt32(8 - Math.Floor((dex - 80) * 1.0) / 20) - 1;
             }
             else
             {
                 _initialTimer = 8;
             }
+
+            _maxSeconds = Math.Max(_initialTimer, 1);
+            _fillLine.FillWidth = 100;
         }
 
         public void Stop()
         {
             _useTime = false;
             IsVisible = false;
-            Timer = 0;
+            _fillLine.FillWidth = 0;
+            _timerLabel.Text = "0";
         }
 
         public void OnCliloc(uint cliloc)
@@ -102,11 +138,20 @@ namespace ClassicUO.Dust765.External
             }
         }
 
+        protected override void OnDragEnd(int x, int y)
+        {
+            base.OnDragEnd(x, y);
+            ProfileManager.CurrentProfile.BandageGumpLocation = Location;
+        }
+
         public override void Update()
         {
             base.Update();
 
-            if (IsDisposed) return;
+            if (IsDisposed)
+            {
+                return;
+            }
 
             if (World.Player == null || World.Player.IsDestroyed)
             {
@@ -120,68 +165,73 @@ namespace ClassicUO.Dust765.External
                 return;
             }
 
-            if (_useTime)
+            if (!_useTime)
             {
-                if (_upDownToggle)
-                {
-                    // COUNT UP
-                    IsVisible = true;
-                    Timer = (Time.Ticks - _startTime) / 1000;
-                    if (Timer > 10)
-                        Stop();
-                }
-                else
-                {
-                    // COUNT DOWN
-                    IsVisible = true;
-                    uint delta = (Time.Ticks - _startTime) / 1000;
-                    Timer = _initialTimer > delta ? _initialTimer - delta : 0;
-                    if (Timer == 0 || delta > 10)
-                        Stop();
-                }
+                return;
             }
 
-            if (IsVisible)
+            IsVisible = true;
+            uint elapsed = (Time.Ticks - _startTime) / 1000;
+            bool countUp = ProfileManager.CurrentProfile.BandageGumpUpDownToggle;
+            uint display;
+
+            if (countUp)
             {
-                _text.Text = $"{Timer}";
+                display = elapsed;
+                if (display > 10)
+                {
+                    Stop();
+                    return;
+                }
 
-                // Position next to the player
-                int gx = ProfileManager.CurrentProfile.GameWindowPosition.X;
-                int gy = ProfileManager.CurrentProfile.GameWindowPosition.Y;
-                int px = gx + World.Player.RealScreenPosition.X + (int)World.Player.Offset.X;
-                int py = gy + World.Player.RealScreenPosition.Y + (int)(World.Player.Offset.Y - World.Player.Offset.Z);
-
-                Width  = _borderSize * 2 + _iconSize + _spaceSize + _text.Width;
-                Height = _borderSize * 2 + _iconSize;
-
-                _background.Width  = Width;
-                _background.Height = Height;
-
-                X = px - (Width >> 1) + 5 + ProfileManager.CurrentProfile.BandageGumpOffset.X;
-                Y = py + 10 + ProfileManager.CurrentProfile.BandageGumpOffset.Y;
+                _timerLabel.Hue = display >= _maxSeconds ? HUE_GREEN : HUE_RED;
+                _fillLine.FillWidth = (int)Math.Min(100, display * 100 / 10);
             }
+            else
+            {
+                display = _initialTimer > elapsed ? _initialTimer - elapsed : 0;
+                if (display == 0 || elapsed > 10)
+                {
+                    Stop();
+                    return;
+                }
+
+                _timerLabel.Hue = HUE_RED;
+                _fillLine.FillWidth = (int)(_maxSeconds > 0 ? display * 100 / _maxSeconds : 0);
+            }
+
+            _timerLabel.Text = $"{display}";
         }
 
-        private void BuildGump()
+        internal static void RefreshOpenGump(World world)
         {
-            _background = new AlphaBlendControl { Alpha = 0.6f };
+            BandageGump existing = UIManager.GetGump<BandageGump>();
 
-            _text = new Label($"{Timer}", true, 0x35, 0, 1, FontStyle.BlackBorder)
+            if (existing != null)
             {
-                X = _borderSize + _iconSize + _spaceSize + 3,
-                Y = _borderSize - 2
+                if (world.Player?.BandageTimer == existing)
+                {
+                    world.Player.BandageTimer = null;
+                }
+
+                existing.Dispose();
+            }
+
+            Profile p = ProfileManager.CurrentProfile;
+
+            if (p == null || !p.BandageGump || world?.Player == null)
+            {
+                return;
+            }
+
+            BandageGump gump = new BandageGump(world)
+            {
+                X = p.BandageGumpLocation.X,
+                Y = p.BandageGumpLocation.Y
             };
 
-            _icon = new StaticPic(0x0E21, 0)
-            {
-                X = _borderSize - _iconSize,
-                Y = _borderSize - 1,
-                AcceptMouseInput = false
-            };
-
-            Add(_background);
-            Add(_text);
-            Add(_icon);
+            world.Player.BandageTimer = gump;
+            UIManager.Add(gump);
         }
     }
 }

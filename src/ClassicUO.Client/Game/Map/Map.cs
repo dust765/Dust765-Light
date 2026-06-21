@@ -243,6 +243,17 @@ namespace ClassicUO.Game.Map
             }
         }
 
+        public void MarkAllLoadedChunksMeshDirty()
+        {
+            foreach (Chunk chunk in GetUsedChunks())
+            {
+                if (chunk != null && !chunk.IsDestroyed)
+                {
+                    chunk.Mesh.IsDirty = true;
+                }
+            }
+        }
+
 
         public void PreloadChunksAround(int centerX, int centerY, int radius, int maxPerCall = 4)
         {

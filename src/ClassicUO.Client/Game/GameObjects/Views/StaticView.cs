@@ -110,20 +110,9 @@ namespace ClassicUO.Game.GameObjects
                 )
             )
             {
-                if (
-                    ProfileManager.CurrentProfile.InvisibleHousesEnabled
-                    && World.Player != null
-                )
+                if (HouseVisibilityHelper.IsInvisibleHouseTile(this))
                 {
-                    GameObject tile = World.Map?.GetTile(X, Y);
-                    if (
-                        tile != null
-                        && (Z - World.Player.Z) > ProfileManager.CurrentProfile.InvisibleHousesZ
-                        && (Z - tile.Z) > ProfileManager.CurrentProfile.DontRemoveHouseBelowZ
-                    )
-                    {
-                        return false;
-                    }
+                    return false;
                 }
 
                 ushort graphic = Graphic;

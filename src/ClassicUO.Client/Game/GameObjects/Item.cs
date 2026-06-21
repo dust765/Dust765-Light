@@ -70,6 +70,25 @@ namespace ClassicUO.Game.GameObjects
 
         public bool IsCoin => Graphic == 0x0EEA || Graphic == 0x0EED || Graphic == 0x0EF0;
 
+        public bool IsSpellbookEquipment()
+        {
+            switch (Graphic)
+            {
+                case 0x0EFA:
+                case 0x2253:
+                case 0x2252:
+                case 0x238C:
+                case 0x23A0:
+                case 0x2D50:
+                case 0x2D9D:
+                case 0x225A:
+                case 0x225B:
+                    return true;
+            }
+
+            return false;
+        }
+
         public ushort DisplayedGraphic
         {
             get

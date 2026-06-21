@@ -369,6 +369,7 @@ namespace ClassicUO.Configuration
         // ---- Dust765 ----
         // Avoid Obstacles
         public bool AvoidObstacles { get; set; } = false;
+        public bool AvoidObstaclesIgnoreHumanoids { get; set; } = false;
 
         public bool ForceGargoyleWalk { get; set; }
 
@@ -397,6 +398,7 @@ namespace ClassicUO.Configuration
         public bool BandageGump { get; set; } = false;
         public bool BandageGumpUpDownToggle { get; set; } = false;
         [JsonConverter(typeof(Point2Converter))] public Point BandageGumpOffset { get; set; } = new Point(0, 0);
+        [JsonConverter(typeof(Point2Converter))] public Point BandageGumpLocation { get; set; } = new Point(50, 50);
 
         // OnCasting Gump
         public bool OnCastingGump { get; set; } = false;

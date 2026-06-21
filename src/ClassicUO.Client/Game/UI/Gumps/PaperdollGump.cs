@@ -293,28 +293,6 @@ namespace ClassicUO.Game.UI.Gumps
             _paperDollInteractable = new PaperDollInteractable(8, 19, LocalSerial, this);
             Add(_paperDollInteractable);
 
-            if (showPaperdollBooks)
-            {
-                Add(_combatBook = new GumpPic(156, 200, 0x2B34, 0) { Priority = ClickPriority.Low });
-                _combatBook.MouseDoubleClick += (sender, e) =>
-                {
-                    GameActions.OpenAbilitiesBook(World);
-                };
-
-                if (showRacialAbilitiesBook)
-                {
-                    Add(_racialAbilitiesBook = new GumpPic(23, 200, 0x2B28, 0) { Priority = ClickPriority.Low });
-
-                    _racialAbilitiesBook.MouseDoubleClick += (sender, e) =>
-                    {
-                        if (UIManager.GetGump<RacialAbilitiesBookGump>() == null)
-                        {
-                            UIManager.Add(new RacialAbilitiesBookGump(World, 100, 100));
-                        }
-                    };
-                }
-            }
-
             UpdateSlotVisibility();
 
             _titleLabel = new Label("", false, 0x0386, 185, font: 1) { X = 39, Y = 262 };
@@ -326,6 +304,27 @@ namespace ClassicUO.Game.UI.Gumps
                 Add(slot);
             }
 
+            if (showPaperdollBooks)
+            {
+                Add(_combatBook = new GumpPic(156, 200, 0x2B34, 0));
+                WirePaperdollBookClick(_combatBook, () => GameActions.OpenAbilitiesBook(World));
+
+                if (showRacialAbilitiesBook)
+                {
+                    Add(_racialAbilitiesBook = new GumpPic(23, 200, 0x2B28, 0));
+                    WirePaperdollBookClick(
+                        _racialAbilitiesBook,
+                        () =>
+                        {
+                            if (UIManager.GetGump<RacialAbilitiesBookGump>() == null)
+                            {
+                                UIManager.Add(new RacialAbilitiesBookGump(World, 100, 100));
+                            }
+                        }
+                    );
+                }
+            }
+
             RequestUpdateContents();
         }
 
@@ -335,6 +334,27 @@ namespace ClassicUO.Game.UI.Gumps
             {
                 IsMinimized = false;
             }
+        }
+
+        private static void WirePaperdollBookClick(Control book, Action open)
+        {
+            book.AcceptMouseInput = true;
+
+            book.MouseDoubleClick += (sender, e) =>
+            {
+                if (e.Button == MouseButtonType.Left)
+                {
+                    open();
+                }
+            };
+
+            book.MouseUp += (sender, e) =>
+            {
+                if (e.Button == MouseButtonType.Left)
+                {
+                    open();
+                }
+            };
         }
 
         public void UpdateTitle(string text)

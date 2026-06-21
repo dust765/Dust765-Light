@@ -276,7 +276,7 @@ namespace ClassicUO.Game.UI.Controls
                     bool isOwnPaperdoll = _paperDollGump.World.Player != null && LocalSerial == _paperDollGump.World.Player.Serial;
                     bool showAllLayersPaperdoll = isOwnPaperdoll && (ProfileManager.CurrentProfile?.ShowAllLayersPaperdoll ?? false);
 
-                    if (!showAllLayersPaperdoll && Mobile.IsCovered(mobile, layer))
+                    if (!showAllLayersPaperdoll && Mobile.IsCovered(mobile, layer) && !equipItem.IsSpellbookEquipment())
                     {
                         continue;
                     }

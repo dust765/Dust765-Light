@@ -36,8 +36,6 @@ namespace ClassicUO.Game.GameObjects
             Walker = new WalkerManager(this);
             Pathfinder = new Pathfinder(world);
 
-            // Dust765: criar gumps de timer
-            UIManager.Add(BandageTimer = new BandageGump(world));
             UIManager.Add(OnCasting = new OnCastingGump(world));
         }
 
@@ -61,6 +59,7 @@ namespace ClassicUO.Game.GameObjects
 
         public readonly HashSet<uint> AutoOpenedCorpses = new HashSet<uint>();
         public readonly HashSet<uint> ManualOpenedCorpses = new HashSet<uint>();
+        private long _lastCorpseCheckTime;
 
         // Tracks the last direction actually sent to the server via a walk packet.
         private Direction _serverDirection;
@@ -338,6 +337,10 @@ namespace ClassicUO.Game.GameObjects
         {
             if (ProfileManager.CurrentProfile.AutoOpenCorpses)
             {
+                if (Time.Ticks - _lastCorpseCheckTime < 500)
+                    return;
+                _lastCorpseCheckTime = Time.Ticks;
+
                 if ((ProfileManager.CurrentProfile.CorpseOpenOptions == 1 || ProfileManager.CurrentProfile.CorpseOpenOptions == 3) && World.TargetManager.IsTargeting)
                 {
                     return;
@@ -548,8 +551,6 @@ namespace ClassicUO.Game.GameObjects
                 _serverDirectionInitialized = true;
             }
 
-            // Use the server-synced direction for walk calculations, not the visual Direction,
-            // which may have been updated by coalescing without sending a packet.
             Direction oldDirection = _serverDirection;
 
             bool emptyStack = Steps.Count == 0;
@@ -651,9 +652,6 @@ namespace ClassicUO.Game.GameObjects
                 direction = newDir;
             }
 
-            // Adaptive coalescing: only suppress direction-only packets when the server
-            // is falling behind (3+ unconfirmed packets). This allows full-speed spinning
-            // when the connection is healthy and automatically backs off under congestion.
             if (directionOnlyStep && Walker.UnacceptedPacketsCount >= 3)
             {
                 Direction = direction;
@@ -744,13 +742,13 @@ namespace ClassicUO.Game.GameObjects
             int nextY = y;
             Pathfinder.GetNewXY((byte) direction, ref nextX, ref nextY);
 
-            return World.Items.Values.Any(s =>
-                s.ItemData.IsDoor
-                && s.X == nextX
-                && s.Y == nextY
-                && s.Z - 15 <= z
-                && s.Z + 15 >= z
-            );
+            // Tile lookup O(k) instead of scanning all world items O(n)
+            for (var obj = World.Map.GetTile(nextX, nextY); obj != null; obj = obj.TNext)
+            {
+                if (obj is Item item && item.ItemData.IsDoor && item.Z - 15 <= z && item.Z + 15 >= z)
+                    return true;
+            }
+            return false;
         }
 
         private bool TryOpenDoorAhead(Direction direction, int x, int y, sbyte z)
@@ -766,7 +764,24 @@ namespace ClassicUO.Game.GameObjects
 
         private bool IsObstacle(Direction direction, int x, int y, sbyte z)
         {
-            return !Pathfinder.CanWalk(ref direction, ref x, ref y, ref z);
+            bool ignoreHumanoids = ProfileManager.CurrentProfile.AvoidObstaclesIgnoreHumanoids;
+
+            if (ignoreHumanoids)
+            {
+                Pathfinder.IgnoreHumanoidsForWalkCheck = true;
+            }
+
+            try
+            {
+                return !Pathfinder.CanWalk(ref direction, ref x, ref y, ref z);
+            }
+            finally
+            {
+                if (ignoreHumanoids)
+                {
+                    Pathfinder.IgnoreHumanoidsForWalkCheck = false;
+                }
+            }
         }
 
         private Direction TryToAvoid(Direction direction, int x, int y, sbyte z)

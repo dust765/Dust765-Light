@@ -188,32 +188,11 @@ namespace ClassicUO.Game.GameObjects
                 hueVec.Z = 0.5f;
             }
 
-            if (ProfileManager.CurrentProfile.TransparentHousesEnabled && World.Player != null)
-            {
-                GameObject tile = World.Map?.GetTile(X, Y);
+            HouseVisibilityHelper.TryApplyTransparentHouseAlpha(ref hueVec, this);
 
-                if (tile != null)
-                {
-                    if (
-                        (Z - World.Player.Z) > ProfileManager.CurrentProfile.TransparentHousesZ
-                        && (Z - tile.Z) > ProfileManager.CurrentProfile.DontRemoveHouseBelowZ
-                    )
-                    {
-                        hueVec.Z = ProfileManager.CurrentProfile.TransparentHousesTransparency / 10f;
-                    }
-                }
-            }
-
-            // Dust765: Invisible Houses
-            if (ProfileManager.CurrentProfile.InvisibleHousesEnabled && World.Player != null)
+            if (HouseVisibilityHelper.IsInvisibleHouseTile(this))
             {
-                var tile = World.Map?.GetTile(X, Y);
-                if (tile != null)
-                {
-                    if ((Z - World.Player.Z) > ProfileManager.CurrentProfile.InvisibleHousesZ &&
-                        (Z - tile.Z) > ProfileManager.CurrentProfile.DontRemoveHouseBelowZ)
-                        return false;
-                }
+                return false;
             }
 
             DrawStaticAnimated(batcher, graphic, posX, posY, hueVec, false, depth);
@@ -520,17 +499,9 @@ namespace ClassicUO.Game.GameObjects
                     return false;
                 }
 
-                if (ProfileManager.CurrentProfile.InvisibleHousesEnabled && World.Player != null)
+                if (HouseVisibilityHelper.IsInvisibleHouseTile(this))
                 {
-                    GameObject tile = World.Map?.GetTile(X, Y);
-                    if (
-                        tile != null
-                        && (Z - World.Player.Z) > ProfileManager.CurrentProfile.InvisibleHousesZ
-                        && (Z - tile.Z) > ProfileManager.CurrentProfile.DontRemoveHouseBelowZ
-                    )
-                    {
-                        return false;
-                    }
+                    return false;
                 }
 
                 ushort graphic = DisplayedGraphic;

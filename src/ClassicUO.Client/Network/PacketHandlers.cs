@@ -1198,8 +1198,8 @@ namespace ClassicUO.Network
             direction &= Direction.Up;
             sbyte z = p.ReadInt8();
 
-            world.Player.Walker.DenyWalk(seq, x, y, z);
             world.Player.Direction = direction;
+            world.Player.Walker.DenyWalk(seq, x, y, z);
 
             world.Weather.Reset();
         }

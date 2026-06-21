@@ -74,11 +74,11 @@ namespace ClassicUO.Game.UI.Gumps
 
             if (Time.Ticks > _time_to_update)
             {
-                _time_to_update = Time.Ticks + 100;
+                _time_to_update = Time.Ticks + 500;
 
                 if (NetClient.Socket.IsConnected)
                 {
-                    _ping = NetClient.Socket.Statistics.Ping;
+                    _ping = NetClient.Socket.Statistics.DisplayPing;
                     _deltaBytesReceived = NetClient.Socket.Statistics.DeltaBytesReceived;
                     _deltaBytesSent = NetClient.Socket.Statistics.DeltaBytesSent;
                 }

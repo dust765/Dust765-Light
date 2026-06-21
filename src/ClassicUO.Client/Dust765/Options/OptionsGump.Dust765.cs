@@ -2,13 +2,16 @@
 
 using System;
 using ClassicUO.Dust765;
+using ClassicUO.Dust765.External;
 using ClassicUO.Game.UI.Controls;
+using ClassicUO.Game.UI.Gumps;
 
 namespace ClassicUO.Game.UI.Gumps
 {
     internal partial class OptionsGump
     {
         private Checkbox _dust765AvoidObstacles;
+        private Checkbox _dust765AvoidObstaclesIgnoreHumanoids;
         private Checkbox _dust765ForceGargoyleWalk;
         private Checkbox _dust765UccBuffbar;
         private Checkbox _dust765UccSwing;
@@ -84,6 +87,18 @@ namespace ClassicUO.Game.UI.Gumps
                     null,
                     "Avoid obstacles",
                     _currentProfile.AvoidObstacles,
+                    startX,
+                    startY
+                )
+            );
+
+            sectionMove.Add
+            (
+                _dust765AvoidObstaclesIgnoreHumanoids = AddCheckBox
+                (
+                    null,
+                    "Ignore humanoids when avoiding",
+                    _currentProfile.AvoidObstaclesIgnoreHumanoids,
                     startX,
                     startY
                 )
@@ -828,6 +843,7 @@ namespace ClassicUO.Game.UI.Gumps
         internal void ApplyDust765Profile()
         {
             _currentProfile.AvoidObstacles = _dust765AvoidObstacles.IsChecked;
+            _currentProfile.AvoidObstaclesIgnoreHumanoids = _dust765AvoidObstaclesIgnoreHumanoids.IsChecked;
             _currentProfile.ForceGargoyleWalk = _dust765ForceGargoyleWalk.IsChecked;
             _currentProfile.UOClassicCombatBuffbar = _dust765UccBuffbar.IsChecked;
             _currentProfile.UOClassicCombatBuffbar_SwingEnabled = _dust765UccSwing.IsChecked;
@@ -841,6 +857,7 @@ namespace ClassicUO.Game.UI.Gumps
             UOClassicCombatSwingGump.RefreshOpenGump(World);
             _currentProfile.BandageGump = _dust765BandageGump.IsChecked;
             _currentProfile.BandageGumpUpDownToggle = _dust765BandageGumpUpDown.IsChecked;
+            BandageGump.RefreshOpenGump(World);
             _currentProfile.OnCastingGump = _dust765OnCastingGump.IsChecked;
             _currentProfile.OnCastingGump_hidden = _dust765OnCastingGumpHidden.IsChecked;
             _currentProfile.OnCastingHarmfulHueOnPlayer = _dust765OnCastingHarmfulHueOnPlayer.IsChecked;

@@ -52,6 +52,8 @@ namespace ClassicUO.Game
 
         public bool FastRotation { get; set; }
 
+        public bool IgnoreHumanoidsForWalkCheck { get; set; }
+
 
         private bool CreateItemList(List<PathObject> list, int x, int y, int stepState)
         {
@@ -62,7 +64,7 @@ namespace ClassicUO.Game
                 return false;
             }
 
-            bool ignoreGameCharacters = ProfileManager.CurrentProfile.IgnoreStaminaCheck || stepState == (int) PATH_STEP_STATE.PSS_DEAD_OR_GM || _world.Player.IgnoreCharacters || !(_world.Player.Stamina < _world.Player.StaminaMax && _world.Map.Index == 0);
+            bool ignoreGameCharacters = IgnoreHumanoidsForWalkCheck || ProfileManager.CurrentProfile.IgnoreStaminaCheck || stepState == (int) PATH_STEP_STATE.PSS_DEAD_OR_GM || _world.Player.IgnoreCharacters || !(_world.Player.Stamina < _world.Player.StaminaMax && _world.Map.Index == 0);
 
             bool isGM = _world.Player.Graphic == 0x03DB;
 

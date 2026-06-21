@@ -131,17 +131,18 @@ namespace ClassicUO.Game.Managers
                     forceDraw = true;
                 }
 
+                // Early distance cull for ALL mobiles before any expensive work
+                if (!forceDraw && ChebyshevTileDistanceToPlayer(mobile, _world) > hpTileRange)
+                {
+                    continue;
+                }
+
                 int current = mobile.Hits;
                 int max = mobile.HitsMax;
                 bool fallbackToLine = mode == 0 && max == 0;
 
                 if (!forceDraw && max == 0)
                 {
-                    if (ChebyshevTileDistanceToPlayer(mobile, _world) > hpTileRange)
-                    {
-                        continue;
-                    }
-
                     if (
                         mobile.Serial != _world.Player.Serial
                         && mobile.HitsRequest == HitsRequestStatus.None
@@ -159,6 +160,18 @@ namespace ClassicUO.Game.Managers
                 Point p = mobile.RealScreenPosition;
                 p.X += (int)mobile.Offset.X + 22 + 5;
                 p.Y += (int)(mobile.Offset.Y - mobile.Offset.Z) + 22 + 5;
+
+                // Viewport cull BEFORE any expensive work (GetAnimationDimensions, WorldToScreen)
+                Point pScreen = p;
+                pScreen.X -= 5;
+                pScreen = Client.Game.Scene.Camera.WorldToScreen(pScreen, true);
+                pScreen.X -= BAR_WIDTH_HALF;
+                pScreen.Y -= BAR_HEIGHT_HALF;
+                if (!forceDraw && !OverlapsGameViewport(gameViewport, pScreen.X, pScreen.Y, BAR_WIDTH, BAR_HEIGHT))
+                {
+                    continue;
+                }
+
                 var offsetY = 0;
 
                 if (isEnabled)
@@ -222,16 +235,7 @@ namespace ClassicUO.Game.Managers
                     }
                 }
 
-                p.X -= 5;
-                p = Client.Game.Scene.Camera.WorldToScreen(p, true);
-
-                p.X -= BAR_WIDTH_HALF;
-                p.Y -= BAR_HEIGHT_HALF;
-
-                if (!OverlapsGameViewport(gameViewport, p.X, p.Y, BAR_WIDTH, BAR_HEIGHT))
-                {
-                    continue;
-                }
+                p = pScreen;
 
                 if ((isEnabled && (mode >= 1 || fallbackToLine)) || newTargSystem || forceDraw)
                 {
