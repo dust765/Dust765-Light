@@ -12,7 +12,6 @@ using ClassicUO.Resources;
 using SDL3;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace ClassicUO.Game.UI.Gumps
 {
@@ -34,10 +33,7 @@ namespace ClassicUO.Game.UI.Gumps
 
     internal class SystemChatControl : Control
     {
-        private const int MAX_MESSAGE_LENGTH = 100;
-        private const int TEXTBOX_LENGTH = 20000;
-        private const int CHAT_INPUT_MAX_CHARS_PER_LINE_MIN = 1000;
-        private const int CHAT_INPUT_MAX_CHARS_PER_LINE_MAX = 20000;
+        private const int MAX_MESSAGE_LENGHT = 100;
         private const int CHAT_X_OFFSET = 3;
         private const int CHAT_HEIGHT = 15;
         private static readonly List<Tuple<ChatMode, string>> _messageHistory = new List<Tuple<ChatMode, string>>();
@@ -51,9 +47,6 @@ namespace ClassicUO.Game.UI.Gumps
         private readonly WorldViewportGump _gump;
         private readonly LinkedList<ChatLineTime> _textEntries;
         private readonly AlphaBlendControl _trans;
-
-        private static readonly ChatMode[] SINGLE_LINE_CHAT_MODES = [ChatMode.ClientCommand, ChatMode.Prompt];
-
 
         public SystemChatControl(WorldViewportGump gump, int x, int y, int w, int h)
         {
@@ -70,20 +63,18 @@ namespace ClassicUO.Game.UI.Gumps
             TextBoxControl = new StbTextBox
             (
                 ProfileManager.CurrentProfile.ChatFont,
-                TEXTBOX_LENGTH,
+                MAX_MESSAGE_LENGHT,
                 Width,
                 true,
-                FontStyle.BlackBorder,
+                FontStyle.BlackBorder | FontStyle.Fixed,
                 33
             )
             {
-                Multiline = true,
-                PassEnterToParent = true
+                X = CHAT_X_OFFSET,
+                Y = Height - CHAT_HEIGHT,
+                Width = Width - CHAT_X_OFFSET,
+                Height = CHAT_HEIGHT
             };
-
-            TextBoxControl.BeforeTextChanged += TextBoxControl_BeforeTextChanged;
-
-            TextBoxControl.TextChanged += TextBoxControl_TextChanged;
 
             _gump.World.MessageManager.ServerPromptChanged += MessageManager_ServerPromptChanged;
 
@@ -104,6 +95,8 @@ namespace ClassicUO.Game.UI.Gumps
             (
                 _currentChatModeLabel = new Label(string.Empty, true, 0, style: FontStyle.BlackBorder)
                 {
+                    X = TextBoxControl.X,
+                    Y = TextBoxControl.Y,
                     IsVisible = false
                 }
             );
@@ -112,7 +105,6 @@ namespace ClassicUO.Game.UI.Gumps
 
             _gump.World.MessageManager.MessageReceived += ChatOnMessageReceived;
             Mode = ChatMode.Default;
-            TextBoxControl.Hue = GetChatHue(Mode);
 
             IsActive = !ProfileManager.CurrentProfile.ActivateChatAfterEnter;
 
@@ -126,7 +118,6 @@ namespace ClassicUO.Game.UI.Gumps
                 if (Mode == ChatMode.Prompt)
                 {
                     Mode = ChatMode.Default;
-                    RecalculateHuesAndSizes();
                 }
             }
             else
@@ -134,75 +125,8 @@ namespace ClassicUO.Game.UI.Gumps
                 if (Mode != ChatMode.Prompt)
                 {
                     Mode = ChatMode.Prompt;
-                    RecalculateHuesAndSizes();
                 }
             }
-        }
-
-        private void TextBoxControl_TextChanged(object sender, EventArgs e)
-        {
-            RecalculateHuesAndSizes();
-        }
-
-        private void RecalculateHuesAndSizes()
-        {
-            ushort hue = GetChatHue(Mode);
-            TextBoxControl.Hue = hue;
-            _currentChatModeLabel.Hue = hue;
-            Resize();
-        }
-
-        private void TextBoxControl_BeforeTextChanged(object sender, StbTextBox.BeforeTextChangedEventArgs e)
-        {
-            if (!ProfileManager.CurrentProfile.ChatInputAutoLineBreak)
-            {
-                return;
-            }
-
-            string text = e.NewText.Replace("\n", " ");
-
-            int maxLineChars = Math.Clamp(
-                ProfileManager.CurrentProfile.ChatInputMaxCharsPerLine,
-                CHAT_INPUT_MAX_CHARS_PER_LINE_MIN,
-                CHAT_INPUT_MAX_CHARS_PER_LINE_MAX
-            );
-
-            string result = string.Empty;
-            string message;
-
-            int relativeCursorIndex = e.NewCaretIndex;
-
-            while (TrySplitMessage(text, Mode, out message, out string remainder, maxLineChars))
-            {
-                result = AppendMultilinePart(result, message);
-                if (relativeCursorIndex >= message.Length)
-                {
-                    int cursorIndexDelta = (message.Length + 1 + remainder.Length) - text.Length;
-
-                    e.NewCaretIndex += cursorIndexDelta;
-                    relativeCursorIndex += cursorIndexDelta;
-                }
-
-                relativeCursorIndex -= message.Length;
-                text = remainder;
-            }
-
-            result = AppendMultilinePart(result, message);
-            e.NewText = result;
-        }
-
-        private static string AppendMultilinePart(string result, string message)
-        {
-            if (result.Length > 0)
-            {
-                result += "\n" + message;
-            }
-            else
-            {
-                result = message;
-            }
-
-            return result;
         }
 
         public bool IsActive
@@ -242,93 +166,75 @@ namespace ClassicUO.Game.UI.Gumps
                     {
                         case ChatMode.Default:
                             DisposeChatModePrefix();
+                            TextBoxControl.Hue = ProfileManager.CurrentProfile.SpeechHue;
                             TextBoxControl.ClearText();
 
                             break;
 
                         case ChatMode.Whisper:
-                            AppendChatModePrefix(ResGumps.Whisper, TextBoxControl.Text);
+                            AppendChatModePrefix(ResGumps.Whisper, ProfileManager.CurrentProfile.WhisperHue, TextBoxControl.Text);
 
                             break;
 
                         case ChatMode.Emote:
-                            AppendChatModePrefix(ResGumps.Emote, TextBoxControl.Text);
+                            AppendChatModePrefix(ResGumps.Emote, ProfileManager.CurrentProfile.EmoteHue, TextBoxControl.Text);
 
                             break;
 
                         case ChatMode.Yell:
-                            AppendChatModePrefix(ResGumps.Yell, TextBoxControl.Text);
+                            AppendChatModePrefix(ResGumps.Yell, ProfileManager.CurrentProfile.YellHue, TextBoxControl.Text);
 
                             break;
 
                         case ChatMode.Party:
-                            AppendChatModePrefix(ResGumps.Party, TextBoxControl.Text);
+                            AppendChatModePrefix(ResGumps.Party, ProfileManager.CurrentProfile.PartyMessageHue, TextBoxControl.Text);
 
                             break;
 
                         case ChatMode.Guild:
-                            AppendChatModePrefix(ResGumps.Guild, TextBoxControl.Text);
+                            AppendChatModePrefix(ResGumps.Guild, ProfileManager.CurrentProfile.GuildMessageHue, TextBoxControl.Text);
 
                             break;
 
                         case ChatMode.Alliance:
-                            AppendChatModePrefix(ResGumps.Alliance, TextBoxControl.Text);
+                            AppendChatModePrefix(ResGumps.Alliance, ProfileManager.CurrentProfile.AllyMessageHue, TextBoxControl.Text);
 
                             break;
 
                         case ChatMode.ClientCommand:
-                            AppendChatModePrefix(ResGumps.Command, TextBoxControl.Text);
+                            AppendChatModePrefix(ResGumps.Command, 1161, TextBoxControl.Text);
 
                             break;
 
                         case ChatMode.UOAMChat:
                             DisposeChatModePrefix();
-                            AppendChatModePrefix(ResGumps.UOAM, TextBoxControl.Text);
+                            AppendChatModePrefix(ResGumps.UOAM, 83, TextBoxControl.Text);
 
                             break;
 
                         case ChatMode.UOChat:
                             DisposeChatModePrefix();
-
-                            AppendChatModePrefix(ResGumps.Chat, TextBoxControl.Text);
+                            AppendChatModePrefix(ResGumps.Chat, ProfileManager.CurrentProfile.ChatMessageHue, TextBoxControl.Text);
 
                             break;
 
                         case ChatMode.Prompt:
-                            AppendChatModePrefix(ResGumps.Prompt, TextBoxControl.Text);
-                            
+                            AppendChatModePrefix(ResGumps.Prompt, 946, TextBoxControl.Text);
+
                             break;
                     }
                 }
             }
         }
 
-        private ushort GetChatHue(ChatMode mode)
-        {
-            return mode switch
-            {
-                ChatMode.Default => ProfileManager.CurrentProfile.SpeechHue,
-                ChatMode.Whisper => ProfileManager.CurrentProfile.WhisperHue,
-                ChatMode.Emote => ProfileManager.CurrentProfile.EmoteHue,
-                ChatMode.Yell => ProfileManager.CurrentProfile.YellHue,
-                ChatMode.Party => ProfileManager.CurrentProfile.PartyMessageHue,
-                ChatMode.Guild => ProfileManager.CurrentProfile.GuildMessageHue,
-                ChatMode.Alliance => ProfileManager.CurrentProfile.AllyMessageHue,
-                ChatMode.ClientCommand => 1161,
-                ChatMode.UOAMChat => 83,
-                ChatMode.UOChat => ProfileManager.CurrentProfile.ChatMessageHue,
-                ChatMode.Prompt => 946,
-                _ => 33,
-            };
-        }
-
         public readonly StbTextBox TextBoxControl;
 
         public void SetFocus()
         {
+            bool wasEditable = TextBoxControl.IsEditable;
             TextBoxControl.IsEditable = true;
             TextBoxControl.SetKeyboardFocus();
-            TextBoxControl.IsEditable = _isActive;
+            TextBoxControl.IsEditable = wasEditable;
             _trans.IsVisible = _isActive;
         }
 
@@ -395,20 +301,21 @@ namespace ClassicUO.Game.UI.Gumps
 
         public override void Dispose()
         {
-            TextBoxControl.BeforeTextChanged -= TextBoxControl_BeforeTextChanged;
-            TextBoxControl.TextChanged -= TextBoxControl_TextChanged;
             _gump.World.MessageManager.ServerPromptChanged -= MessageManager_ServerPromptChanged;
             _gump.World.MessageManager.MessageReceived -= ChatOnMessageReceived;
             base.Dispose();
         }
 
-        private void AppendChatModePrefix(string labelText, string text)
+        private void AppendChatModePrefix(string labelText, ushort hue, string text)
         {
             if (!_currentChatModeLabel.IsVisible)
             {
+                _currentChatModeLabel.Hue = hue;
                 _currentChatModeLabel.Text = labelText;
                 _currentChatModeLabel.IsVisible = true;
-                Resize();
+                _currentChatModeLabel.Location = TextBoxControl.Location;
+                TextBoxControl.X = _currentChatModeLabel.Width;
+                TextBoxControl.Hue = hue;
 
                 int idx = string.IsNullOrEmpty(text) ? -1 : TextBoxControl.Text.IndexOf(text);
                 string str = string.Empty;
@@ -424,8 +331,12 @@ namespace ClassicUO.Game.UI.Gumps
 
         private void DisposeChatModePrefix()
         {
-            _currentChatModeLabel.IsVisible = false;
-            RecalculateHuesAndSizes();
+            if (_currentChatModeLabel.IsVisible)
+            {
+                TextBoxControl.Hue = 33;
+                TextBoxControl.X -= _currentChatModeLabel.Width;
+                _currentChatModeLabel.IsVisible = false;
+            }
         }
 
         public void AddLine(string text, byte font, ushort hue, bool isunicode)
@@ -444,26 +355,14 @@ namespace ClassicUO.Game.UI.Gumps
         {
             if (TextBoxControl != null)
             {
-                int lines = TextBoxControl.Text.Count('\n') + 1;
-
-                // the chat mode is always on the left and on the bottom
-                _currentChatModeLabel.X = CHAT_X_OFFSET;
-                _currentChatModeLabel.Y = Height - CHAT_HEIGHT - CHAT_X_OFFSET;
-
-                // if the chat mode is visible, it should push the text box further to the right
-                int chatModeOffset = _currentChatModeLabel.IsVisible ? _currentChatModeLabel.Width : 0;
-                TextBoxControl.X = CHAT_X_OFFSET + chatModeOffset;
-                TextBoxControl.Y = Height - lines * CHAT_HEIGHT - CHAT_X_OFFSET;
-                // if the text box has been pushed to the right, it should not clip into the void
-                TextBoxControl.Width = Width - CHAT_X_OFFSET - chatModeOffset;
-                // if the text box has more than one line, it will grow upwards
-                TextBoxControl.Height = lines * CHAT_HEIGHT + CHAT_X_OFFSET;
-                
-                // the dark background should always cover chat mode and text box fully
-                _trans.X = TextBoxControl.X - CHAT_X_OFFSET - chatModeOffset;
+                TextBoxControl.X = CHAT_X_OFFSET;
+                TextBoxControl.Y = Height - CHAT_HEIGHT - CHAT_X_OFFSET;
+                TextBoxControl.Width = Width - CHAT_X_OFFSET;
+                TextBoxControl.Height = CHAT_HEIGHT + CHAT_X_OFFSET;
+                _trans.X = TextBoxControl.X - CHAT_X_OFFSET;
                 _trans.Y = TextBoxControl.Y;
                 _trans.Width = Width;
-                _trans.Height = TextBoxControl.Height;
+                _trans.Height = CHAT_HEIGHT + 5;
             }
         }
 
@@ -504,11 +403,11 @@ namespace ClassicUO.Game.UI.Gumps
                             {
                                 if (_gump.World.Party.Members[index - 1] != null && _gump.World.Party.Members[index - 1].Serial != 0)
                                 {
-                                    AppendChatModePrefix(string.Format(ResGumps.Tell0, _gump.World.Party.Members[index - 1].Name), string.Empty);
+                                    AppendChatModePrefix(string.Format(ResGumps.Tell0, _gump.World.Party.Members[index - 1].Name), ProfileManager.CurrentProfile.PartyMessageHue, string.Empty);
                                 }
                                 else
                                 {
-                                    AppendChatModePrefix(ResGumps.TellEmpty, string.Empty);
+                                    AppendChatModePrefix(ResGumps.TellEmpty, ProfileManager.CurrentProfile.PartyMessageHue, string.Empty);
                                 }
 
                                 Mode = ChatMode.Party;
@@ -562,6 +461,11 @@ namespace ClassicUO.Game.UI.Gumps
             else if (Mode == ChatMode.ClientCommand && TextBoxControl.Text.Length == 1 && TextBoxControl.Text[0] == '-')
             {
                 Mode = ChatMode.UOAMChat;
+            }
+
+            if (ProfileManager.CurrentProfile.SpeechHue != TextBoxControl.Hue && Mode == ChatMode.Default)
+            {
+                TextBoxControl.Hue = ProfileManager.CurrentProfile.SpeechHue;
             }
 
             _trans.Alpha = ProfileManager.CurrentProfile != null && ProfileManager.CurrentProfile.HideChatGradient ? 0.0f : 0.5f;
@@ -674,173 +578,53 @@ namespace ClassicUO.Game.UI.Gumps
 
                     break;
 
-                case SDL.SDL_Keycode.SDLK_BACKSPACE when Keyboard.Ctrl && !Keyboard.Alt && !Keyboard.Shift:
-                    {
-                        if (!IsActive)
-                        {
-                            return;
-                        }
-
-                        String text = TextBoxControl.Text;
-
-                        if (string.IsNullOrEmpty(text))
-                        {
-                            Mode = ChatMode.Default;
-                            break;
-                        }
-
-                        // ignore the final character since that's a space if the user presses Ctrl + Backspace multiple times
-                        int index = text.LastIndexOf(' ', TextBoxControl.CaretIndex - 1);
-
-                        if (index >= 0)
-                        {
-                            // do not remove the final space since we assume the user wants to continue writing
-                            TextBoxControl.SetText(text[..(index + 1)] + text[TextBoxControl.CaretIndex..]);
-                            TextBoxControl.CaretIndex = index + 1;
-                        }
-                        else
-                        {
-                            TextBoxControl.ClearText();
-                        }
-
-                        if (string.IsNullOrEmpty(TextBoxControl.Text))
-                        {
-                            Mode = ChatMode.Default;
-                        }
-                        break;
-                    }
-
                 case SDL.SDL_Keycode.SDLK_BACKSPACE when !Keyboard.Ctrl && !Keyboard.Alt && !Keyboard.Shift && string.IsNullOrEmpty(TextBoxControl.Text):
-                    if (!IsActive)
-                    {
-                        return;
-                    }
-
                     Mode = ChatMode.Default;
 
                     break;
 
-                case SDL.SDL_Keycode.SDLK_ESCAPE when Mode == ChatMode.Prompt:
+                case SDL.SDL_Keycode.SDLK_ESCAPE when _gump.World.MessageManager.PromptData.Prompt != ConsolePrompt.None:
 
-                    Mode = ChatMode.Default;
+                    _gump.World.MessageManager.CancelServerPrompt();
 
                     break;
             }
-        }
-
-        public string ExtractSendableTextSubstring(ref string textBoxText)
-        {
-            string toReturn;
-            if (textBoxText.Length <= MAX_MESSAGE_LENGTH)
-            {
-                toReturn = textBoxText;
-                textBoxText = string.Empty;
-                return toReturn;
-            }
-
-            int lastSpaceIndex = textBoxText.LastIndexOf(' ', MAX_MESSAGE_LENGTH);
-
-            if (lastSpaceIndex < 0)
-            {
-                lastSpaceIndex = MAX_MESSAGE_LENGTH;
-            }
-
-            toReturn = textBoxText.Substring(0, lastSpaceIndex);
-            textBoxText = textBoxText.Substring(lastSpaceIndex).TrimStart();
-            return toReturn;
-        }
-
-        private void ResetTextBox()
-        {
-            TextBoxControl.ClearText();
-            Mode = ChatMode.Default;
-            DisposeChatModePrefix();
-        }
-
-        public bool IsComposing
-        {
-            get => IsActive && TextBoxControl.Text.Length > 0;
         }
 
         public override void OnKeyboardReturn(int textID, string text)
         {
-            if (!IsActive && ProfileManager.CurrentProfile.ActivateChatAfterEnter || string.IsNullOrEmpty(text))
+            if (!IsActive && ProfileManager.CurrentProfile.ActivateChatAfterEnter || Mode != ChatMode.Default && string.IsNullOrEmpty(text))
             {
-                ResetTextBox();
+                TextBoxControl.ClearText();
+                text = string.Empty;
+                Mode = ChatMode.Default;
             }
 
-            if (!ProfileManager.CurrentProfile.ChatInputAutoLineBreak)
+            if (string.IsNullOrEmpty(text))
             {
-                text = text.Replace("\r\n", "\n").Replace('\n', ' ');
+                return;
             }
 
-            if (TryHandleMessageMultipartSend(text, Mode, out var remainder))
+            ChatMode sentMode = Mode;
+            TextBoxControl.ClearText();
+            _messageHistory.Add(new Tuple<ChatMode, string>(Mode, text));
+            _messageHistoryIndex = _messageHistory.Count;
+            Mode = ChatMode.Default;
+
+            if (_gump.World.MessageManager.PromptData.Prompt != ConsolePrompt.None)
             {
-                TextBoxControl.SetText(remainder);
+                _gump.World.MessageManager.SendServerPromptResponse(text);
             }
             else
             {
-                HandleMessageSend(text, Mode);
-                TextBoxControl.ClearText();
+                HandleMessageSend(text, sentMode);
             }
 
-            if (TextBoxControl.Length == 0)
-            {
-                ResetTextBox();
-            }
-        }
-
-        private bool TryHandleMessageMultipartSend(string text, ChatMode mode, out string remainder)
-        {
-            if (!TrySplitMessage(text, mode, out string message, out remainder))
-            {
-                remainder = message;
-                return false;
-            }
-
-            HandleMessageSend(message, mode);
-
-            // Preserve the party index we're messaging
-            // otherwise the remainder would be sent to all instead of that specific person
-            if (mode == ChatMode.Party && int.TryParse(text[0..2], out var partyCharIndex) && partyCharIndex is > 0 and < 11)
-                remainder = $"{partyCharIndex} {remainder}";
-
-            return true;
-        }
-
-        private bool TrySplitMessage(string text, ChatMode mode, out string message, out string remainder)
-        {
-            return TrySplitMessage(text, mode, out message, out remainder, MAX_MESSAGE_LENGTH);
-        }
-
-        private bool TrySplitMessage(string text, ChatMode mode, out string message, out string remainder, int maxLineChars)
-        {
-            if (text.Length <= maxLineChars || SINGLE_LINE_CHAT_MODES.Contains(mode))
-            {
-                message = text;
-                remainder = string.Empty;
-                return false;
-            }
-
-            int lastSpaceIndex = ProfileManager.CurrentProfile.ChatInputAutoLineBreak
-                ? text.LastIndexOfAny([' ', '\n'], maxLineChars)
-                : text.LastIndexOf(' ', maxLineChars);
-            if (lastSpaceIndex < 0)
-            {
-                lastSpaceIndex = maxLineChars;
-            }
-
-            message = text[..lastSpaceIndex];
-            remainder = text[lastSpaceIndex..].TrimStart();
-            return true;
+            DisposeChatModePrefix();
         }
 
         private void HandleMessageSend(string text, ChatMode sentMode)
         {
-            _messageHistory.Add(new Tuple<ChatMode, string>(Mode, text));
-            _messageHistoryIndex = _messageHistory.Count;
-
-
             switch (sentMode)
             {
                 case ChatMode.Default:
@@ -866,6 +650,7 @@ namespace ClassicUO.Game.UI.Gumps
 
                 case ChatMode.Prompt:
                     _gump.World.MessageManager.SendServerPromptResponse(text);
+
                     break;
 
                 case ChatMode.Party:

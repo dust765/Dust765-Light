@@ -650,20 +650,13 @@ namespace ClassicUO.Network
 
         internal static bool ProcessHotkeys(int key, int mod, bool ispressed)
         {
-            if ((!Client.Game.UO.World?.InGame ?? false) || UIManager.SystemChat != null && (
-                        ProfileManager.CurrentProfile != null
-                            && ProfileManager.CurrentProfile.ActivateChatAfterEnter
-                            && UIManager.SystemChat.IsActive
-                        || UIManager.KeyboardFocusControl != UIManager.SystemChat.TextBoxControl
-                    )
-            )
+            if (!Client.Game.UO.World?.InGame ?? true)
             {
                 return true;
             }
 
-            var ok = Client.Game.PluginHost?.Hotkey(key, mod, ispressed);
-
-            bool result = ok ?? true;
+            var hostResult = Client.Game.PluginHost?.Hotkey(key, mod, ispressed);
+            bool result = hostResult ?? true;
 
             foreach (Plugin plugin in Plugins)
             {

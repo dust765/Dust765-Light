@@ -5534,6 +5534,9 @@ namespace ClassicUO.Network
             uint serial = p.ReadUInt32BE();
             BuffIconType ic = (BuffIconType)p.ReadUInt16BE();
 
+            Mobile target = world.Mobiles.Get(serial) ?? world.Player;
+            bool isPlayerTarget = target == world.Player;
+
             ushort iconID =
                 (ushort)ic >= BUFF_ICON_START_NEW
                     ? (ushort)(ic - (BUFF_ICON_START_NEW - 125))
@@ -5546,8 +5549,12 @@ namespace ClassicUO.Network
 
                 if (count == 0)
                 {
-                    world.Player.RemoveBuff(ic);
-                    gump?.RequestUpdateContents();
+                    target.RemoveBuff(ic);
+
+                    if (isPlayerTarget)
+                    {
+                        gump?.RequestUpdateContents();
+                    }
                 }
                 else
                 {
@@ -5613,10 +5620,10 @@ namespace ClassicUO.Network
                         }
 
                         string text = $"<left>{title}{description}{wtf}</left>";
-                        bool alreadyExists = world.Player.IsBuffIconExists(ic);
-                        world.Player.AddBuff(ic, BuffTable.Table[iconID], timer, text);
+                        bool alreadyExists = target.IsBuffIconExists(ic);
+                        target.AddBuff(ic, BuffTable.Table[iconID], timer, text);
 
-                        if (!alreadyExists)
+                        if (isPlayerTarget && !alreadyExists)
                         {
                             gump?.RequestUpdateContents();
                         }

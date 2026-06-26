@@ -17,8 +17,6 @@ namespace ClassicUO.Game.GameObjects
 {
     internal class PlayerMobile : Mobile
     {
-        private readonly Dictionary<BuffIconType, BuffIcon> _buffIcons = new Dictionary<BuffIconType, BuffIcon>();
-
         // Dust765
         public BandageGump BandageTimer;
         public OnCastingGump OnCasting;
@@ -41,7 +39,6 @@ namespace ClassicUO.Game.GameObjects
 
         public Skill[] Skills { get; }
         public override bool InWarMode { get; set; }
-        public IReadOnlyDictionary<BuffIconType, BuffIcon> BuffIcons => _buffIcons;
 
         public ref Ability PrimaryAbility => ref Abilities[0];
         public ref Ability SecondaryAbility => ref Abilities[1];
@@ -270,22 +267,6 @@ namespace ClassicUO.Game.GameObjects
             }
 
             return _amount;
-        }
-
-        public void AddBuff(BuffIconType type, ushort graphic, uint time, string text)
-        {
-            _buffIcons[type] = new BuffIcon(type, graphic, time, text);
-        }
-
-
-        public bool IsBuffIconExists(BuffIconType graphic)
-        {
-            return _buffIcons.ContainsKey(graphic);
-        }
-
-        public void RemoveBuff(BuffIconType graphic)
-        {
-            _buffIcons.Remove(graphic);
         }
 
         public void UpdateAbilities()
@@ -620,7 +601,7 @@ namespace ClassicUO.Game.GameObjects
                     y = newY;
                     z = newZ;
 
-                    walkTime = (ushort) MovementSpeed.TimeToCompleteMovement(run, IsMounted || SpeedMode == CharacterSpeedType.FastUnmount || SpeedMode == CharacterSpeedType.FastUnmountAndCantRun || IsFlyingVisual);
+                    walkTime = (ushort) MovementSpeed.TimeToCompleteMovement(run, IsMounted || SpeedMode == CharacterSpeedType.FastUnmount || SpeedMode == CharacterSpeedType.FastUnmountAndCantRun || IsFlying);
                     directionOnlyStep = false;
                 }
             }
@@ -645,7 +626,7 @@ namespace ClassicUO.Game.GameObjects
                     y = newY;
                     z = newZ;
 
-                    walkTime = (ushort) MovementSpeed.TimeToCompleteMovement(run, IsMounted || SpeedMode == CharacterSpeedType.FastUnmount || SpeedMode == CharacterSpeedType.FastUnmountAndCantRun || IsFlyingVisual);
+                    walkTime = (ushort) MovementSpeed.TimeToCompleteMovement(run, IsMounted || SpeedMode == CharacterSpeedType.FastUnmount || SpeedMode == CharacterSpeedType.FastUnmountAndCantRun || IsFlying);
                     directionOnlyStep = false;
                 }
 

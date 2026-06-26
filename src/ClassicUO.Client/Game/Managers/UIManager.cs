@@ -654,6 +654,21 @@ namespace ClassicUO.Game.Managers
 
             if (!dragTarget.CanMove)
             {
+                if (!dragTarget.AcceptMouseInput)
+                {
+                    while (dragTarget != null && !dragTarget.CanMove)
+                    {
+                        dragTarget = dragTarget.Parent;
+                    }
+                }
+                else
+                {
+                    return;
+                }
+            }
+
+            if (dragTarget == null || !dragTarget.CanMove)
+            {
                 return;
             }
 

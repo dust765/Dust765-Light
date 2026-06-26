@@ -14,7 +14,9 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using SDL3;
 using System;
+using System.Collections.Generic;
 using System.Xml;
+using ClassicUO.Utility;
 
 namespace ClassicUO.Game.UI.Gumps
 {
@@ -69,6 +71,11 @@ namespace ClassicUO.Game.UI.Gumps
         protected string _name;
         protected bool _outOfRange;
         protected StbTextBox _textBox;
+
+        protected const int HPB_DEBUFF_EXTRA_HEIGHT = 12;
+        protected Label _debuffTimerLabel;
+        protected int _enemyBarBaseHeight;
+        protected bool _debuffLayoutExpanded;
 
         protected abstract void BuildGump();
 
@@ -297,6 +304,166 @@ namespace ClassicUO.Game.UI.Gumps
 
             return false;
         }
+
+        protected void ResetDebuffTimerState()
+        {
+            _debuffTimerLabel = null;
+            _debuffLayoutExpanded = false;
+            _enemyBarBaseHeight = 0;
+        }
+
+        protected void CreateDebuffTimerLabel(int y, int width)
+        {
+            if (_debuffTimerLabel != null)
+            {
+                return;
+            }
+
+            _debuffTimerLabel = new Label
+            (
+                string.Empty,
+                true,
+                0x35,
+                width,
+                1,
+                FontStyle.BlackBorder | FontStyle.Cropped,
+                TEXT_ALIGN_TYPE.TS_CENTER
+            )
+            {
+                X = 0,
+                Y = y,
+                IsVisible = false,
+                CanMove = true
+            };
+
+            Add(_debuffTimerLabel);
+        }
+
+        protected static string BuildDebuffTimerText(Mobile mobile)
+        {
+            if (mobile == null)
+            {
+                return string.Empty;
+            }
+
+            long now = Time.Ticks;
+            List<(long remaining, string text)> entries = new List<(long, string)>();
+
+            foreach (KeyValuePair<BuffIconType, BuffIcon> kv in mobile.BuffIcons)
+            {
+                if (!BuffIconTypeHelper.IsDebuff(kv.Key))
+                {
+                    continue;
+                }
+
+                BuffIcon icon = kv.Value;
+                long remaining = icon.Timer == 0xFFFF_FFFF ? long.MaxValue : icon.Timer - now;
+
+                if (remaining <= 0)
+                {
+                    continue;
+                }
+
+                string name = GetBuffDisplayName(kv.Key, icon);
+                string line = remaining == long.MaxValue ? name : $"{name} {(int)Math.Ceiling(remaining / 1000.0)}s";
+                entries.Add((remaining, line));
+            }
+
+            if (entries.Count == 0)
+            {
+                return string.Empty;
+            }
+
+            entries.Sort((a, b) => a.remaining.CompareTo(b.remaining));
+
+            int count = Math.Min(entries.Count, 3);
+            List<string> parts = new List<string>(count);
+
+            for (int i = 0; i < count; i++)
+            {
+                parts.Add(entries[i].text);
+            }
+
+            return string.Join(" | ", parts);
+        }
+
+        private static string GetBuffDisplayName(BuffIconType type, BuffIcon icon)
+        {
+            if (!string.IsNullOrEmpty(icon.Text))
+            {
+                string stripped = icon.Text
+                    .Replace("<left>", string.Empty, StringComparison.Ordinal)
+                    .Replace("</left>", string.Empty, StringComparison.Ordinal)
+                    .Replace("<br>", "\n", StringComparison.OrdinalIgnoreCase)
+                    .Trim();
+
+                int newline = stripped.IndexOf('\n');
+
+                if (newline > 0)
+                {
+                    stripped = stripped.Substring(0, newline).Trim();
+                }
+
+                if (!string.IsNullOrEmpty(stripped))
+                {
+                    return stripped;
+                }
+            }
+
+            return type.ToString();
+        }
+
+        protected void UpdateDebuffTimerDisplay(bool inparty, Entity entity, Action<int> resizeBar)
+        {
+            if (_debuffTimerLabel == null)
+            {
+                return;
+            }
+
+            Profile profile = ProfileManager.CurrentProfile;
+            bool eligible = profile.HealthBarShowDebuffTimers
+                && !inparty
+                && LocalSerial != World.Player.Serial;
+
+            if (!eligible || entity is not Mobile mobile || entity.IsDestroyed)
+            {
+                if (_debuffLayoutExpanded)
+                {
+                    resizeBar?.Invoke(_enemyBarBaseHeight);
+                    _debuffLayoutExpanded = false;
+                }
+
+                _debuffTimerLabel.IsVisible = false;
+
+                return;
+            }
+
+            string text = BuildDebuffTimerText(mobile);
+            bool show = !string.IsNullOrEmpty(text);
+
+            _debuffTimerLabel.IsVisible = show;
+
+            if (show)
+            {
+                if (_debuffTimerLabel.Text != text)
+                {
+                    _debuffTimerLabel.Text = text;
+                }
+
+                if (!_debuffLayoutExpanded)
+                {
+                    resizeBar?.Invoke(_enemyBarBaseHeight + HPB_DEBUFF_EXTRA_HEIGHT);
+                    _debuffLayoutExpanded = true;
+                }
+
+                _debuffTimerLabel.BringOnTop();
+            }
+            else if (_debuffLayoutExpanded)
+            {
+                resizeBar?.Invoke(_enemyBarBaseHeight);
+                _debuffLayoutExpanded = false;
+            }
+        }
     }
 
     internal class HealthBarGumpCustom : BaseHealthBarGump
@@ -354,6 +521,7 @@ namespace ClassicUO.Game.UI.Gumps
 
             _background = null;
             _hpLineRed = _manaLineRed = _stamLineRed = null;
+            ResetDebuffTimerState();
 
             if (_textBox != null)
             {
@@ -683,6 +851,43 @@ namespace ClassicUO.Game.UI.Gumps
                             _border[1].LineColor = _border[2].LineColor = _border[3].LineColor = HPB_COLOR_BLACK;
                         }
                     }
+                }
+            }
+
+            UpdateDebuffTimerDisplay(inparty, entity, ResizeEnemyBarHeight);
+        }
+
+        private void ResizeEnemyBarHeight(int height)
+        {
+            Height = height;
+
+            if (_background != null)
+            {
+                _background.Height = height;
+            }
+
+            if (_border[1] != null)
+            {
+                _border[1].Y = height - HPB_BORDERSIZE;
+            }
+
+            if (_border[2] != null)
+            {
+                _border[2].Height = height;
+            }
+
+            if (_border[3] != null)
+            {
+                _border[3].Height = height;
+            }
+
+            if (_debuffTimerLabel != null)
+            {
+                _debuffTimerLabel.Y = _enemyBarBaseHeight + 1;
+
+                if (height > _enemyBarBaseHeight)
+                {
+                    _debuffTimerLabel.BringOnTop();
                 }
             }
         }
@@ -1169,6 +1374,9 @@ namespace ClassicUO.Game.UI.Gumps
                             CanMove = true
                         }
                     );
+
+                    _enemyBarBaseHeight = HPB_HEIGHT_SINGLELINE;
+                    CreateDebuffTimerLabel(_enemyBarBaseHeight + 1, HPB_WIDTH);
                 }
             }
 
@@ -1288,6 +1496,7 @@ namespace ClassicUO.Game.UI.Gumps
 
         private Button _buttonHeal1, _buttonHeal2;
         private int _oldHits, _oldStam, _oldMana;
+        private AlphaBlendControl _debuffExtension;
 
         private bool _oldWarMode, _normalHits, _poisoned, _yellowHits;
 
@@ -1323,6 +1532,8 @@ namespace ClassicUO.Game.UI.Gumps
 
             _background = _hpLineRed = _manaLineRed = _stamLineRed = null;
             _buttonHeal1 = _buttonHeal2 = null;
+            _debuffExtension = null;
+            ResetDebuffTimerState();
 
             if (_textBox != null)
             {
@@ -1561,6 +1772,24 @@ namespace ClassicUO.Game.UI.Gumps
                             CanMove = true
                         }
                     );
+
+                    _enemyBarBaseHeight = Height;
+
+                    Add
+                    (
+                        _debuffExtension = new AlphaBlendControl(0.7f)
+                        {
+                            X = 0,
+                            Y = _enemyBarBaseHeight,
+                            Width = Width,
+                            Height = HPB_DEBUFF_EXTRA_HEIGHT,
+                            IsVisible = false,
+                            AcceptMouseInput = false,
+                            CanMove = true
+                        }
+                    );
+
+                    CreateDebuffTimerLabel(_enemyBarBaseHeight + 1, Width);
                 }
             }
 
@@ -1872,6 +2101,30 @@ namespace ClassicUO.Game.UI.Gumps
                     _oldWarMode = !_oldWarMode;
 
                     _background.Graphic = World.Player.InWarMode ? BACKGROUND_WAR : BACKGROUND_NORMAL;
+                }
+            }
+
+            UpdateDebuffTimerDisplay(inparty, entity, ResizeEnemyBarHeight);
+        }
+
+        private void ResizeEnemyBarHeight(int height)
+        {
+            Height = height;
+
+            if (_debuffExtension != null)
+            {
+                bool expanded = height > _enemyBarBaseHeight;
+                _debuffExtension.IsVisible = expanded;
+                _debuffExtension.Height = expanded ? height - _enemyBarBaseHeight : HPB_DEBUFF_EXTRA_HEIGHT;
+            }
+
+            if (_debuffTimerLabel != null)
+            {
+                _debuffTimerLabel.Y = _enemyBarBaseHeight + 1;
+
+                if (height > _enemyBarBaseHeight)
+                {
+                    _debuffTimerLabel.BringOnTop();
                 }
             }
         }

@@ -1,6 +1,7 @@
 ﻿// SPDX-License-Identifier: BSD-2-Clause
 
 using ClassicUO.Utility;
+using System;
 using System.Collections.Generic;
 using System.IO;
 
@@ -438,5 +439,98 @@ namespace ClassicUO.Game.Data
 
             0x0951
         };
+    }
+
+    internal static class BuffIconTypeHelper
+    {
+        private static readonly HashSet<BuffIconType> _debuffs = BuildDebuffSet();
+
+        private static HashSet<BuffIconType> BuildDebuffSet()
+        {
+            HashSet<BuffIconType> set = new HashSet<BuffIconType>();
+
+            foreach (BuffIconType type in Enum.GetValues<BuffIconType>())
+            {
+                if (type.ToString().Contains("Debuff", StringComparison.Ordinal))
+                {
+                    set.Add(type);
+                }
+            }
+
+            BuffIconType[] spellDebuffs =
+            {
+                BuffIconType.DismountPrevention,
+                BuffIconType.NoRearm,
+                BuffIconType.DeathStrike,
+                BuffIconType.EvilOmen,
+                BuffIconType.BloodOathCurse,
+                BuffIconType.CorpseSkin,
+                BuffIconType.Mindrot,
+                BuffIconType.PainSpike,
+                BuffIconType.Strangle,
+                BuffIconType.MortalStrike,
+                BuffIconType.Paralyze,
+                BuffIconType.Poison,
+                BuffIconType.Bleed,
+                BuffIconType.Clumsy,
+                BuffIconType.FeebleMind,
+                BuffIconType.Weaken,
+                BuffIconType.Curse,
+                BuffIconType.MassCurse,
+                BuffIconType.SpellPlague,
+                BuffIconType.Sleep,
+                BuffIconType.MassSleep,
+                BuffIconType.Stagger,
+                BuffIconType.Pierce,
+                BuffIconType.Onslaught,
+                BuffIconType.HitLowerAttack,
+                BuffIconType.HitLowerDefense,
+                BuffIconType.PsychicAttack,
+                BuffIconType.TribulationTarget,
+                BuffIconType.DespairTarget,
+                BuffIconType.DespairCaster,
+                BuffIconType.AuraOfNausea,
+                BuffIconType.TrueFear,
+                BuffIconType.HowlOfCacophony,
+                BuffIconType.GazeDespair,
+                BuffIconType.RotwormBloodDisease,
+                BuffIconType.BloodwormAnemia,
+                BuffIconType.RuneBeetleCorruption,
+                BuffIconType.SplinteringEffect,
+                BuffIconType.ArmorPierce,
+                BuffIconType.FactionStatLoss,
+                BuffIconType.SkillUseDelay,
+                BuffIconType.CriminalStatus,
+                BuffIconType.HeatOfBattleStatus,
+                BuffIconType.CurseWeapon,
+                BuffIconType.HumilityDebuff,
+                BuffIconType.InjectedStrikeDebuff,
+                BuffIconType.UnknownDebuff,
+                BuffIconType.FeintDebuff,
+                BuffIconType.DragonTurtleDebuff,
+                BuffIconType.ThrustDebuff,
+                BuffIconType.PlayingTheOddsDebuff,
+                BuffIconType.Sparks,
+                BuffIconType.Swarm,
+                BuffIconType.BoneBreaker,
+                BuffIconType.Disarm,
+                BuffIconType.Webbing,
+                BuffIconType.MedusaStone,
+                BuffIconType.Rage,
+                BuffIconType.FanDancerFanFire
+            };
+
+            foreach (BuffIconType type in spellDebuffs)
+            {
+                set.Add(type);
+            }
+
+            set.Remove(BuffIconType.SpellFocusingBuff);
+            set.Remove(BuffIconType.RageFocusingBuff);
+
+            return set;
+        }
+
+        public static bool IsDebuff(BuffIconType type) => _debuffs.Contains(type);
     }
 }

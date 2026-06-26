@@ -247,11 +247,19 @@ namespace ClassicUO.Game.UI.Controls
             else
             {
                 Item robe = mobile.FindItemByLayer(Layer.Robe);
+                bool parrotOriginalView = IsParrotOriginalPaperdollView(mobile);
 
-                layers = (robe != null && (robe.Graphic == 0xA2CA || robe.Graphic == 0xA2CB))
+                layers = parrotOriginalView && robe != null && IsParrotRobe(robe.Graphic)
                     ? _layerOrder_parrot_fix
                     : _layerOrder;
             }
+
+            bool isOwnPaperdoll = _paperDollGump.World.Player != null && LocalSerial == _paperDollGump.World.Player.Serial;
+            bool showAllLayersPaperdoll = isOwnPaperdoll && (ProfileManager.CurrentProfile?.ShowAllLayersPaperdoll ?? false);
+            Item wornRobe = mobile.FindItemByLayer(Layer.Robe);
+            bool useParrotPaperdollRules = IsParrotOriginalPaperdollView(mobile)
+                && wornRobe != null
+                && IsParrotRobe(wornRobe.Graphic);
 
             for (int i = 0; i < layers.Length; i++)
             {
@@ -273,10 +281,24 @@ namespace ClassicUO.Game.UI.Controls
 
                 if (equipItem != null)
                 {
-                    bool isOwnPaperdoll = _paperDollGump.World.Player != null && LocalSerial == _paperDollGump.World.Player.Serial;
-                    bool showAllLayersPaperdoll = isOwnPaperdoll && (ProfileManager.CurrentProfile?.ShowAllLayersPaperdoll ?? false);
+                    bool hideHeadUnderCoveringRobe = isOwnPaperdoll
+                        && (ProfileManager.CurrentProfile?.PaperdollHideHeadUnderCoveringRobe ?? false)
+                        && IsHelmetOrHairLayer(layer)
+                        && IsHeadCoveredByEquipment(mobile);
 
-                    if (!showAllLayersPaperdoll && Mobile.IsCovered(mobile, layer) && !equipItem.IsSpellbookEquipment())
+                    if (hideHeadUnderCoveringRobe)
+                    {
+                        continue;
+                    }
+
+                    if (useParrotPaperdollRules && IsLayerHiddenByParrotRobe(layer))
+                    {
+                        continue;
+                    }
+
+                    bool respectCoveredLayers = !showAllLayersPaperdoll;
+
+                    if (respectCoveredLayers && Mobile.IsCovered(mobile, layer) && !equipItem.IsSpellbookEquipment())
                     {
                         continue;
                     }
@@ -394,7 +416,7 @@ namespace ClassicUO.Game.UI.Controls
 
                 if (_paperDollGump.World.ClientFeatures.PaperdollBooks)
                 {
-                    bx = 6;
+                    bx = 14;
                 }
 
                 Add(
@@ -422,6 +444,33 @@ namespace ClassicUO.Game.UI.Controls
         public void RequestRefresh()
         {
             _updateUI = true;
+        }
+
+        private bool IsParrotOriginalPaperdollView(Mobile mobile)
+        {
+            return _paperDollGump.World.Player != null
+                && mobile.Serial == _paperDollGump.World.Player.Serial
+                && (ProfileManager.CurrentProfile?.PaperdollParrotOriginalView ?? true);
+        }
+
+        private static bool IsParrotRobe(ushort graphic)
+        {
+            return graphic == 0xA2CA || graphic == 0xA2CB;
+        }
+
+        private static bool IsLayerHiddenByParrotRobe(Layer layer)
+        {
+            return layer == Layer.Tunic || layer == Layer.Torso || layer == Layer.Arms;
+        }
+
+        private static bool IsHelmetOrHairLayer(Layer layer)
+        {
+            return layer == Layer.Helmet || layer == Layer.Hair;
+        }
+
+        private static bool IsHeadCoveredByEquipment(Mobile mobile)
+        {
+            return Mobile.IsCovered(mobile, Layer.Helmet) || Mobile.IsCovered(mobile, Layer.Hair);
         }
 
         protected static ushort GetAnimID(ushort mobileGraphic, ushort itemGraphic, ushort animID, bool isfemale)

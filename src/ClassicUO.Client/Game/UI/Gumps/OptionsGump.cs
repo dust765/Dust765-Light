@@ -30,8 +30,6 @@ namespace ClassicUO.Game.UI.Gumps
         private const int HEIGHT = 500;
         private const int TEXTBOX_HEIGHT = 25;
         private const int SCREEN_ZOOM_STEPS = 20;
-        private const int CHAT_INPUT_MAX_CHARS_SLIDER_MIN = 1000;
-        private const int CHAT_INPUT_MAX_CHARS_SLIDER_MAX = 20000;
 
         private static Texture2D _logoTexture2D;
         private Combobox _auraType;
@@ -103,7 +101,6 @@ namespace ClassicUO.Game.UI.Gumps
                          _chatAfterEnter,
                          _chatAdditionalButtonsCheckbox,
                          _chatShiftEnterCheckbox,
-                         _chatInputAutoLineBreak,
                          _enableCaveBorder;
         private Checkbox _holdShiftForContext, _holdShiftToSplitStack, _reduceFPSWhenInactive, _sallosEasyGrab, _partyInviteGump, _objectsFading, _textFading, _holdAltToMoveGumps;
         private Combobox _hpComboBox, _healtbarType, _fieldsType, _hpComboBoxShowWhen;
@@ -140,7 +137,6 @@ namespace ClassicUO.Game.UI.Gumps
         // general
         private HSliderBar _sliderFPS, _circleOfTranspRadius;
         private HSliderBar _sliderSpeechDelay;
-        private HSliderBar _chatInputMaxCharsPerLineSlider;
         private HSliderBar _sliderScreenZoom;
         private HSliderBar _sliderZoom;
         private HSliderBar _soundsVolume, _musicVolume, _loginMusicVolume;
@@ -2683,39 +2679,6 @@ namespace ClassicUO.Game.UI.Gumps
             startY += _chatShiftEnterCheckbox.Height + 2;
             startX = 5;
 
-            _chatInputAutoLineBreak = AddCheckBox
-            (
-                rightArea,
-                ResGumps.ChatInputAutoLineBreak,
-                _currentProfile.ChatInputAutoLineBreak,
-                startX,
-                startY
-            );
-
-            startY += _chatInputAutoLineBreak.Height + 2;
-
-            AddLabel(rightArea, ResGumps.ChatInputMaxCharsPerLine, startX, startY);
-
-            startY += 15;
-
-            _chatInputMaxCharsPerLineSlider = AddHSlider
-            (
-                rightArea,
-                CHAT_INPUT_MAX_CHARS_SLIDER_MIN,
-                CHAT_INPUT_MAX_CHARS_SLIDER_MAX,
-                Math.Clamp(
-                    _currentProfile.ChatInputMaxCharsPerLine,
-                    CHAT_INPUT_MAX_CHARS_SLIDER_MIN,
-                    CHAT_INPUT_MAX_CHARS_SLIDER_MAX
-                ),
-                startX,
-                startY,
-                180
-            );
-
-            startY += _chatInputMaxCharsPerLineSlider.Height + 14;
-            startX = 5;
-
             _hideChatGradient = AddCheckBox
             (
                 rightArea,
@@ -4115,8 +4078,6 @@ namespace ClassicUO.Game.UI.Gumps
                     UIManager.SystemChat.IsActive = !_chatAfterEnter.IsChecked;
                     _chatAdditionalButtonsCheckbox.IsChecked = true;
                     _chatShiftEnterCheckbox.IsChecked = true;
-                    _chatInputAutoLineBreak.IsChecked = true;
-                    _chatInputMaxCharsPerLineSlider.Value = CHAT_INPUT_MAX_CHARS_SLIDER_MIN;
                     _saveJournalCheckBox.IsChecked = false;
                     _hideChatGradient.IsChecked = false;
                     _ignoreGuildMessages.IsChecked = false;
@@ -4360,12 +4321,6 @@ namespace ClassicUO.Game.UI.Gumps
 
             _currentProfile.ActivateChatAdditionalButtons = _chatAdditionalButtonsCheckbox.IsChecked;
             _currentProfile.ActivateChatShiftEnterSupport = _chatShiftEnterCheckbox.IsChecked;
-            _currentProfile.ChatInputAutoLineBreak = _chatInputAutoLineBreak.IsChecked;
-            _currentProfile.ChatInputMaxCharsPerLine = Math.Clamp(
-                _chatInputMaxCharsPerLineSlider.Value,
-                CHAT_INPUT_MAX_CHARS_SLIDER_MIN,
-                CHAT_INPUT_MAX_CHARS_SLIDER_MAX
-            );
             _currentProfile.SaveJournalToFile = _saveJournalCheckBox.IsChecked;
             _currentProfile.OverheadPartyMessages = _partyMessagesOverhead.IsChecked;
 

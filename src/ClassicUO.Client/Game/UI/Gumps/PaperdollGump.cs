@@ -306,7 +306,7 @@ namespace ClassicUO.Game.UI.Gumps
 
             if (showPaperdollBooks)
             {
-                Add(_combatBook = new GumpPic(156, 200, 0x2B34, 0));
+                Add(_combatBook = new GumpPic(146, 200, 0x2B34, 0));
                 WirePaperdollBookClick(_combatBook, () => GameActions.OpenAbilitiesBook(World));
 
                 if (showRacialAbilitiesBook)

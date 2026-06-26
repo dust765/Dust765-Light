@@ -1068,6 +1068,7 @@ namespace ClassicUO.Game.GameObjects
             uint serial = Serial & 0x3FFFFFFF;
 
             ClearSteps();
+            ClearBuffs();
 
             base.Destroy();
 

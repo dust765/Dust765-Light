@@ -1234,11 +1234,7 @@ namespace ClassicUO.Game.Scenes
                                 return;
                             }
 
-                            if (UIManager.SystemChat.IsComposing)
-                            {
-                                // still text left to be sent, do nothing
-                                return;
-                            }
+                            UIManager.SystemChat.Mode = ChatMode.Default;
                             UIManager.SystemChat.ToggleChatVisibility();
                         }
                         // everything else is handled in the system chat control

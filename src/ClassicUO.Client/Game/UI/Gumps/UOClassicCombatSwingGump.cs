@@ -28,6 +28,7 @@ namespace ClassicUO.Game.UI.Gumps
             Y = y;
             Width = maxWidth;
             Height = height;
+            AcceptMouseInput = false;
             _texture = SolidColorTextureCache.GetTexture(new Color { PackedValue = colorPacked });
         }
 
@@ -99,7 +100,8 @@ namespace ClassicUO.Game.UI.Gumps
                 X = 0,
                 Y = 0,
                 Width = 40,
-                Height = 20
+                Height = 20,
+                AcceptMouseInput = false
             };
             Add(_titleLabel);
 
@@ -109,7 +111,8 @@ namespace ClassicUO.Game.UI.Gumps
             _timerLabel = new Label("0", true, HUE_GREEN, font: FONT, style: FontStyle.BlackBorder)
             {
                 X = _titleLabel.Width + 10,
-                Y = 0
+                Y = 0,
+                AcceptMouseInput = false
             };
             Add(_timerLabel);
 
@@ -162,7 +165,7 @@ namespace ClassicUO.Game.UI.Gumps
         protected override void OnDragEnd(int x, int y)
         {
             base.OnDragEnd(x, y);
-            ProfileManager.CurrentProfile.UOClassicCombatBuffbarLocation = Location;
+            ProfileManager.CurrentProfile.UOClassicCombatBuffbarLocation = new Point(ScreenCoordinateX, ScreenCoordinateY);
         }
 
         public override void Update()
