@@ -28,6 +28,7 @@ namespace ClassicUO.Game.UI.Gumps
         private Checkbox _dust765ShowDeathOnWorldmap;
         private Checkbox _dust765GridContainer;
         private Checkbox _dust765ShowAllLayersPaperdoll, _dust765HideHeadUnderCoveringRobe, _dust765ParrotOriginalView;
+        private Checkbox _dust765MobileHideHeadUnderCoveringRobe, _dust765MobileParrotOriginalView;
         private HSliderBar _dust765NamePlateOpacity;
         private HSliderBar _dust765MultiUnderlinesTransparency;
         private HSliderBar _dust765TransparentHousesZ;
@@ -515,7 +516,7 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765HideHeadUnderCoveringRobe = AddCheckBox
                 (
                     null,
-                    "Hide head items under covering robes",
+                    "Hide head items under covering robes (paperdoll)",
                     _currentProfile.PaperdollHideHeadUnderCoveringRobe,
                     startX,
                     startY
@@ -527,8 +528,32 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765ParrotOriginalView = AddCheckBox
                 (
                     null,
-                    "Parrot robe original paperdoll view",
+                    "Parrot robe original view (paperdoll)",
                     _currentProfile.PaperdollParrotOriginalView,
+                    startX,
+                    startY
+                )
+            );
+
+            sectionPaperdoll.Add
+            (
+                _dust765MobileHideHeadUnderCoveringRobe = AddCheckBox
+                (
+                    null,
+                    "Hide head items under covering robes (mobile)",
+                    _currentProfile.MobileHideHeadUnderCoveringRobe,
+                    startX,
+                    startY
+                )
+            );
+
+            sectionPaperdoll.Add
+            (
+                _dust765MobileParrotOriginalView = AddCheckBox
+                (
+                    null,
+                    "Parrot robe original view (mobile)",
+                    _currentProfile.MobileParrotOriginalView,
                     startX,
                     startY
                 )
@@ -911,6 +936,8 @@ namespace ClassicUO.Game.UI.Gumps
             _currentProfile.ShowAllLayersPaperdoll = _dust765ShowAllLayersPaperdoll.IsChecked;
             _currentProfile.PaperdollHideHeadUnderCoveringRobe = _dust765HideHeadUnderCoveringRobe.IsChecked;
             _currentProfile.PaperdollParrotOriginalView = _dust765ParrotOriginalView.IsChecked;
+            _currentProfile.MobileHideHeadUnderCoveringRobe = _dust765MobileHideHeadUnderCoveringRobe.IsChecked;
+            _currentProfile.MobileParrotOriginalView = _dust765MobileParrotOriginalView.IsChecked;
             UIManager.GetGump<PaperDollGump>(World.Player?.Serial)?.RequestUpdateContents();
 
             // Art / Hue Changes

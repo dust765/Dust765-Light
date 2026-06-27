@@ -114,6 +114,8 @@ namespace ClassicUO.Configuration
         public bool ShowAllLayersPaperdoll { get; set; } = true;
         public bool PaperdollHideHeadUnderCoveringRobe { get; set; } = false;
         public bool PaperdollParrotOriginalView { get; set; } = true;
+        public bool MobileHideHeadUnderCoveringRobe { get; set; } = false;
+        public bool MobileParrotOriginalView { get; set; } = true;
         public bool HighlightGameObjects { get; set; }
         public bool HighlightMobilesByParalize { get; set; } = true;
         public bool HighlightMobilesByPoisoned { get; set; } = true;
