@@ -2,9 +2,11 @@
 
 using ClassicUO.Assets;
 using ClassicUO.Configuration;
+using ClassicUO.Dust765;
 using ClassicUO.Game;
 using ClassicUO.Game.Data;
 using ClassicUO.IO;
+using ClassicUO.Network;
 using ClassicUO.Resources;
 using ClassicUO.Utility;
 using ClassicUO.Utility.Logging;
@@ -42,8 +44,17 @@ namespace ClassicUO
 
         public unsafe void Load(GameController game)
         {
-            LoadUOFiles();
+            LoadDataFiles();
+            LoadGraphicsResources(game);
+        }
 
+        public void LoadDataFiles()
+        {
+            LoadUOFiles();
+        }
+
+        public unsafe void LoadGraphicsResources(GameController game)
+        {
             const int TEXTURE_WIDTH = 512;
             const int TEXTURE_HEIGHT = 1024;
             const int LIGHTS_TEXTURE_WIDTH = 32;
@@ -210,9 +221,17 @@ namespace ClassicUO
         {
             Debug.Assert(Game == null);
 
+            SplashScreenManager.Show();
+            SplashScreenManager.SetStatus("Loading client files...");
+
+            var uo = new UltimaOnline();
+            uo.LoadDataFiles();
+
             Log.Trace("Running game...");
 
-            using (Game = new GameController(pluginHost))
+            SplashScreenManager.SetStatus("Starting up...");
+
+            using (Game = new GameController(pluginHost, uo))
             {
                 // https://github.com/FNA-XNA/FNA/wiki/7:-FNA-Environment-Variables#fna_graphics_enable_highdpi
                 CUOEnviroment.IsHighDPI = Environment.GetEnvironmentVariable("FNA_GRAPHICS_ENABLE_HIGHDPI") == "1";
@@ -221,6 +240,21 @@ namespace ClassicUO
                 {
                     Log.Trace("HIGH DPI - ENABLED");
                 }
+
+                Log.Trace("Loading plugins...");
+
+                pluginHost?.Initialize();
+
+                foreach (string p in Settings.GlobalSettings.Plugins)
+                {
+                    Plugin.Create(p);
+                }
+
+                Game.MarkPluginsInitialized();
+
+                Log.Trace("Done!");
+
+                SplashScreenManager.Close();
 
                 Game.Run();
             }

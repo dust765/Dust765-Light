@@ -282,7 +282,11 @@ namespace ClassicUO.Network
             }
 
             message.CopyTo(_sendingBuffer.AsSpan(0, message.Length));
-            _socket.Send(_sendingBuffer, 0, message.Length);
+
+            if (!TrySendBuffer(message.Length))
+            {
+                return;
+            }
 
             Statistics.TotalBytesSent += (uint)message.Length;
             Statistics.TotalPacketsSent++;
@@ -301,29 +305,38 @@ namespace ClassicUO.Network
             if (!IsConnected)
                 return;
 
-            try
+            lock (_sendStream)
             {
-                lock (_sendStream)
+                while (_sendStream.Length > 0)
                 {
-                    while (_sendStream.Length > 0)
+                    var read = _sendStream.Dequeue(_sendingBuffer, 0, _sendingBuffer.Length);
+
+                    if (read <= 0)
                     {
-                        var read = _sendStream.Dequeue(_sendingBuffer, 0, _sendingBuffer.Length);
+                        break;
+                    }
 
-                        if (read <= 0)
-                        {
-                            break;
-                        }
-
-                        _socket.Send(_sendingBuffer, 0, read);
+                    if (!TrySendBuffer(read))
+                    {
+                        break;
                     }
                 }
+            }
+        }
+
+        private bool TrySendBuffer(int length)
+        {
+            try
+            {
+                _socket.Send(_sendingBuffer, 0, length);
+                return true;
             }
             catch (SocketException ex)
             {
                 Log.Error("socket error when sending:\n" + ex);
-
                 Disconnect();
                 Disconnected?.Invoke(this, ex.SocketErrorCode);
+                return false;
             }
             catch (Exception ex)
             {
@@ -331,19 +344,15 @@ namespace ClassicUO.Network
                 {
                     Log.Error("main exception:\n" + ex);
                     Log.Error("socket error when sending:\n" + socketEx);
-
                     Disconnect();
                     Disconnected?.Invoke(this, socketEx.SocketErrorCode);
+                    return false;
                 }
-                else
-                {
-                    Log.Error("fatal error when sending:\n" + ex);
 
-                    Disconnect();
-                    Disconnected?.Invoke(this, SocketError.SocketError);
-
-                    throw;
-                }
+                Log.Error("fatal error when sending:\n" + ex);
+                Disconnect();
+                Disconnected?.Invoke(this, SocketError.SocketError);
+                throw;
             }
         }
 
