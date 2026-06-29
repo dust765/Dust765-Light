@@ -24,6 +24,8 @@ namespace ClassicUO.Game.UI.Gumps
         private readonly bool _hideIfEmpty;
         private HitBox _hitBox;
         private bool _isMinimized;
+        private bool _showGridToggle;
+        private NiceButton _returnToGridView;
 
         internal const int CORPSES_GUMP = 0x0009;
 
@@ -106,6 +108,15 @@ namespace ClassicUO.Game.UI.Gumps
             if (_data.OpenSound != 0 && playsound)
             {
                 Client.Game.Audio.PlaySound(_data.OpenSound);
+            }
+        }
+
+        public ContainerGump(World world, uint serial, ushort gumpid, bool playsound, bool showGridToggle)
+            : this(world, serial, gumpid, playsound)
+        {
+            if (showGridToggle)
+            {
+                AddReturnToGridViewButton();
             }
         }
 
@@ -196,6 +207,39 @@ namespace ClassicUO.Game.UI.Gumps
 
             Width = _gumpPicContainer.Width = (int)(_gumpPicContainer.Width * scale);
             Height = _gumpPicContainer.Height = (int)(_gumpPicContainer.Height * scale);
+        }
+
+        private void AddReturnToGridViewButton()
+        {
+            if (_returnToGridView != null)
+            {
+                return;
+            }
+
+            _showGridToggle = true;
+            _returnToGridView = new NiceButton(0, 0, 20, 20, ButtonAction.Activate, "#")
+            {
+                IsSelectable = false
+            };
+            _returnToGridView.SetTooltip("Return to grid container view");
+            _returnToGridView.MouseUp += (s, e) =>
+            {
+                if (e.Button != MouseButtonType.Left)
+                {
+                    return;
+                }
+
+                UIManager.GetGump<GridContainer>(LocalSerial)?.Dispose();
+                UIManager.Add(new GridContainer(World, LocalSerial, Graphic, true)
+                {
+                    X = X,
+                    Y = Y,
+                    InvalidateContents = true
+                });
+                Dispose();
+            };
+
+            Add(_returnToGridView);
         }
 
         private void HitBoxOnMouseUp(object sender, MouseEventArgs e)

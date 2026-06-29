@@ -41,8 +41,9 @@ namespace ClassicUO
         private bool _pluginsInitialized = false;
         private float _displayScale;
 
-        public GameController(IPluginHost pluginHost)
+        public GameController(IPluginHost pluginHost, UltimaOnline uo)
         {
+            UO = uo;
             GraphicManager = new GraphicsDeviceManager(this);
 
             GraphicManager.PreparingDeviceSettings += (sender, e) =>
@@ -66,7 +67,7 @@ namespace ClassicUO
 
         public Scene Scene { get; private set; }
         public AudioManager Audio { get; private set; }
-        public UltimaOnline UO { get; } = new UltimaOnline();
+        public UltimaOnline UO { get; }
         public IPluginHost PluginHost { get; private set; }
         public GraphicsDeviceManager GraphicManager { get; }
 
@@ -128,28 +129,21 @@ namespace ClassicUO
             var bytes = Loader.GetBackgroundImage().ToArray();
             using var ms = new MemoryStream(bytes);
             _renderTargets.InitializeBackground(Texture2D.FromStream(GraphicsDevice, ms));
-#if false
-            SetScene(new MainScene(this));
-#else
-            UO.Load(this);
+
+            UO.LoadGraphicsResources(this);
             Audio.Initialize();
-            // TODO: temporary fix to avoid crash when laoding plugins
-            Settings.GlobalSettings.Encryption = (byte) NetClient.Socket.Load(UO.FileManager.Version, (EncryptionType) Settings.GlobalSettings.Encryption);
-
-            Log.Trace("Loading plugins...");
-            PluginHost?.Initialize();
-
-            foreach (string p in Settings.GlobalSettings.Plugins)
-            {
-                Plugin.Create(p);
-            }
-            _pluginsInitialized = true;
-
-            Log.Trace("Done!");
+            Settings.GlobalSettings.Encryption = (byte)NetClient.Socket.Load(
+                UO.FileManager.Version,
+                (EncryptionType)Settings.GlobalSettings.Encryption
+            );
 
             SetScene(new LoginScene(UO.World));
-#endif
             SetWindowPositionBySettings();
+        }
+
+        internal void MarkPluginsInitialized()
+        {
+            _pluginsInitialized = true;
         }
 
         protected override void UnloadContent()
@@ -508,10 +502,15 @@ namespace ClassicUO
 
         protected override void Draw(GameTime gameTime)
         {
+            int windowWidth = GraphicManager.PreferredBackBufferWidth;
+            int windowHeight = GraphicManager.PreferredBackBufferHeight;
+            Rectangle cameraBounds = Scene?.Camera.Bounds
+                ?? new Rectangle(0, 0, ClientBounds.Width, ClientBounds.Height);
+
             _renderTargets.EnsureSizes(
                 GraphicsDevice,
-                new Rectangle(0, 0, GraphicManager.PreferredBackBufferWidth, GraphicManager.PreferredBackBufferHeight),
-                Scene.Camera.Bounds,
+                new Rectangle(0, 0, windowWidth, windowHeight),
+                cameraBounds,
                 DpiScale
             );
 
@@ -699,7 +698,7 @@ namespace ClassicUO
                             sdlEvent->key.mod
                         );
 
-                        Scene.OnKeyDown(sdlEvent->key);
+                        Scene?.OnKeyDown(sdlEvent->key);
                     }
                     else
                     {
@@ -715,7 +714,7 @@ namespace ClassicUO
                         (SDL_Keycode)sdlEvent->key.key,
                         sdlEvent->key.mod
                     );
-                    Scene.OnKeyUp(sdlEvent->key);
+                    Scene?.OnKeyUp(sdlEvent->key);
                     Plugin.ProcessHotkeys(0, 0, false);
 
                     if ((SDL_Keycode)sdlEvent->key.key == SDL_Keycode.SDLK_PRINTSCREEN)
@@ -757,7 +756,7 @@ namespace ClassicUO
                     if (!string.IsNullOrEmpty(s))
                     {
                         UIManager.KeyboardFocusControl?.InvokeTextInput(s);
-                        Scene.OnTextInput(s);
+                        Scene?.OnTextInput(s);
                     }
 
                     break;
@@ -774,7 +773,7 @@ namespace ClassicUO
 
                     if (Mouse.IsDragging)
                     {
-                        if (!Scene.OnMouseDragging())
+                        if (!(Scene?.OnMouseDragging() ?? false))
                         {
                             UIManager.OnMouseDragging();
                         }
@@ -788,7 +787,7 @@ namespace ClassicUO
 
                     Plugin.ProcessMouse(0, (int)sdlEvent->wheel.y);
 
-                    if (!Scene.OnMouseWheel(isScrolledUp))
+                    if (!(Scene?.OnMouseWheel(isScrolledUp) ?? false))
                     {
                         UIManager.OnMouseWheel(isScrolledUp);
                     }
@@ -841,12 +840,12 @@ namespace ClassicUO
                         lastClickTime = 0;
 
                         bool res =
-                            Scene.OnMouseDoubleClick(buttonType)
+                            (Scene?.OnMouseDoubleClick(buttonType) ?? false)
                             || UIManager.OnMouseDoubleClick(buttonType);
 
                         if (!res)
                         {
-                            if (!Scene.OnMouseDown(buttonType))
+                            if (!(Scene?.OnMouseDown(buttonType) ?? false))
                             {
                                 UIManager.OnMouseButtonDown(buttonType);
                             }
@@ -866,7 +865,7 @@ namespace ClassicUO
                             Plugin.ProcessMouse(sdlEvent->button.button, 0);
                         }
 
-                        if (!Scene.OnMouseDown(buttonType))
+                        if (!(Scene?.OnMouseDown(buttonType) ?? false))
                         {
                             UIManager.OnMouseButtonDown(buttonType);
                         }
@@ -930,7 +929,7 @@ namespace ClassicUO
                     if (lastClickTime != 0xFFFF_FFFF)
                     {
                         if (
-                            !Scene.OnMouseUp(buttonType)
+                            !(Scene?.OnMouseUp(buttonType) ?? false)
                             || UIManager.LastControlMouseDown(buttonType) != null
                         )
                         {

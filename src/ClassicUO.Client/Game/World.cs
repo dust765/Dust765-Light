@@ -498,6 +498,12 @@ namespace ClassicUO.Game
                 else if (SerialHelper.IsItem(containerSerial))
                 {
                     UIManager.GetGump<ContainerGump>(containerSerial)?.RequestUpdateContents();
+                    UIManager.GetGump<GridContainer>(containerSerial)?.RequestUpdateContents();
+
+                    if (Get(containerSerial) is Item containerItem && containerItem.Graphic == 0x2006)
+                    {
+                        UIManager.GetGump<GridLootGump>(containerSerial)?.RequestUpdateContents();
+                    }
                 }
 
                 Entity container = Get(containerSerial);
