@@ -24,13 +24,23 @@ namespace ClassicUO.Game.UI.Gumps
         private readonly bool _hideIfEmpty;
         private HitBox _hitBox;
         private bool _isMinimized;
+        private bool _showGridToggle;
+        private GumpPic _returnToGridView;
 
         internal const int CORPSES_GUMP = 0x0009;
 
         public ContainerGump(World world) : base(world, 0, 0) { }
 
-        public ContainerGump(World world, uint serial, ushort gumpid, bool playsound) : base(world, serial, 0)
+        public ContainerGump(World world, uint serial, ushort gumpid, bool playsound)
+            : this(world, serial, gumpid, playsound, false)
         {
+        }
+
+        public ContainerGump(World world, uint serial, ushort gumpid, bool playsound, bool showGridToggle)
+            : base(world, serial, 0)
+        {
+            _showGridToggle = showGridToggle;
+
             Item item = world.Items.Get(serial);
 
             if (item == null)
@@ -167,6 +177,8 @@ namespace ClassicUO.Game.UI.Gumps
 
             _gumpPicContainer?.Dispose();
             _hitBox?.Dispose();
+            _returnToGridView?.Dispose();
+            _returnToGridView = null;
 
             _hitBox = new HitBox(
                 (int)(_data.MinimizerArea.X * scale),
@@ -196,6 +208,86 @@ namespace ClassicUO.Game.UI.Gumps
 
             Width = _gumpPicContainer.Width = (int)(_gumpPicContainer.Width * scale);
             Height = _gumpPicContainer.Height = (int)(_gumpPicContainer.Height * scale);
+
+            if (_showGridToggle || ProfileManager.CurrentProfile?.GridContainerEnabled == true)
+            {
+                AddReturnToGridViewButton();
+            }
+        }
+
+        private void AddReturnToGridViewButton()
+        {
+            if (_returnToGridView != null)
+            {
+                return;
+            }
+
+            var gridToggleIcon = Client.Game.UO.Gumps.GetGump(5839).Texture;
+            ushort defaultGraphic = gridToggleIcon == null ? (ushort)1209 : (ushort)5839;
+            ushort hoverGraphic = gridToggleIcon == null ? (ushort)1210 : (ushort)5840;
+
+            _returnToGridView = new GumpPic(0, 0, defaultGraphic, 0);
+            PositionReturnToGridView();
+            _returnToGridView.SetTooltip("Return to grid container view");
+            _returnToGridView.MouseEnter += (_, __) => { _returnToGridView.Graphic = hoverGraphic; };
+            _returnToGridView.MouseExit += (_, __) => { _returnToGridView.Graphic = defaultGraphic; };
+            _returnToGridView.MouseUp += (s, e) =>
+            {
+                if (e.Button != MouseButtonType.Left)
+                {
+                    return;
+                }
+
+                UIManager.GetGump<GridContainer>(LocalSerial)?.Dispose();
+                UIManager.Add(new GridContainer(World, LocalSerial, Graphic, true)
+                {
+                    X = X,
+                    Y = Y,
+                    InvalidateContents = true
+                });
+                Dispose();
+            };
+
+            Add(_returnToGridView);
+        }
+
+        private void PositionReturnToGridView()
+        {
+            if (_returnToGridView == null || _returnToGridView.IsDisposed)
+            {
+                return;
+            }
+
+            float scale = GetScale();
+            int inset = Math.Max(4, (int)(6 * scale));
+            Rectangle bounds = _data.Bounds;
+
+            if (bounds.Width > 0 && bounds.Height > 0)
+            {
+                int bx = (int)(bounds.X * scale);
+                int by = (int)(bounds.Y * scale);
+                int bw = (int)(bounds.Width * scale);
+
+                _returnToGridView.X = bx + bw - _returnToGridView.Width - inset;
+                _returnToGridView.Y = Math.Max(inset, by - inset);
+            }
+            else
+            {
+                _returnToGridView.X = Math.Max(inset, Width - _returnToGridView.Width - inset);
+                _returnToGridView.Y = inset;
+            }
+        }
+
+        private void EnsureReturnToGridViewOnTop()
+        {
+            if (_returnToGridView == null || _returnToGridView.IsDisposed)
+            {
+                return;
+            }
+
+            PositionReturnToGridView();
+            Remove(_returnToGridView);
+            Add(_returnToGridView);
         }
 
         private void HitBoxOnMouseUp(object sender, MouseEventArgs e)
@@ -505,6 +597,7 @@ namespace ClassicUO.Game.UI.Gumps
             BuildGump();
             IsMinimized = IsMinimized;
             ItemsOnAdded();
+            EnsureReturnToGridViewOnTop();
         }
 
         public override void Save(XmlTextWriter writer)
