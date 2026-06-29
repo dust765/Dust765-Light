@@ -333,7 +333,7 @@ public sealed class TileArtInfo
 
         // get in account only type 0 for some unknown reason :D
         // added the Appearances.Count > 1 because seems like the conversion should happen only when there is more than 1 appearance (?)
-        return Appearances.Count > 1 && Appearances.TryGetValue(0, out var appearanceDict) &&
+        return Appearances.TryGetValue(0, out var appearanceDict) &&
             appearanceDict.TryGetValue(mobGraphic, out appearanceId);
     }
 }

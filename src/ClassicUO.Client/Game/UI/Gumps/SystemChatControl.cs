@@ -155,7 +155,8 @@ namespace ClassicUO.Game.UI.Gumps
                 ChatMode previousMode = _mode;
                 _mode = value;
 
-                if (previousMode == ChatMode.Prompt && previousMode != value)
+                if (previousMode == ChatMode.Prompt && previousMode != value
+                    && _gump.World.MessageManager.PromptData.Prompt != ConsolePrompt.None)
                 {
                     _gump.World.MessageManager.CancelServerPrompt();
                 }
@@ -606,12 +607,13 @@ namespace ClassicUO.Game.UI.Gumps
             }
 
             ChatMode sentMode = Mode;
+            bool hasActivePrompt = _gump.World.MessageManager.PromptData.Prompt != ConsolePrompt.None;
+
             TextBoxControl.ClearText();
             _messageHistory.Add(new Tuple<ChatMode, string>(Mode, text));
             _messageHistoryIndex = _messageHistory.Count;
-            Mode = ChatMode.Default;
 
-            if (_gump.World.MessageManager.PromptData.Prompt != ConsolePrompt.None)
+            if (hasActivePrompt || sentMode == ChatMode.Prompt)
             {
                 _gump.World.MessageManager.SendServerPromptResponse(text);
             }
@@ -620,6 +622,7 @@ namespace ClassicUO.Game.UI.Gumps
                 HandleMessageSend(text, sentMode);
             }
 
+            Mode = ChatMode.Default;
             DisposeChatModePrefix();
         }
 
