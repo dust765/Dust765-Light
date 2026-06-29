@@ -81,6 +81,7 @@ namespace ClassicUO.Game.UI.Gumps
             rightArea.Add(box);
 
             SettingsSection sectionMove = AddSettingsSection(box, "Movement");
+            sectionMove.Y = startY;
 
             sectionMove.Add
             (
@@ -1038,5 +1039,6 @@ namespace ClassicUO.Game.UI.Gumps
             _currentProfile.NamePlateHideAtFullHealth = _dust765NamePlateHideAtFullHealth.IsChecked;
             _currentProfile.NamePlateOpacity = (byte)Math.Clamp(_dust765NamePlateBgOpacity.Value, 0, 100);
         }
+
     }
 }

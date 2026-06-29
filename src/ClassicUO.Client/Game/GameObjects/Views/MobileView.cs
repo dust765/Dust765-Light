@@ -396,17 +396,7 @@ namespace ClassicUO.Game.GameObjects
             if (!IsEmpty)
             {
                 Span<Layer> layers = stackalloc Layer[PaperdollOrder.N];
-                int layerCount;
-
-                if (ShouldUseParrotMobileLayerOrder(this))
-                {
-                    layerCount = LayerOrder.ParrotLayers.Length;
-                    LayerOrder.ParrotLayers.AsSpan().CopyTo(layers);
-                }
-                else
-                {
-                    layerCount = PaperdollOrder.BuildInWorld(this, IsFemale || isGargoyle, layerDir, layers);
-                }
+                int layerCount = PaperdollOrder.BuildInWorld(this, IsFemale || isGargoyle, layerDir, layers);
 
                 for (int i = 0; i < layerCount; i++)
                 {
@@ -438,26 +428,7 @@ namespace ClassicUO.Game.GameObjects
 
                         if (item.ItemData.AnimID != 0)
                         {
-                            graphic = item.ItemData.AnimID;
-
-                            if (isGargoyle)
-                            {
-                                FixGargoyleEquipments(ref graphic);
-                            }
-
-                            if (
-                                Client.Game.UO.FileManager.Animations.EquipConversions.TryGetValue(
-                                    Graphic,
-                                    out Dictionary<ushort, EquipConvData> map
-                                )
-                            )
-                            {
-                                if (map.TryGetValue(item.ItemData.AnimID, out EquipConvData data))
-                                {
-                                    _equipConvData = data;
-                                    graphic = data.Graphic;
-                                }
-                            }
+                            graphic = GetAnimationInfo(this, item, isGargoyle);
 
                             DrawInternal(
                                 batcher,
@@ -549,33 +520,69 @@ namespace ClassicUO.Game.GameObjects
 
         private static ushort GetAnimationInfo(Mobile owner, Item item, bool isGargoyle)
         {
-            if (item.ItemData.AnimID != 0)
+            if (item.ItemData.AnimID == 0)
             {
-                var graphic = item.ItemData.AnimID;
+                return 0xFFFF;
+            }
+
+            ushort graphic = item.ItemData.AnimID;
+
+            if (isGargoyle)
+            {
+                FixGargoyleEquipments(ref graphic);
+            }
+
+            if (
+                Client.Game.UO.FileManager.Animations.EquipConversions.TryGetValue(
+                    owner.Graphic,
+                    out Dictionary<ushort, EquipConvData> map
+                )
+                && map.TryGetValue(item.ItemData.AnimID, out EquipConvData data)
+            )
+            {
+                _equipConvData = data;
+                graphic = data.Graphic;
+            }
+
+            ushort mobileGraphic = owner.Graphic;
+            Client.Game.UO.Animations.ConvertBodyIfNeeded(ref mobileGraphic);
+
+            if (
+                Client.Game.UO.FileManager.TileArt.TryGetTileArtInfo(item.Graphic, out var tileArtInfo)
+                && TryResolveTileArtAppearance(tileArtInfo, mobileGraphic, out uint appearanceId)
+                && appearanceId != 0
+            )
+            {
+                graphic = (ushort)appearanceId;
+                _equipConvData = null;
 
                 if (isGargoyle)
                 {
                     FixGargoyleEquipments(ref graphic);
                 }
-
-                if (
-                    Client.Game.UO.FileManager.Animations.EquipConversions.TryGetValue(
-                        owner.Graphic,
-                        out Dictionary<ushort, EquipConvData> map
-                    )
-                )
-                {
-                    if (map.TryGetValue(item.ItemData.AnimID, out EquipConvData data))
-                    {
-                        _equipConvData = data;
-                        graphic = data.Graphic;
-                    }
-                }
-
-                return graphic;
             }
 
-            return 0xFFFF;
+            return graphic;
+        }
+
+        private static bool TryResolveTileArtAppearance(TileArtInfo tileArtInfo, ushort mobileGraphic, out uint appearanceId)
+        {
+            appearanceId = 0;
+
+            if (tileArtInfo.TryGetAppearance(mobileGraphic, out appearanceId) && appearanceId != 0)
+            {
+                return true;
+            }
+
+            foreach (KeyValuePair<byte, Dictionary<uint, uint>> subtype in tileArtInfo.Appearances)
+            {
+                if (subtype.Value.TryGetValue(mobileGraphic, out appearanceId) && appearanceId != 0)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static void FixGargoyleEquipments(ref ushort graphic)
@@ -1486,11 +1493,6 @@ namespace ClassicUO.Game.GameObjects
 
         private static bool IsParrotRobeLayerHidden(Mobile mobile, Layer layer)
         {
-            if (mobile.World?.Player == null || mobile.Serial != mobile.World.Player.Serial)
-            {
-                return false;
-            }
-
             if (!(ProfileManager.CurrentProfile?.MobileParrotOriginalView ?? true))
             {
                 return false;
@@ -1498,29 +1500,40 @@ namespace ClassicUO.Game.GameObjects
 
             Item robe = mobile.FindItemByLayer(Layer.Robe);
 
-            if (robe == null || (robe.Graphic != 0xA2CA && robe.Graphic != 0xA2CB))
+            if (!IsParrotRobe(robe, mobile))
             {
                 return false;
             }
 
-            return layer == Layer.Tunic || layer == Layer.Arms;
+            return layer == Layer.Tunic || layer == Layer.Torso || layer == Layer.Arms;
         }
 
-        private static bool ShouldUseParrotMobileLayerOrder(Mobile mobile)
+        private static bool IsParrotRobe(Item robe, Mobile mobile)
         {
-            if (mobile.World?.Player == null || mobile.Serial != mobile.World.Player.Serial)
+            if (robe == null || mobile == null)
             {
                 return false;
             }
 
-            if (!(ProfileManager.CurrentProfile?.MobileParrotOriginalView ?? true))
+            ushort mobileGraphic = mobile.Graphic;
+            Client.Game.UO.Animations.ConvertBodyIfNeeded(ref mobileGraphic);
+
+            if (
+                Client.Game.UO.FileManager.TileArt.TryGetTileArtInfo(robe.Graphic, out var tileArtInfo)
+                && TryResolveTileArtAppearance(tileArtInfo, mobileGraphic, out uint appearanceId)
+                && appearanceId != 0
+            )
             {
-                return false;
+                return true;
             }
 
-            Item robe = mobile.FindItemByLayer(Layer.Robe);
+            ushort graphic = robe.Graphic;
+            ushort anim = robe.ItemData.AnimID;
 
-            return robe != null && (robe.Graphic == 0xA2CA || robe.Graphic == 0xA2CB);
+            return graphic == 0xA2CA || graphic == 0xA2CB
+                || graphic == 0x9985 || graphic == 0x9986
+                || graphic == 0xA412 || graphic == 0xB1DE
+                || anim == 0xA2CA || anim == 0xA2CB;
         }
     }
 }
