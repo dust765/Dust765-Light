@@ -29,7 +29,7 @@ namespace ClassicUO.Game.UI.Gumps
 
         #region private static vars
         private static int lastX = 100, lastY = 100, lastCorpseX = 100, lastCorpseY = 100;
-        private static int gridItemSize { get { return (int)Math.Round(50 * (ProfileManager.CurrentProfile.GridContainersScale / 100f)); } }
+        private static int gridItemSize { get { return (int)Math.Round(50 * ((ProfileManager.CurrentProfile?.GridContainersScale ?? 100) / 100f)); } }
         private static int borderWidth = 4;
         #endregion
 
@@ -384,7 +384,7 @@ namespace ClassicUO.Game.UI.Gumps
 
             World.ContainerManager.CalculateContainerPosition(serial, graphic);
 
-            UIManager.Add(new ContainerGump(World, container.Serial, graphic, true)
+            UIManager.Add(new ContainerGump(World, container.Serial, graphic, true, true)
             {
                 X = World.ContainerManager.X,
                 Y = World.ContainerManager.Y,
@@ -485,6 +485,7 @@ namespace ClassicUO.Game.UI.Gumps
                 UpdateItems();
             }
 
+            gridSlotManager?.ClearStaleSlots();
         }
 
         private string GetContainerName()
@@ -697,6 +698,14 @@ namespace ClassicUO.Game.UI.Gumps
                 containerContents = GetItemsInContainer(container);
             }
 
+            internal void ClearStaleSlots()
+            {
+                foreach (var slot in gridSlots)
+                {
+                    slot.Value.ClearIfStale();
+                }
+            }
+
             internal static List<Item> GetItemsInContainer(Item _container)
             {
                 List<Item> contents = new List<Item>();
@@ -784,6 +793,46 @@ namespace ClassicUO.Game.UI.Gumps
                 }
             }
 
+            internal void ClearIfStale()
+            {
+                if (_item == null)
+                {
+                    return;
+                }
+
+                if (_item.IsDestroyed || container == null || container.IsDestroyed)
+                {
+                    SetGridItem(null);
+                    return;
+                }
+
+                Item current = gridContainer.World.Items.Get(LocalSerial);
+
+                if (current == null || current.IsDestroyed || current.Container != container.Serial)
+                {
+                    SetGridItem(null);
+                }
+            }
+
+            private bool TryGetValidItem(out Item item)
+            {
+                item = null;
+
+                if (_item == null || _item.IsDestroyed || container == null || container.IsDestroyed)
+                {
+                    return false;
+                }
+
+                item = gridContainer.World.Items.Get(LocalSerial);
+
+                if (item == null || item.IsDestroyed || item.Container != container.Serial)
+                {
+                    return false;
+                }
+
+                return true;
+            }
+
             internal void Resize()
             {
                 int size = gridItemSize;
@@ -794,6 +843,8 @@ namespace ClassicUO.Game.UI.Gumps
 
             private void _hit_MouseDoubleClick(object sender, MouseDoubleClickEventArgs e)
             {
+                ClearIfStale();
+
                 if (e.Button != MouseButtonType.Left || gridContainer.World.TargetManager.IsTargeting || _item == null)
                     return;
 
@@ -813,6 +864,8 @@ namespace ClassicUO.Game.UI.Gumps
 
             private void _hit_MouseUp(object sender, MouseEventArgs e)
             {
+                ClearIfStale();
+
                 if (e.Button == MouseButtonType.Left)
                 {
                     if (Client.Game.UO.GameCursor.ItemHold.Enabled)
@@ -906,6 +959,8 @@ namespace ClassicUO.Game.UI.Gumps
 
             private void _hit_MouseEnter(object sender, MouseEventArgs e)
             {
+                ClearIfStale();
+
                 SelectedObject.Object = gridContainer.World.Get(LocalSerial);
                 mousePressedWhenEntered = Mouse.LButtonPressed;
 
@@ -924,46 +979,53 @@ namespace ClassicUO.Game.UI.Gumps
 
             public override bool AddToRenderLists(RenderLists renderLists, int x, int y, ref float layerDepthRef)
             {
+                if (!TryGetValidItem(out Item item))
+                {
+                    item = null;
+                }
+
                 base.AddToRenderLists(renderLists, x, y, ref layerDepthRef);
                 float layerDepth = layerDepthRef;
 
-                if (_item != null)
+                if (item != null)
                 {
-                    ref readonly var artInfo = ref Client.Game.UO.Arts.GetArt(_item.DisplayedGraphic);
+                    ref readonly var artInfo = ref Client.Game.UO.Arts.GetArt(item.DisplayedGraphic);
                     var texture = artInfo.Texture;
 
                     if (texture != null)
                     {
-                        var artRect = Client.Game.UO.Arts.GetRealArtBounds(_item.DisplayedGraphic);
+                        var artRect = Client.Game.UO.Arts.GetRealArtBounds(item.DisplayedGraphic);
                         var sourceRectangle = artInfo.UV;
-                        float scale = ProfileManager.CurrentProfile.GridContainersScale / 100f;
+                        Profile profile = ProfileManager.CurrentProfile;
+                        float scale = (profile?.GridContainersScale ?? 100) / 100f;
+                        bool scaleItems = profile?.GridContainerScaleItems ?? false;
 
                         Point originalSize = new Point(hit.Width, hit.Height);
                         Point point = new Point();
 
                         if (artRect.Width < hit.Width)
                         {
-                            originalSize.X = ProfileManager.CurrentProfile.GridContainerScaleItems ? (int)(artRect.Width * scale) : artRect.Width;
+                            originalSize.X = scaleItems ? (int)(artRect.Width * scale) : artRect.Width;
                             point.X = (hit.Width >> 1) - (originalSize.X >> 1);
                         }
                         else if (artRect.Width > hit.Width)
                         {
-                            originalSize.X = ProfileManager.CurrentProfile.GridContainerScaleItems ? (int)(hit.Width * scale) : hit.Width;
+                            originalSize.X = scaleItems ? (int)(hit.Width * scale) : hit.Width;
                             point.X = (hit.Width >> 1) - (originalSize.X >> 1);
                         }
 
                         if (artRect.Height < hit.Height)
                         {
-                            originalSize.Y = ProfileManager.CurrentProfile.GridContainerScaleItems ? (int)(artRect.Height * scale) : artRect.Height;
+                            originalSize.Y = scaleItems ? (int)(artRect.Height * scale) : artRect.Height;
                             point.Y = (hit.Height >> 1) - (originalSize.Y >> 1);
                         }
                         else if (artRect.Height > hit.Height)
                         {
-                            originalSize.Y = ProfileManager.CurrentProfile.GridContainerScaleItems ? (int)(hit.Height * scale) : hit.Height;
+                            originalSize.Y = scaleItems ? (int)(hit.Height * scale) : hit.Height;
                             point.Y = (hit.Height >> 1) - (originalSize.Y >> 1);
                         }
 
-                        Vector3 hueVector = ShaderHueTranslator.GetHueVector(_item.Hue, _item.ItemData.IsPartialHue, 1f);
+                        Vector3 hueVector = ShaderHueTranslator.GetHueVector(item.Hue, item.ItemData.IsPartialHue, 1f);
 
                         renderLists.AddGumpWithAtlas(batcher =>
                         {
@@ -977,16 +1039,26 @@ namespace ClassicUO.Game.UI.Gumps
                             return true;
                         });
 
-                        if (count != null)
+                        if (count != null && !count.IsDisposed)
+                        {
                             count.AddToRenderLists(renderLists, x + count.X, y + count.Y, ref layerDepthRef);
+                        }
                     }
                 }
 
-                // Border and highlight
-                ushort borderHue = ProfileManager.CurrentProfile.GridBorderHue;
-                float borderAlpha = (float)ProfileManager.CurrentProfile.GridBorderAlpha / 100;
-                if (ItemGridLocked) borderHue = 0x2;
-                if (Hightlight) { borderHue = 0x34; borderAlpha = 1f; }
+                Profile borderProfile = ProfileManager.CurrentProfile;
+                ushort borderHue = borderProfile?.GridBorderHue ?? 0;
+                float borderAlpha = (borderProfile?.GridBorderAlpha ?? 100) / 100f;
+                if (ItemGridLocked)
+                {
+                    borderHue = 0x2;
+                }
+
+                if (Hightlight)
+                {
+                    borderHue = 0x34;
+                    borderAlpha = 1f;
+                }
 
                 Vector3 borderHueVector = ShaderHueTranslator.GetHueVector(borderHue, false, borderAlpha);
 
@@ -994,7 +1066,7 @@ namespace ClassicUO.Game.UI.Gumps
                 {
                     batcher.DrawRectangle(SolidColorTextureCache.GetTexture(Color.White), x, y, Width, Height, borderHueVector, layerDepth);
 
-                    if (hit.MouseIsOver && _item != null)
+                    if (hit.MouseIsOver && item != null)
                     {
                         Vector3 hov = ShaderHueTranslator.GetHueVector(borderHue, false, 0.3f);
                         batcher.Draw(SolidColorTextureCache.GetTexture(Color.White), new Rectangle(x + 1, y, Width - 1, Height), hov, layerDepth);

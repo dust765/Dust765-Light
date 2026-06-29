@@ -3277,7 +3277,7 @@ namespace ClassicUO.Network
             {
                 p.Skip(2);
                 bgump.IsEditable = editable;
-                bgump.SetTile(
+                bgump.SetTitle(
                     oldpacket ? p.ReadUTF8(60, true) : p.ReadUTF8(p.ReadUInt16BE(), true),
                     editable
                 );
@@ -5120,7 +5120,21 @@ namespace ClassicUO.Network
                 sb.Dispose();
             }
 
-            world.OPL.Add(serial, revision, name, data, namecliloc);
+            int[] clilocs = null;
+
+            if (list.Count != 0)
+            {
+                clilocs = new int[list.Count];
+
+                for (int i = 0; i < list.Count; i++)
+                {
+                    clilocs[i] = list[i].Item1;
+                }
+            }
+
+            world.OPL.Add(serial, revision, name, data, namecliloc, clilocs);
+
+            UIManager.GetGump<SpellbookGump>(serial)?.RequestUpdateContents();
 
             if (inBuyList && container != null && SerialHelper.IsValid(container.Serial))
             {

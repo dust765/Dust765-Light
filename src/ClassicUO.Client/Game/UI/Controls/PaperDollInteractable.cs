@@ -1,5 +1,6 @@
 ﻿// SPDX-License-Identifier: BSD-2-Clause
 
+using System;
 using System.Collections.Generic;
 using ClassicUO.Configuration;
 using ClassicUO.Game.Data;
@@ -16,86 +17,7 @@ namespace ClassicUO.Game.UI.Controls
 {
     internal class PaperDollInteractable : Control
     {
-        private static readonly Layer[] _layerOrder =
-        {
-            Layer.Cloak,
-            Layer.Shirt,
-            Layer.Pants,
-            Layer.Shoes,
-            Layer.Legs,
-            Layer.Arms,
-            Layer.Torso,
-            Layer.Tunic,
-            Layer.Ring,
-            Layer.Bracelet,
-            Layer.Face,
-            Layer.Gloves,
-            Layer.Skirt,
-            Layer.Robe,
-            Layer.Necklace,
-            Layer.Hair,
-            Layer.Beard,
-            Layer.Earrings,
-            Layer.Helmet,
-            Layer.OneHanded,
-            Layer.TwoHanded,
-            Layer.Talisman,
-            Layer.Waist
-        };
-
-        private static readonly Layer[] _layerOrder_quiver_fix =
-        {
-            Layer.Shirt,
-            Layer.Pants,
-            Layer.Shoes,
-            Layer.Legs,
-            Layer.Arms,
-            Layer.Torso,
-            Layer.Tunic,
-            Layer.Ring,
-            Layer.Bracelet,
-            Layer.Face,
-            Layer.Gloves,
-            Layer.Skirt,
-            Layer.Robe,
-            Layer.Cloak,
-            Layer.Necklace,
-            Layer.Hair,
-            Layer.Beard,
-            Layer.Earrings,
-            Layer.Helmet,
-            Layer.OneHanded,
-            Layer.TwoHanded,
-            Layer.Talisman,
-            Layer.Waist
-        };
-
-        private static readonly Layer[] _layerOrder_parrot_fix =
-        {
-            Layer.Shirt,
-            Layer.Pants,
-            Layer.Shoes,
-            Layer.Legs,
-            Layer.Arms,
-            Layer.Torso,
-            Layer.Tunic,
-            Layer.Ring,
-            Layer.Bracelet,
-            Layer.Face,
-            Layer.Gloves,
-            Layer.Skirt,
-            Layer.Robe,
-            Layer.Cloak,
-            Layer.Necklace,
-            Layer.Hair,
-            Layer.Beard,
-            Layer.Earrings,
-            Layer.Helmet,
-            Layer.OneHanded,
-            Layer.TwoHanded,
-            Layer.Talisman,
-            Layer.Waist
-        };
+        private static readonly Dictionary<(ushort mobile, ushort item), ushort> _tileArtGumpCache = new(64);
 
         private readonly PaperDollGump _paperDollGump;
 
@@ -205,77 +127,50 @@ namespace ClassicUO.Game.UI.Controls
                 );
             }
 
-            // equipment
-            Item equipItem = mobile.FindItemByLayer(Layer.Cloak);
-            Item arms = mobile.FindItemByLayer(Layer.Arms);
+            Span<ushort> layerGraphics = stackalloc ushort[PaperdollOrder.N];
+            PaperdollOrder.GraphicsFromEntity(mobile, layerGraphics);
 
-            bool switch_arms_with_torso = false;
-
-            if (arms != null)
-            {
-                switch_arms_with_torso = arms.Graphic == 0x1410 || arms.Graphic == 0x1417;
-            }
-            else if (
+            if (
                 HasFakeItem
                 && Client.Game.UO.GameCursor.ItemHold.Enabled
                 && !Client.Game.UO.GameCursor.ItemHold.IsFixedPosition
-                && (byte)Layer.Arms == Client.Game.UO.GameCursor.ItemHold.ItemData.Layer
             )
             {
-                switch_arms_with_torso =
-                    Client.Game.UO.GameCursor.ItemHold.Graphic == 0x1410
-                    || Client.Game.UO.GameCursor.ItemHold.Graphic == 0x1417;
-            }
+                byte holdLayer = Client.Game.UO.GameCursor.ItemHold.ItemData.Layer;
 
-            Layer[] layers;
-
-            if (equipItem != null)
-            {
-                layers = equipItem.ItemData.IsContainer ? _layerOrder_quiver_fix : _layerOrder;
-            }
-            else if (
-                HasFakeItem
-                && Client.Game.UO.GameCursor.ItemHold.Enabled
-                && !Client.Game.UO.GameCursor.ItemHold.IsFixedPosition
-                && (byte)Layer.Cloak == Client.Game.UO.GameCursor.ItemHold.ItemData.Layer
-            )
-            {
-                layers = Client.Game.UO.GameCursor.ItemHold.ItemData.IsContainer
-                    ? _layerOrder_quiver_fix
-                    : _layerOrder;
-            }
-            else
-            {
-                Item robe = mobile.FindItemByLayer(Layer.Robe);
-                bool parrotOriginalView = IsParrotOriginalPaperdollView(mobile);
-
-                layers = parrotOriginalView && robe != null && IsParrotRobe(robe.Graphic)
-                    ? _layerOrder_parrot_fix
-                    : _layerOrder;
+                if (holdLayer > 0 && holdLayer < layerGraphics.Length && layerGraphics[holdLayer] == 0)
+                {
+                    layerGraphics[holdLayer] = Client.Game.UO.GameCursor.ItemHold.ItemData.AnimID;
+                }
             }
 
             bool isOwnPaperdoll = _paperDollGump.World.Player != null && LocalSerial == _paperDollGump.World.Player.Serial;
             bool showAllLayersPaperdoll = isOwnPaperdoll && (ProfileManager.CurrentProfile?.ShowAllLayersPaperdoll ?? false);
             Item wornRobe = mobile.FindItemByLayer(Layer.Robe);
             bool useParrotPaperdollRules = IsParrotOriginalPaperdollView(mobile)
-                && wornRobe != null
-                && IsParrotRobe(wornRobe.Graphic);
+                && IsParrotRobe(wornRobe, mobile);
 
-            for (int i = 0; i < layers.Length; i++)
+            Span<Layer> layers = stackalloc Layer[PaperdollOrder.N];
+            int layerCount;
+
+            if (useParrotPaperdollRules)
+            {
+                layerCount = Game.Data.LayerOrder.ParrotLayers.Length;
+                Game.Data.LayerOrder.ParrotLayers.AsSpan().CopyTo(layers);
+            }
+            else
+            {
+                bool altTorso = mobile.IsFemale || IsGargoyleBody(mobile.Graphic);
+                Span<Layer> order = stackalloc Layer[PaperdollOrder.N];
+                PaperdollOrder.Build(layerGraphics, altTorso, order);
+                layerCount = PaperdollOrder.Filter(order, includeBackpack: false, layers);
+            }
+
+            Item equipItem;
+
+            for (int i = 0; i < layerCount; i++)
             {
                 Layer layer = layers[i];
-
-                if (switch_arms_with_torso)
-                {
-                    if (layer == Layer.Arms)
-                    {
-                        layer = Layer.Torso;
-                    }
-                    else if (layer == Layer.Torso)
-                    {
-                        layer = Layer.Arms;
-                    }
-                }
 
                 equipItem = mobile.FindItemByLayer(layer);
 
@@ -446,6 +341,12 @@ namespace ClassicUO.Game.UI.Controls
             _updateUI = true;
         }
 
+        private static bool IsGargoyleBody(ushort graphic)
+        {
+            return graphic == 0x029A || graphic == 0x029B
+                || graphic == 0x02B6 || graphic == 0x02B7;
+        }
+
         private bool IsParrotOriginalPaperdollView(Mobile mobile)
         {
             return _paperDollGump.World.Player != null
@@ -453,9 +354,59 @@ namespace ClassicUO.Game.UI.Controls
                 && (ProfileManager.CurrentProfile?.PaperdollParrotOriginalView ?? true);
         }
 
-        private static bool IsParrotRobe(ushort graphic)
+        private static bool IsParrotRobe(Item robe, Mobile mobile)
         {
-            return graphic == 0xA2CA || graphic == 0xA2CB;
+            if (robe == null)
+            {
+                return false;
+            }
+
+            if (mobile != null && HasTileArtBodyAppearance(robe, mobile))
+            {
+                return true;
+            }
+
+            ushort graphic = robe.Graphic;
+            ushort anim = robe.ItemData.AnimID;
+
+            return graphic == 0xA2CA || graphic == 0xA2CB
+                || graphic == 0x9985 || graphic == 0x9986
+                || graphic == 0xA412 || graphic == 0xB1DE
+                || anim == 0xA2CA || anim == 0xA2CB;
+        }
+
+        private static bool HasTileArtBodyAppearance(Item item, Mobile mobile)
+        {
+            ushort mobileGraphic = mobile.Graphic;
+            Client.Game.UO.Animations.ConvertBodyIfNeeded(ref mobileGraphic);
+
+            if (!Client.Game.UO.FileManager.TileArt.TryGetTileArtInfo(item.Graphic, out var tileArtInfo))
+            {
+                return false;
+            }
+
+            return TryResolveTileArtAppearance(tileArtInfo, mobileGraphic, out uint appearanceId)
+                && appearanceId != 0;
+        }
+
+        private static bool TryResolveTileArtAppearance(TileArtInfo tileArtInfo, ushort mobileGraphic, out uint appearanceId)
+        {
+            appearanceId = 0;
+
+            if (tileArtInfo.TryGetAppearance(mobileGraphic, out appearanceId) && appearanceId != 0)
+            {
+                return true;
+            }
+
+            foreach (KeyValuePair<byte, Dictionary<uint, uint>> subtype in tileArtInfo.Appearances)
+            {
+                if (subtype.Value.TryGetValue(mobileGraphic, out appearanceId) && appearanceId != 0)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static bool IsLayerHiddenByParrotRobe(Layer layer)
@@ -512,6 +463,11 @@ namespace ClassicUO.Game.UI.Controls
                 }
             }
 
+            if (_tileArtGumpCache.TryGetValue((mobileGraphic, itemGraphic), out ushort cachedGump))
+            {
+                return cachedGump;
+            }
+
             if (Client.Game.UO.FileManager.TileArt.TryGetTileArtInfo(itemGraphic, out var tileArtInfo))
             {
                 if (tileArtInfo.TryGetAppearance(mobileGraphic, out var appareanceId))
@@ -519,7 +475,7 @@ namespace ClassicUO.Game.UI.Controls
                     var gumpId = (ushort)(Constants.MALE_GUMP_OFFSET + appareanceId);
                     if (Client.Game.UO.Gumps.GetGump(gumpId).Texture != null)
                     {
-                        Log.Info($"Equip conversion through tileart.uop done: old {animID} -> new {appareanceId}");
+                        _tileArtGumpCache[(mobileGraphic, itemGraphic)] = gumpId;
                         return gumpId;
                     }
                 }

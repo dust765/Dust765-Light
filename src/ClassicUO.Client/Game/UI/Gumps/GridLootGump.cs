@@ -483,41 +483,48 @@ namespace ClassicUO.Game.UI.Gumps
 
             public override bool AddToRenderLists(RenderLists renderLists, int x, int y, ref float layerDepthRef)
             {
+                Item item = _gump.World.Items.Get(LocalSerial);
+
+                if (item == null)
+                {
+                    return false;
+                }
+
                 base.AddToRenderLists(renderLists, x, y, ref layerDepthRef);
                 float layerDepth = layerDepthRef;
 
-                Item item = _gump.World.Items.Get(LocalSerial);
-
                 Vector3 hueVector;
 
-                if (item != null)
+                ref readonly var artInfo = ref Client.Game.UO.Arts.GetArt(item.DisplayedGraphic);
+
+                var rect = Client.Game.UO.Arts.GetRealArtBounds(item.DisplayedGraphic);
+
+                hueVector = ShaderHueTranslator.GetHueVector(
+                    item.Hue,
+                    item.ItemData.IsPartialHue,
+                    1f
+                );
+
+                Point originalSize = new Point(_hit.Width, _hit.Height);
+                Point point = new Point();
+
+                if (rect.Width < _hit.Width)
                 {
-                    ref readonly var artInfo = ref Client.Game.UO.Arts.GetArt(item.DisplayedGraphic);
+                    originalSize.X = rect.Width;
+                    point.X = (_hit.Width >> 1) - (originalSize.X >> 1);
+                }
 
-                    var rect = Client.Game.UO.Arts.GetRealArtBounds(item.DisplayedGraphic);
+                if (rect.Height < _hit.Height)
+                {
+                    originalSize.Y = rect.Height;
+                    point.Y = (_hit.Height >> 1) - (originalSize.Y >> 1);
+                }
 
-                    hueVector = ShaderHueTranslator.GetHueVector(
-                        item.Hue,
-                        item.ItemData.IsPartialHue,
-                        1f
-                    );
+                var texture = artInfo.Texture;
+                var sourceRectangle = artInfo.UV;
 
-                    Point originalSize = new Point(_hit.Width, _hit.Height);
-                    Point point = new Point();
-
-                    if (rect.Width < _hit.Width)
-                    {
-                        originalSize.X = rect.Width;
-                        point.X = (_hit.Width >> 1) - (originalSize.X >> 1);
-                    }
-
-                    if (rect.Height < _hit.Height)
-                    {
-                        originalSize.Y = rect.Height;
-                        point.Y = (_hit.Height >> 1) - (originalSize.Y >> 1);
-                    }
-                    var texture = artInfo.Texture;
-                    var sourceRectangle = artInfo.UV;
+                if (texture != null)
+                {
                     renderLists.AddGumpWithAtlas
                     (
                         (batcher) =>
@@ -544,12 +551,8 @@ namespace ClassicUO.Game.UI.Gumps
                     );
                 }
 
-                hueVector = ShaderHueTranslator.GetHueVector(
-                    item.Hue,
-                    item.ItemData.IsPartialHue,
-                    1f
-                );
-                
+                hueVector = ShaderHueTranslator.GetHueVector(0);
+
                 renderLists.AddGumpNoAtlas(
                     batcher =>
                     {
@@ -565,6 +568,7 @@ namespace ClassicUO.Game.UI.Gumps
                         return true;
                     }
                 );
+
                 if (_hit.MouseIsOver)
                 {
                     Vector3 hoverHue = ShaderHueTranslator.GetHueVector(0);
@@ -581,7 +585,6 @@ namespace ClassicUO.Game.UI.Gumps
                             return true;
                         }
                     );
-                    hueVector.Z = 1;
                 }
 
                 return true;

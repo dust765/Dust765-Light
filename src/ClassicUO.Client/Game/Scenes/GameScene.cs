@@ -774,6 +774,9 @@ namespace ClassicUO.Game.Scenes
                 return;
             }
 
+            int maxBuilds = 3;
+            int built = 0;
+
             for (int i = 0; i < _dirtyMeshChunks.Count; i++)
             {
                 Map.Chunk dc = _dirtyMeshChunks[i].Chunk;
@@ -781,7 +784,12 @@ namespace ClassicUO.Game.Scenes
                 {
                     dc.Mesh.Build(dc, _world, graphicsDevice);
                     _lastMeshBuildTick = Time.Ticks;
-                    break;
+                    built++;
+
+                    if (built >= maxBuilds)
+                    {
+                        break;
+                    }
                 }
             }
 
