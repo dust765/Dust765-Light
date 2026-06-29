@@ -17,6 +17,8 @@ namespace ClassicUO.Game.UI.Controls
 {
     internal class PaperDollInteractable : Control
     {
+        private static readonly Dictionary<(ushort mobile, ushort item), ushort> _tileArtGumpCache = new(64);
+
         private readonly PaperDollGump _paperDollGump;
 
         private bool _updateUI;
@@ -146,8 +148,7 @@ namespace ClassicUO.Game.UI.Controls
             bool showAllLayersPaperdoll = isOwnPaperdoll && (ProfileManager.CurrentProfile?.ShowAllLayersPaperdoll ?? false);
             Item wornRobe = mobile.FindItemByLayer(Layer.Robe);
             bool useParrotPaperdollRules = IsParrotOriginalPaperdollView(mobile)
-                && wornRobe != null
-                && IsParrotRobe(wornRobe.Graphic);
+                && IsParrotRobe(wornRobe, mobile);
 
             Span<Layer> layers = stackalloc Layer[PaperdollOrder.N];
             int layerCount;
@@ -353,9 +354,59 @@ namespace ClassicUO.Game.UI.Controls
                 && (ProfileManager.CurrentProfile?.PaperdollParrotOriginalView ?? true);
         }
 
-        private static bool IsParrotRobe(ushort graphic)
+        private static bool IsParrotRobe(Item robe, Mobile mobile)
         {
-            return graphic == 0xA2CA || graphic == 0xA2CB;
+            if (robe == null)
+            {
+                return false;
+            }
+
+            if (mobile != null && HasTileArtBodyAppearance(robe, mobile))
+            {
+                return true;
+            }
+
+            ushort graphic = robe.Graphic;
+            ushort anim = robe.ItemData.AnimID;
+
+            return graphic == 0xA2CA || graphic == 0xA2CB
+                || graphic == 0x9985 || graphic == 0x9986
+                || graphic == 0xA412 || graphic == 0xB1DE
+                || anim == 0xA2CA || anim == 0xA2CB;
+        }
+
+        private static bool HasTileArtBodyAppearance(Item item, Mobile mobile)
+        {
+            ushort mobileGraphic = mobile.Graphic;
+            Client.Game.UO.Animations.ConvertBodyIfNeeded(ref mobileGraphic);
+
+            if (!Client.Game.UO.FileManager.TileArt.TryGetTileArtInfo(item.Graphic, out var tileArtInfo))
+            {
+                return false;
+            }
+
+            return TryResolveTileArtAppearance(tileArtInfo, mobileGraphic, out uint appearanceId)
+                && appearanceId != 0;
+        }
+
+        private static bool TryResolveTileArtAppearance(TileArtInfo tileArtInfo, ushort mobileGraphic, out uint appearanceId)
+        {
+            appearanceId = 0;
+
+            if (tileArtInfo.TryGetAppearance(mobileGraphic, out appearanceId) && appearanceId != 0)
+            {
+                return true;
+            }
+
+            foreach (KeyValuePair<byte, Dictionary<uint, uint>> subtype in tileArtInfo.Appearances)
+            {
+                if (subtype.Value.TryGetValue(mobileGraphic, out appearanceId) && appearanceId != 0)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static bool IsLayerHiddenByParrotRobe(Layer layer)
@@ -412,6 +463,11 @@ namespace ClassicUO.Game.UI.Controls
                 }
             }
 
+            if (_tileArtGumpCache.TryGetValue((mobileGraphic, itemGraphic), out ushort cachedGump))
+            {
+                return cachedGump;
+            }
+
             if (Client.Game.UO.FileManager.TileArt.TryGetTileArtInfo(itemGraphic, out var tileArtInfo))
             {
                 if (tileArtInfo.TryGetAppearance(mobileGraphic, out var appareanceId))
@@ -419,7 +475,7 @@ namespace ClassicUO.Game.UI.Controls
                     var gumpId = (ushort)(Constants.MALE_GUMP_OFFSET + appareanceId);
                     if (Client.Game.UO.Gumps.GetGump(gumpId).Texture != null)
                     {
-                        Log.Info($"Equip conversion through tileart.uop done: old {animID} -> new {appareanceId}");
+                        _tileArtGumpCache[(mobileGraphic, itemGraphic)] = gumpId;
                         return gumpId;
                     }
                 }
