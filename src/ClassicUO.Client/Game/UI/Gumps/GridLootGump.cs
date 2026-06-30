@@ -10,7 +10,6 @@ using ClassicUO.Input;
 using ClassicUO.Renderer;
 using ClassicUO.Resources;
 using Microsoft.Xna.Framework;
-using System.Linq;
 
 namespace ClassicUO.Game.UI.Gumps
 {
@@ -189,16 +188,33 @@ namespace ClassicUO.Game.UI.Gumps
             }
         }
 
+        private bool _refreshPending;
+        private uint _nextRefreshTick;
+
         protected override void UpdateContents()
         {
+            if (IsDisposed || _corpse == null || _corpse.IsDestroyed)
+            {
+                if (!IsDisposed)
+                {
+                    Dispose();
+                }
+
+                return;
+            }
+
             const int GRID_ITEM_SIZE = 50;
 
             int x = 20;
             int y = 20;
 
-            foreach (GridLootItem gridLootItem in Children.OfType<GridLootItem>())
+            for (int i = Children.Count - 1; i >= 0; i--)
             {
-                gridLootItem.Dispose();
+                if (Children[i] is GridLootItem gridLootItem)
+                {
+                    Remove(gridLootItem);
+                    gridLootItem.Dispose();
+                }
             }
 
             int count = 0;
@@ -214,9 +230,12 @@ namespace ClassicUO.Game.UI.Gumps
             {
                 for (LinkedObject i = _corpse.Items; i != null; i = i.Next)
                 {
-                    Item it = (Item)i;
+                    if (i is not Item it || it.IsDestroyed)
+                    {
+                        continue;
+                    }
 
-                    if (!ItemBelongsToGroup(it, displayGroup) || !it.IsLootable)
+                    if (!ItemBelongsToGroup(it, displayGroup) || !it.IsLootable || it.Container != LocalSerial)
                     {
                         continue;
                     }
@@ -291,6 +310,8 @@ namespace ClassicUO.Game.UI.Gumps
             {
                 IsVisible = true;
             }
+
+            _refreshPending = false;
         }
 
         private bool ItemBelongsToGroup(Item it, int group)
@@ -409,16 +430,71 @@ namespace ClassicUO.Game.UI.Gumps
 
         private void RefreshIfStale()
         {
-            foreach (GridLootItem slot in Children.OfType<GridLootItem>())
+            if (_refreshPending || IsDisposed || _corpse == null || _corpse.IsDestroyed)
             {
-                Item item = World.Items.Get(slot.LocalSerial);
+                return;
+            }
 
-                if (item == null || item.IsDestroyed || item.Container != LocalSerial)
+            uint now = Time.Ticks;
+
+            if (now < _nextRefreshTick)
+            {
+                return;
+            }
+
+            int displayed = 0;
+
+            for (int i = 0; i < Children.Count; i++)
+            {
+                if (Children[i] is not GridLootItem slot || slot.IsDisposed || !slot.IsInitialized)
                 {
-                    RequestUpdateContents();
+                    continue;
+                }
+
+                displayed++;
+
+                if (!slot.IsItemStillInCorpse())
+                {
+                    ScheduleRefresh();
                     return;
                 }
             }
+
+            int corpseCount = CountLootableItemsInCorpse();
+
+            if (corpseCount != displayed)
+            {
+                ScheduleRefresh();
+            }
+        }
+
+        private void ScheduleRefresh()
+        {
+            _refreshPending = true;
+            _nextRefreshTick = Time.Ticks + 50;
+            RequestUpdateContents();
+        }
+
+        private int CountLootableItemsInCorpse()
+        {
+            if (_corpse == null || _corpse.IsDestroyed)
+            {
+                return 0;
+            }
+
+            int count = 0;
+
+            for (LinkedObject i = _corpse.Items; i != null; i = i.Next)
+            {
+                if (i is not Item it || it.IsDestroyed || !it.IsLootable || it.Container != LocalSerial)
+                {
+                    continue;
+                }
+
+                count++;
+            }
+
+            return count;
         }
 
         protected override void OnMouseExit(int x, int y)
@@ -431,6 +507,11 @@ namespace ClassicUO.Game.UI.Gumps
 
         private string GetCorpseName()
         {
+            if (_corpse == null || _corpse.IsDestroyed)
+            {
+                return "a corpse";
+            }
+
             return _corpse.Name?.Length > 0 ? _corpse.Name : "a corpse";
         }
 
@@ -441,6 +522,18 @@ namespace ClassicUO.Game.UI.Gumps
             private HSliderBar _amount;
 
             public bool IsInitialized => _hit != null;
+
+            public bool IsItemStillInCorpse()
+            {
+                if (IsDisposed || _gump == null || _gump.IsDisposed)
+                {
+                    return false;
+                }
+
+                Item item = _gump.World.Items.Get(LocalSerial);
+
+                return item != null && !item.IsDestroyed && item.Container == _gump.LocalSerial;
+            }
 
             public GridLootItem(GridLootGump gump, uint serial, int size)
             {
@@ -491,14 +584,19 @@ namespace ClassicUO.Game.UI.Gumps
 
                 _hit.MouseUp += (sender, e) =>
                 {
-                    if (e.Button != MouseButtonType.Left)
+                    if (e.Button != MouseButtonType.Left || _amount == null)
+                    {
+                        return;
+                    }
+
+                    if (!IsItemStillInCorpse())
                     {
                         return;
                     }
 
                     Item lootItem = _gump.World.Items.Get(LocalSerial);
 
-                    if (lootItem == null || lootItem.IsDestroyed || lootItem.Container != _gump.LocalSerial)
+                    if (lootItem == null)
                     {
                         return;
                     }
@@ -536,6 +634,10 @@ namespace ClassicUO.Game.UI.Gumps
                     return false;
                 }
 
+                ushort graphic = item.DisplayedGraphic;
+                ushort hue = item.Hue;
+                bool partialHue = item.ItemData.IsPartialHue;
+
                 base.AddToRenderLists(renderLists, x, y, ref layerDepthRef);
                 float layerDepth = layerDepthRef;
 
@@ -544,15 +646,16 @@ namespace ClassicUO.Game.UI.Gumps
                     return true;
                 }
 
-                ref readonly var artInfo = ref Client.Game.UO.Arts.GetArt(item.DisplayedGraphic);
+                ref readonly var artInfo = ref Client.Game.UO.Arts.GetArt(graphic);
 
-                var rect = Client.Game.UO.Arts.GetRealArtBounds(item.DisplayedGraphic);
+                var rect = Client.Game.UO.Arts.GetRealArtBounds(graphic);
 
-                Vector3 hueVector = ShaderHueTranslator.GetHueVector(
-                    item.Hue,
-                    item.ItemData.IsPartialHue,
-                    1f
-                );
+                if (rect.Width <= 0 || rect.Height <= 0)
+                {
+                    return true;
+                }
+
+                Vector3 hueVector = ShaderHueTranslator.GetHueVector(hue, partialHue, 1f);
 
                 Point originalSize = new Point(_hit.Width, _hit.Height);
                 Point point = new Point();
