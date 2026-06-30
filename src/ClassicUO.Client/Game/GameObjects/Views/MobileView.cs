@@ -426,10 +426,10 @@ namespace ClassicUO.Game.GameObjects
                             continue;
                         }
 
-                        if (item.ItemData.AnimID != 0)
-                        {
-                            graphic = GetAnimationInfo(this, item, isGargoyle);
+                        ushort equipGraphic = GetAnimationInfo(this, item, isGargoyle);
 
+                        if (equipGraphic != 0xFFFF)
+                        {
                             DrawInternal(
                                 batcher,
                                 this,
@@ -440,10 +440,10 @@ namespace ClassicUO.Game.GameObjects
                                 IsFlipped,
                                 animIndex,
                                 false,
-                                graphic,
+                                equipGraphic,
                                 isGargoyle /*&& item.ItemData.IsWeapon*/
                                 && seatData.Graphic == 0
-                                    ? GetGroupForAnimation(this, graphic, true)
+                                    ? GetGroupForAnimation(this, equipGraphic, true)
                                     : animGroup,
                                 dir,
                                 isHuman,
@@ -456,14 +456,11 @@ namespace ClassicUO.Game.GameObjects
                                 charSitting
                             );
                         }
-                        else
+                        else if (item.ItemData.IsLight)
                         {
-                            if (item.ItemData.IsLight)
-                            {
-                                Client.Game
-                                    .GetScene<GameScene>()
-                                    .AddLight(this, item, drawX, drawY);
-                            }
+                            Client.Game
+                                .GetScene<GameScene>()
+                                .AddLight(this, item, drawX, drawY);
                         }
 
                         _equipConvData = null;
@@ -538,16 +535,36 @@ namespace ClassicUO.Game.GameObjects
 
         private static ushort GetAnimationInfo(Mobile owner, Item item, bool isGargoyle)
         {
+            ushort mobileGraphic = owner.Graphic;
+            Client.Game.UO.Animations.ConvertBodyIfNeeded(ref mobileGraphic);
+
+            if (
+                Client.Game.UO.FileManager.TileArt.TryGetTileArtInfo(item.Graphic, out var tileArtInfo)
+                && TryResolveTileArtAppearance(tileArtInfo, mobileGraphic, out uint appearanceId)
+                && appearanceId != 0
+            )
+            {
+                ushort graphic = (ushort)appearanceId;
+                _equipConvData = null;
+
+                if (isGargoyle)
+                {
+                    FixGargoyleEquipments(ref graphic);
+                }
+
+                return graphic;
+            }
+
             if (item.ItemData.AnimID == 0)
             {
                 return 0xFFFF;
             }
 
-            ushort graphic = item.ItemData.AnimID;
+            ushort animGraphic = item.ItemData.AnimID;
 
             if (isGargoyle)
             {
-                FixGargoyleEquipments(ref graphic);
+                FixGargoyleEquipments(ref animGraphic);
             }
 
             if (
@@ -559,28 +576,10 @@ namespace ClassicUO.Game.GameObjects
             )
             {
                 _equipConvData = data;
-                graphic = data.Graphic;
+                animGraphic = data.Graphic;
             }
 
-            ushort mobileGraphic = owner.Graphic;
-            Client.Game.UO.Animations.ConvertBodyIfNeeded(ref mobileGraphic);
-
-            if (
-                Client.Game.UO.FileManager.TileArt.TryGetTileArtInfo(item.Graphic, out var tileArtInfo)
-                && TryResolveTileArtAppearance(tileArtInfo, mobileGraphic, out uint appearanceId)
-                && appearanceId != 0
-            )
-            {
-                graphic = (ushort)appearanceId;
-                _equipConvData = null;
-
-                if (isGargoyle)
-                {
-                    FixGargoyleEquipments(ref graphic);
-                }
-            }
-
-            return graphic;
+            return animGraphic;
         }
 
         private static bool TryResolveTileArtAppearance(TileArtInfo tileArtInfo, ushort mobileGraphic, out uint appearanceId)
@@ -1533,14 +1532,7 @@ namespace ClassicUO.Game.GameObjects
                 return false;
             }
 
-            ushort mobileGraphic = mobile.Graphic;
-            Client.Game.UO.Animations.ConvertBodyIfNeeded(ref mobileGraphic);
-
-            if (
-                Client.Game.UO.FileManager.TileArt.TryGetTileArtInfo(robe.Graphic, out var tileArtInfo)
-                && TryResolveTileArtAppearance(tileArtInfo, mobileGraphic, out uint appearanceId)
-                && appearanceId != 0
-            )
+            if (HasTileArtBodyAppearance(robe, mobile))
             {
                 return true;
             }
@@ -1552,6 +1544,20 @@ namespace ClassicUO.Game.GameObjects
                 || graphic == 0x9985 || graphic == 0x9986
                 || graphic == 0xA412 || graphic == 0xB1DE
                 || anim == 0xA2CA || anim == 0xA2CB;
+        }
+
+        private static bool HasTileArtBodyAppearance(Item item, Mobile mobile)
+        {
+            ushort mobileGraphic = mobile.Graphic;
+            Client.Game.UO.Animations.ConvertBodyIfNeeded(ref mobileGraphic);
+
+            if (!Client.Game.UO.FileManager.TileArt.TryGetTileArtInfo(item.Graphic, out var tileArtInfo))
+            {
+                return false;
+            }
+
+            return TryResolveTileArtAppearance(tileArtInfo, mobileGraphic, out uint appearanceId)
+                && appearanceId != 0;
         }
     }
 }
