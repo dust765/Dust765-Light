@@ -221,7 +221,13 @@ namespace ClassicUO.Game.UI.Gumps
                         continue;
                     }
 
-                    GridLootItem gridItem = new GridLootItem(this, it, GRID_ITEM_SIZE);
+                    GridLootItem gridItem = new GridLootItem(this, it.Serial, GRID_ITEM_SIZE);
+
+                    if (!gridItem.IsInitialized)
+                    {
+                        gridItem.Dispose();
+                        continue;
+                    }
 
                     if (x >= MAX_WIDTH - 20)
                     {
@@ -397,6 +403,22 @@ namespace ClassicUO.Game.UI.Gumps
                 SelectedObject.Object = _corpse;
                 SelectedObject.CorpseObject = _corpse;
             }
+
+            RefreshIfStale();
+        }
+
+        private void RefreshIfStale()
+        {
+            foreach (GridLootItem slot in Children.OfType<GridLootItem>())
+            {
+                Item item = World.Items.Get(slot.LocalSerial);
+
+                if (item == null || item.IsDestroyed || item.Container != LocalSerial)
+                {
+                    RequestUpdateContents();
+                    return;
+                }
+            }
         }
 
         protected override void OnMouseExit(int x, int y)
@@ -416,29 +438,29 @@ namespace ClassicUO.Game.UI.Gumps
         {
             private readonly GridLootGump _gump;
             private readonly HitBox _hit;
+            private HSliderBar _amount;
+
+            public bool IsInitialized => _hit != null;
 
             public GridLootItem(GridLootGump gump, uint serial, int size)
             {
                 _gump = gump;
                 LocalSerial = serial;
+                CanMove = false;
+                WantUpdateSize = false;
 
                 Item item = _gump.World.Items.Get(serial);
 
-                if (item == null)
+                if (item == null || item.IsDestroyed || item.Container != _gump.LocalSerial)
                 {
-                    Dispose();
-
                     return;
                 }
 
-                CanMove = false;
-
-                HSliderBar amount = new HSliderBar(
+                _amount = new HSliderBar(
                     0,
                     0,
                     size,
                     1,
-                    // OSI has an odd behaviour. It uses the Amount field to store unknown data for non stackable items.
                     item.ItemData.IsStackable
                         ? item.Amount
                         : 1,
@@ -449,9 +471,9 @@ namespace ClassicUO.Game.UI.Gumps
                     drawUp: true
                 );
 
-                Add(amount);
+                Add(_amount);
 
-                amount.IsVisible = amount.IsEnabled = amount.MaxValue > 1;
+                _amount.IsVisible = _amount.IsEnabled = _amount.MaxValue > 1;
 
                 AlphaBlendControl background = new AlphaBlendControl();
                 background.Y = 15;
@@ -469,23 +491,47 @@ namespace ClassicUO.Game.UI.Gumps
 
                 _hit.MouseUp += (sender, e) =>
                 {
-                    if (e.Button == MouseButtonType.Left)
+                    if (e.Button != MouseButtonType.Left)
                     {
-                        GameActions.GrabItem(_gump.World, item, (ushort)amount.Value);
+                        return;
                     }
+
+                    Item lootItem = _gump.World.Items.Get(LocalSerial);
+
+                    if (lootItem == null || lootItem.IsDestroyed || lootItem.Container != _gump.LocalSerial)
+                    {
+                        return;
+                    }
+
+                    GameActions.GrabItem(_gump.World, lootItem, (ushort)_amount.Value);
                 };
 
                 Width = background.Width;
                 Height = background.Height + 15;
+            }
 
-                WantUpdateSize = false;
+            private bool TryGetValidItem(out Item item)
+            {
+                item = null;
+
+                if (IsDisposed || _hit == null || _gump == null || _gump.IsDisposed)
+                {
+                    return false;
+                }
+
+                item = _gump.World.Items.Get(LocalSerial);
+
+                if (item == null || item.IsDestroyed || item.Container != _gump.LocalSerial)
+                {
+                    return false;
+                }
+
+                return true;
             }
 
             public override bool AddToRenderLists(RenderLists renderLists, int x, int y, ref float layerDepthRef)
             {
-                Item item = _gump.World.Items.Get(LocalSerial);
-
-                if (item == null)
+                if (!TryGetValidItem(out Item item))
                 {
                     return false;
                 }
@@ -493,13 +539,16 @@ namespace ClassicUO.Game.UI.Gumps
                 base.AddToRenderLists(renderLists, x, y, ref layerDepthRef);
                 float layerDepth = layerDepthRef;
 
-                Vector3 hueVector;
+                if (Client.Game?.UO?.Arts == null)
+                {
+                    return true;
+                }
 
                 ref readonly var artInfo = ref Client.Game.UO.Arts.GetArt(item.DisplayedGraphic);
 
                 var rect = Client.Game.UO.Arts.GetRealArtBounds(item.DisplayedGraphic);
 
-                hueVector = ShaderHueTranslator.GetHueVector(
+                Vector3 hueVector = ShaderHueTranslator.GetHueVector(
                     item.Hue,
                     item.ItemData.IsPartialHue,
                     1f
