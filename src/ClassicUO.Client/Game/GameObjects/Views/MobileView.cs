@@ -515,6 +515,24 @@ namespace ClassicUO.Game.GameObjects
             FrameInfo.Width = FrameInfo.X + FrameInfo.Width;
             FrameInfo.Height = FrameInfo.Y + FrameInfo.Height;
 
+            Profile rangeProfile = ProfileManager.CurrentProfile;
+
+            if (
+                rangeProfile != null
+                && rangeProfile.EnemyRangeIndicator
+                && rangeProfile.EnemyRangeIndicator_ShowOnLastTarget
+                && Serial != World.Player.Serial
+                && EnemyRangeBucketHelper.IsTrackedMobile(World, Serial)
+            )
+            {
+                EnemyRangeBucket bucket = EnemyRangeBucketHelper.GetLastTargetBucket(World);
+
+                if (bucket != EnemyRangeBucket.None)
+                {
+                    EnemyRangeBucketDrawHelper.DrawMarker(batcher, drawX + 22, drawY - 32, bucket, depth);
+                }
+            }
+
             return true;
         }
 

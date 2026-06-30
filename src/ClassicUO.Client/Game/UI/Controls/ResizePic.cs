@@ -29,8 +29,13 @@ namespace ClassicUO.Game.UI.Controls
             }
         }
 
-        public ResizePic(List<string> parts) : this(UInt16Converter.Parse(parts[3]))
+        public ResizePic(List<string> parts) : this(parts != null && parts.Count >= 6 ? UInt16Converter.Parse(parts[3]) : (ushort)0)
         {
+            if (parts == null || parts.Count < 6)
+            {
+                return;
+            }
+
             X = int.Parse(parts[1]);
             Y = int.Parse(parts[2]);
             Width = int.Parse(parts[4]);

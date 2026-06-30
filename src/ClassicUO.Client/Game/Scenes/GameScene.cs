@@ -150,6 +150,11 @@ namespace ClassicUO.Game.Scenes
                 BandageGump.RefreshOpenGump(_world);
             }
 
+            if (prof != null && prof.EnemyRangeIndicator)
+            {
+                EnemyRangeIndicatorGump.RefreshOpenGump(_world);
+            }
+
             NetClient.Socket.Disconnected += SocketOnDisconnected;
             _world.MessageManager.MessageReceived += ChatOnMessageReceived;
             UIManager.ContainerScale = ProfileManager.CurrentProfile.ContainersScale / 100f;
