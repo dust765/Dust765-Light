@@ -393,6 +393,13 @@ namespace ClassicUO.Configuration
         [JsonConverter(typeof(Point2Converter))]
         public Point UOClassicCombatBuffbarLocation { get; set; } = new Point(50, 50);
 
+        public bool EnemyRangeIndicator { get; set; } = false;
+        public bool EnemyRangeIndicator_Locked { get; set; } = false;
+        public bool EnemyRangeIndicator_LastTargetOnly { get; set; } = false;
+        public bool EnemyRangeIndicator_ShowOnLastTarget { get; set; } = false;
+        [JsonConverter(typeof(Point2Converter))]
+        public Point EnemyRangeIndicatorLocation { get; set; } = new Point(50, 80);
+
         public bool UseOldHealthBars { get; set; } = false;
         public bool HealthBarShowDebuffTimers { get; set; } = true;
         public bool MultipleUnderlinesSelfParty { get; set; } = false;
