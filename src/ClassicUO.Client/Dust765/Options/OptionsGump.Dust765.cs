@@ -17,6 +17,10 @@ namespace ClassicUO.Game.UI.Gumps
         private Checkbox _dust765UccBuffbar;
         private Checkbox _dust765UccSwing;
         private Checkbox _dust765UccLocked;
+        private Checkbox _dust765EnemyRangeIndicator;
+        private Checkbox _dust765EnemyRangeIndicatorLocked;
+        private Checkbox _dust765EnemyRangeIndicatorLastTargetOnly;
+        private Checkbox _dust765EnemyRangeIndicatorShowOnLastTarget;
         private Checkbox _dust765NamePlateHealthBar;
         private Checkbox _dust765UseOldHealthBars;
         private Checkbox _dust765MultiUnderlinesParty;
@@ -153,6 +157,76 @@ namespace ClassicUO.Game.UI.Gumps
                     null,
                     "Lock combat bar",
                     _currentProfile.UOClassicCombatBuffbar_Locked,
+                    startX,
+                    startY
+                )
+            );
+
+            sectionCombatUi.Add
+            (
+                _dust765EnemyRangeIndicator = AddCheckBox
+                (
+                    null,
+                    "Enemy range indicator",
+                    _currentProfile.EnemyRangeIndicator,
+                    startX,
+                    startY
+                )
+            );
+
+            sectionCombatUi.Add
+            (
+                _dust765EnemyRangeIndicatorLocked = AddCheckBox
+                (
+                    null,
+                    "Lock range indicator position",
+                    _currentProfile.EnemyRangeIndicator_Locked,
+                    startX,
+                    startY
+                )
+            );
+
+            sectionCombatUi.Add
+            (
+                _dust765EnemyRangeIndicatorLastTargetOnly = AddCheckBox
+                (
+                    null,
+                    "Track last target only",
+                    _currentProfile.EnemyRangeIndicator_LastTargetOnly,
+                    startX,
+                    startY
+                )
+            );
+
+            sectionCombatUi.Add
+            (
+                _dust765EnemyRangeIndicatorShowOnLastTarget = AddCheckBox
+                (
+                    null,
+                    "Show range bucket on last target",
+                    _currentProfile.EnemyRangeIndicator_ShowOnLastTarget,
+                    startX,
+                    startY
+                )
+            );
+
+            sectionCombatUi.Add
+            (
+                AddLabel
+                (
+                    null,
+                    "Green = weapon range, yellow = up to 7 tiles, red = 8+",
+                    startX,
+                    startY
+                )
+            );
+
+            sectionCombatUi.Add
+            (
+                AddLabel
+                (
+                    null,
+                    "Default counts hostiles only; last-target modes work on any targeted mobile",
                     startX,
                     startY
                 )
@@ -911,6 +985,11 @@ namespace ClassicUO.Game.UI.Gumps
             _currentProfile.UOClassicCombatBuffbar = _dust765UccBuffbar.IsChecked;
             _currentProfile.UOClassicCombatBuffbar_SwingEnabled = _dust765UccSwing.IsChecked;
             _currentProfile.UOClassicCombatBuffbar_Locked = _dust765UccLocked.IsChecked;
+            _currentProfile.EnemyRangeIndicator = _dust765EnemyRangeIndicator.IsChecked;
+            _currentProfile.EnemyRangeIndicator_Locked = _dust765EnemyRangeIndicatorLocked.IsChecked;
+            _currentProfile.EnemyRangeIndicator_LastTargetOnly = _dust765EnemyRangeIndicatorLastTargetOnly.IsChecked;
+            _currentProfile.EnemyRangeIndicator_ShowOnLastTarget = _dust765EnemyRangeIndicatorShowOnLastTarget.IsChecked;
+            EnemyRangeIndicatorGump.RefreshOpenGump(World);
             _currentProfile.NamePlateHealthBar = _dust765NamePlateHealthBar.IsChecked;
             _currentProfile.NamePlateHealthBarOpacity = (byte)Math.Clamp(_dust765NamePlateOpacity.Value, 0, 100);
             _currentProfile.UseOldHealthBars = _dust765UseOldHealthBars.IsChecked;

@@ -5423,104 +5423,208 @@ namespace ClassicUO.Network
             }
         }
 
+        private const int MaxCompressedGumpDestLen = 1_048_576;
+        private const int MaxCompressedGumpLines = 65535;
+
+        private static bool TryDecompressGumpBlock(
+            ref StackDataReader p,
+            uint sender,
+            uint gumpID,
+            string blockName,
+            out byte[] decoded,
+            out int decodedLen
+        )
+        {
+            decoded = null;
+            decodedLen = 0;
+
+            if (p.Remaining < 8)
+            {
+                Log.Error(
+                    $"[OpenCompressedGump] {blockName}: header truncated (sender=0x{sender:X}, gump=0x{gumpID:X}, remaining={p.Remaining})"
+                );
+                return false;
+            }
+
+            uint rawClen = p.ReadUInt32BE();
+
+            if (rawClen < 4)
+            {
+                Log.Error(
+                    $"[OpenCompressedGump] {blockName}: invalid compressed length {rawClen} (sender=0x{sender:X}, gump=0x{gumpID:X})"
+                );
+                return false;
+            }
+
+            uint clen = rawClen - 4;
+
+            if (clen > (uint)p.Remaining)
+            {
+                Log.Error(
+                    $"[OpenCompressedGump] {blockName}: compressed size {clen} exceeds remaining {p.Remaining} (sender=0x{sender:X}, gump=0x{gumpID:X})"
+                );
+                return false;
+            }
+
+            int dlen = (int)p.ReadUInt32BE();
+
+            if (dlen < 1)
+            {
+                dlen = 1;
+            }
+
+            if (dlen > MaxCompressedGumpDestLen)
+            {
+                Log.Error(
+                    $"[OpenCompressedGump] {blockName}: decompressed size {dlen} exceeds limit (sender=0x{sender:X}, gump=0x{gumpID:X})"
+                );
+                return false;
+            }
+
+            decoded = System.Buffers.ArrayPool<byte>.Shared.Rent(dlen);
+
+            try
+            {
+                ZLib.ZLibError result = ZLib.Decompress(
+                    p.Buffer.Slice(p.Position, (int)clen),
+                    decoded.AsSpan(0, dlen)
+                );
+
+                if (result != ZLib.ZLibError.Ok && result != ZLib.ZLibError.StreamEnd)
+                {
+                    Log.Error(
+                        $"[OpenCompressedGump] {blockName}: decompress failed ({result}) (sender=0x{sender:X}, gump=0x{gumpID:X}, clen={clen}, dlen={dlen})"
+                    );
+                    System.Buffers.ArrayPool<byte>.Shared.Return(decoded);
+                    decoded = null;
+                    return false;
+                }
+
+                p.Skip((int)clen);
+                decodedLen = dlen;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Log.Error(
+                    $"[OpenCompressedGump] {blockName}: decompress exception (sender=0x{sender:X}, gump=0x{gumpID:X}): {ex}"
+                );
+                System.Buffers.ArrayPool<byte>.Shared.Return(decoded);
+                decoded = null;
+                return false;
+            }
+        }
+
         private static void OpenCompressedGump(World world, ref StackDataReader p)
         {
+            if (p.Remaining < 16)
+            {
+                Log.Error($"[OpenCompressedGump] packet truncated (remaining={p.Remaining})");
+                return;
+            }
+
             uint sender = p.ReadUInt32BE();
             uint gumpID = p.ReadUInt32BE();
             uint x = p.ReadUInt32BE();
             uint y = p.ReadUInt32BE();
-            uint clen = p.ReadUInt32BE() - 4;
-            int dlen = (int)p.ReadUInt32BE();
-            byte[] decData = System.Buffers.ArrayPool<byte>.Shared.Rent(dlen);
+
+            if (!TryDecompressGumpBlock(ref p, sender, gumpID, "layout", out byte[] layoutData, out int layoutLen))
+            {
+                if (layoutData != null)
+                {
+                    System.Buffers.ArrayPool<byte>.Shared.Return(layoutData);
+                }
+
+                return;
+            }
+
             string layout;
 
             try
             {
-                ZLib.Decompress(p.Buffer.Slice(p.Position, (int)clen), decData.AsSpan(0, dlen));
-
-                layout = Encoding.UTF8.GetString(decData.AsSpan(0, dlen));
+                layout = Encoding.UTF8.GetString(layoutData.AsSpan(0, layoutLen));
             }
             finally
             {
-                System.Buffers.ArrayPool<byte>.Shared.Return(decData);
+                System.Buffers.ArrayPool<byte>.Shared.Return(layoutData);
             }
 
-            p.Skip((int)clen);
+            if (p.Remaining < 4)
+            {
+                Log.Error(
+                    $"[OpenCompressedGump] missing lines count (sender=0x{sender:X}, gump=0x{gumpID:X}, remaining={p.Remaining})"
+                );
+                return;
+            }
 
             uint linesNum = p.ReadUInt32BE();
-            string[] lines = new string[linesNum];
 
-            try
+            if (linesNum > MaxCompressedGumpLines)
             {
-                if (linesNum != 0)
+                Log.Error(
+                    $"[OpenCompressedGump] lines count {linesNum} exceeds limit (sender=0x{sender:X}, gump=0x{gumpID:X})"
+                );
+                return;
+            }
+
+            string[] lines = linesNum == 0 ? Array.Empty<string>() : new string[linesNum];
+
+            if (linesNum != 0)
+            {
+                if (!TryDecompressGumpBlock(ref p, sender, gumpID, "text", out byte[] textData, out int textLen))
                 {
-                    clen = p.ReadUInt32BE() - 4;
-                    dlen = (int)p.ReadUInt32BE();
-                    decData = System.Buffers.ArrayPool<byte>.Shared.Rent(dlen);
-
-                    try
+                    if (textData != null)
                     {
-                        ZLib.Decompress(p.Buffer.Slice(p.Position, (int)clen), decData.AsSpan(0, dlen));
-                        p.Skip((int)clen);
+                        System.Buffers.ArrayPool<byte>.Shared.Return(textData);
+                    }
 
-                        var reader = new StackDataReader(decData.AsSpan(0, dlen));
+                    return;
+                }
 
-                        for (int i = 0; i < linesNum; ++i)
+                try
+                {
+                    var reader = new StackDataReader(textData.AsSpan(0, textLen));
+
+                    for (int i = 0; i < linesNum; ++i)
+                    {
+                        int remaining = reader.Remaining;
+
+                        if (remaining >= 2)
                         {
-                            int remaining = reader.Remaining;
+                            int length = reader.ReadUInt16BE();
 
-                            if (remaining >= 2)
+                            if (length > 0)
                             {
-                                int length = reader.ReadUInt16BE();
-
-                                if (length > 0)
-                                {
-                                    lines[i] = reader.ReadUnicodeBE(length);
-                                }
-                                else
-                                {
-                                    lines[i] = string.Empty;
-                                }
+                                lines[i] = reader.ReadUnicodeBE(length);
                             }
                             else
                             {
                                 lines[i] = string.Empty;
                             }
                         }
-
-                        reader.Release();
-
-                        //for (int i = 0, index = 0; i < linesNum && index < dlen; i++)
-                        //{
-                        //    int length = ((decData[index++] << 8) | decData[index++]) << 1;
-                        //    int true_length = 0;
-
-                        //    for (int k = 0; k < length && true_length < length && index + true_length < dlen; ++k, true_length += 2)
-                        //    {
-                        //        ushort c = (ushort)(((decData[index + true_length] << 8) | decData[index + true_length + 1]) << 1);
-
-                        //        if (c == '\0')
-                        //        {
-                        //            break;
-                        //        }
-                        //    }
-
-                        //    lines[i] = Encoding.BigEndianUnicode.GetString(decData, index, true_length);
-
-                        //    index += length;
-                        //}
+                        else
+                        {
+                            lines[i] = string.Empty;
+                        }
                     }
-                    finally
-                    {
-                        System.Buffers.ArrayPool<byte>.Shared.Return(decData);
-                    }
+
+                    reader.Release();
                 }
+                finally
+                {
+                    System.Buffers.ArrayPool<byte>.Shared.Return(textData);
+                }
+            }
 
+            try
+            {
                 CreateGump(world, sender, gumpID, (int)x, (int)y, layout, lines);
             }
-            finally
+            catch (Exception ex)
             {
-                //System.Buffers.ArrayPool<string>.Shared.Return(lines);
+                Log.Error(
+                    $"[OpenCompressedGump] Failed to build gump 0x{gumpID:X} from 0x{sender:X}: {ex}"
+                );
             }
         }
 
@@ -6617,6 +6721,21 @@ namespace ClassicUO.Network
             container.Items = remove_unequipped ? new_first : null;
         }
 
+        private static bool HasMinParts(List<string> parts, int min) =>
+            parts != null && parts.Count >= min;
+
+        private static void TryAddGumpControl(Gump gump, int page, uint gumpID, string entry, Action add)
+        {
+            try
+            {
+                add();
+            }
+            catch (Exception ex)
+            {
+                Log.Warn($"[CreateGump] Skipped '{entry}' on gump 0x{gumpID:X}: {ex.Message}");
+            }
+        }
+
         private static Gump CreateGump(
             World world,
             uint sender,
@@ -6698,7 +6817,13 @@ namespace ClassicUO.Network
 
                 if (string.Equals(entry, "button", StringComparison.InvariantCultureIgnoreCase))
                 {
-                    gump.Add(new Button(gparams), page);
+                    if (!HasMinParts(gparams, 5))
+                    {
+                        Log.Warn($"[CreateGump] Skipped 'button' on gump 0x{gumpID:X}: not enough parameters ({gparams.Count})");
+                        continue;
+                    }
+
+                    TryAddGumpControl(gump, page, gumpID, entry, () => gump.Add(new Button(gparams), page));
                 }
                 else if (
                     string.Equals(
@@ -6708,7 +6833,13 @@ namespace ClassicUO.Network
                     )
                 )
                 {
-                    gump.Add(new ButtonTileArt(gparams), page);
+                    if (!HasMinParts(gparams, 5))
+                    {
+                        Log.Warn($"[CreateGump] Skipped 'buttontileart' on gump 0x{gumpID:X}: not enough parameters ({gparams.Count})");
+                        continue;
+                    }
+
+                    TryAddGumpControl(gump, page, gumpID, entry, () => gump.Add(new ButtonTileArt(gparams), page));
                 }
                 else if (
                     string.Equals(
@@ -6718,159 +6849,195 @@ namespace ClassicUO.Network
                     )
                 )
                 {
-                    var checkerTrans = new CheckerTrans(gparams);
-                    gump.Add(checkerTrans, page);
-                    ApplyTrans(
+                    if (!HasMinParts(gparams, 5))
+                    {
+                        Log.Warn($"[CreateGump] Skipped 'checkertrans' on gump 0x{gumpID:X}: not enough parameters ({gparams.Count})");
+                        continue;
+                    }
+
+                    TryAddGumpControl(
                         gump,
                         page,
-                        checkerTrans.X,
-                        checkerTrans.Y,
-                        checkerTrans.Width,
-                        checkerTrans.Height
+                        gumpID,
+                        entry,
+                        () =>
+                        {
+                            var checkerTrans = new CheckerTrans(gparams);
+                            gump.Add(checkerTrans, page);
+                            ApplyTrans(
+                                gump,
+                                page,
+                                checkerTrans.X,
+                                checkerTrans.Y,
+                                checkerTrans.Width,
+                                checkerTrans.Height
+                            );
+                        }
                     );
                 }
                 else if (
                     string.Equals(entry, "croppedtext", StringComparison.InvariantCultureIgnoreCase)
                 )
                 {
-                    gump.Add(new CroppedText(gparams, lines), page);
+                    if (!HasMinParts(gparams, 7))
+                    {
+                        Log.Warn($"[CreateGump] Skipped 'croppedtext' on gump 0x{gumpID:X}: not enough parameters ({gparams.Count})");
+                        continue;
+                    }
+
+                    TryAddGumpControl(gump, page, gumpID, entry, () => gump.Add(new CroppedText(gparams, lines), page));
                 }
                 else if (
                     string.Equals(entry, "tilepicasgumppic", StringComparison.InvariantCultureIgnoreCase) ||
                     string.Equals(entry, "gumppic", StringComparison.InvariantCultureIgnoreCase)
                 )
                 {
-                    GumpPic pic;
-                    var isVirtue = gparams.Count >= 6
-                        && gparams[5].IndexOf(
-                            "virtuegumpitem",
-                            StringComparison.InvariantCultureIgnoreCase
-                        ) >= 0;
-
-                    if (isVirtue)
+                    if (!HasMinParts(gparams, 4))
                     {
-                        pic = new VirtueGumpPic(world, gparams);
-                        pic.ContainsByBounds = true;
-
-                        string s,
-                            lvl;
-
-                        switch (pic.Hue)
-                        {
-                            case 2403:
-                                lvl = "";
-
-                                break;
-
-                            case 1154:
-                            case 1547:
-                            case 2213:
-                            case 235:
-                            case 18:
-                            case 2210:
-                            case 1348:
-                                lvl = "Seeker of ";
-
-                                break;
-
-                            case 2404:
-                            case 1552:
-                            case 2216:
-                            case 2302:
-                            case 2118:
-                            case 618:
-                            case 2212:
-                            case 1352:
-                                lvl = "Follower of ";
-
-                                break;
-
-                            case 43:
-                            case 53:
-                            case 1153:
-                            case 33:
-                            case 318:
-                            case 67:
-                            case 98:
-                                lvl = "Knight of ";
-
-                                break;
-
-                            case 2406:
-                                if (pic.Graphic == 0x6F)
-                                {
-                                    lvl = "Seeker of ";
-                                }
-                                else
-                                {
-                                    lvl = "Knight of ";
-                                }
-
-                                break;
-
-                            default:
-                                lvl = "";
-
-                                break;
-                        }
-
-                        switch (pic.Graphic)
-                        {
-                            case 0x69:
-                                s = Client.Game.UO.FileManager.Clilocs.GetString(1051000 + 2);
-
-                                break;
-
-                            case 0x6A:
-                                s = Client.Game.UO.FileManager.Clilocs.GetString(1051000 + 7);
-
-                                break;
-
-                            case 0x6B:
-                                s = Client.Game.UO.FileManager.Clilocs.GetString(1051000 + 5);
-
-                                break;
-
-                            case 0x6D:
-                                s = Client.Game.UO.FileManager.Clilocs.GetString(1051000 + 6);
-
-                                break;
-
-                            case 0x6E:
-                                s = Client.Game.UO.FileManager.Clilocs.GetString(1051000 + 1);
-
-                                break;
-
-                            case 0x6F:
-                                s = Client.Game.UO.FileManager.Clilocs.GetString(1051000 + 3);
-
-                                break;
-
-                            case 0x70:
-                                s = Client.Game.UO.FileManager.Clilocs.GetString(1051000 + 4);
-
-                                break;
-
-                            case 0x6C:
-                            default:
-                                s = Client.Game.UO.FileManager.Clilocs.GetString(1051000);
-
-                                break;
-                        }
-
-                        if (string.IsNullOrEmpty(s))
-                        {
-                            s = "Unknown virtue";
-                        }
-
-                        pic.SetTooltip(lvl + s, 100);
-                    }
-                    else
-                    {
-                        pic = new GumpPic(gparams);
+                        Log.Warn($"[CreateGump] Skipped 'gumppic' on gump 0x{gumpID:X}: not enough parameters ({gparams.Count})");
+                        continue;
                     }
 
-                    gump.Add(pic, page);
+                    TryAddGumpControl(
+                        gump,
+                        page,
+                        gumpID,
+                        entry,
+                        () =>
+                        {
+                            GumpPic pic;
+                            var isVirtue = gparams.Count >= 6
+                                && gparams[5].IndexOf(
+                                    "virtuegumpitem",
+                                    StringComparison.InvariantCultureIgnoreCase
+                                ) >= 0;
+
+                            if (isVirtue)
+                            {
+                                pic = new VirtueGumpPic(world, gparams);
+                                pic.ContainsByBounds = true;
+
+                                string s,
+                                    lvl;
+
+                                switch (pic.Hue)
+                                {
+                                    case 2403:
+                                        lvl = "";
+
+                                        break;
+
+                                    case 1154:
+                                    case 1547:
+                                    case 2213:
+                                    case 235:
+                                    case 18:
+                                    case 2210:
+                                    case 1348:
+                                        lvl = "Seeker of ";
+
+                                        break;
+
+                                    case 2404:
+                                    case 1552:
+                                    case 2216:
+                                    case 2302:
+                                    case 2118:
+                                    case 618:
+                                    case 2212:
+                                    case 1352:
+                                        lvl = "Follower of ";
+
+                                        break;
+
+                                    case 43:
+                                    case 53:
+                                    case 1153:
+                                    case 33:
+                                    case 318:
+                                    case 67:
+                                    case 98:
+                                        lvl = "Knight of ";
+
+                                        break;
+
+                                    case 2406:
+                                        if (pic.Graphic == 0x6F)
+                                        {
+                                            lvl = "Seeker of ";
+                                        }
+                                        else
+                                        {
+                                            lvl = "Knight of ";
+                                        }
+
+                                        break;
+
+                                    default:
+                                        lvl = "";
+
+                                        break;
+                                }
+
+                                switch (pic.Graphic)
+                                {
+                                    case 0x69:
+                                        s = Client.Game.UO.FileManager.Clilocs.GetString(1051000 + 2);
+
+                                        break;
+
+                                    case 0x6A:
+                                        s = Client.Game.UO.FileManager.Clilocs.GetString(1051000 + 7);
+
+                                        break;
+
+                                    case 0x6B:
+                                        s = Client.Game.UO.FileManager.Clilocs.GetString(1051000 + 5);
+
+                                        break;
+
+                                    case 0x6D:
+                                        s = Client.Game.UO.FileManager.Clilocs.GetString(1051000 + 6);
+
+                                        break;
+
+                                    case 0x6E:
+                                        s = Client.Game.UO.FileManager.Clilocs.GetString(1051000 + 1);
+
+                                        break;
+
+                                    case 0x6F:
+                                        s = Client.Game.UO.FileManager.Clilocs.GetString(1051000 + 3);
+
+                                        break;
+
+                                    case 0x70:
+                                        s = Client.Game.UO.FileManager.Clilocs.GetString(1051000 + 4);
+
+                                        break;
+
+                                    case 0x6C:
+                                    default:
+                                        s = Client.Game.UO.FileManager.Clilocs.GetString(1051000);
+
+                                        break;
+                                }
+
+                                if (string.IsNullOrEmpty(s))
+                                {
+                                    s = "Unknown virtue";
+                                }
+
+                                pic.SetTooltip(lvl + s, 100);
+                            }
+                            else
+                            {
+                                pic = new GumpPic(gparams);
+                            }
+
+                            gump.Add(pic, page);
+                        }
+                    );
                 }
                 else if (
                     string.Equals(
@@ -6880,35 +7047,60 @@ namespace ClassicUO.Network
                     )
                 )
                 {
-                    gump.Add(new GumpPicTiled(gparams), page);
+                    if (!HasMinParts(gparams, 6))
+                    {
+                        Log.Warn($"[CreateGump] Skipped 'gumppictiled' on gump 0x{gumpID:X}: not enough parameters ({gparams.Count})");
+                        continue;
+                    }
+
+                    TryAddGumpControl(gump, page, gumpID, entry, () => gump.Add(new GumpPicTiled(gparams), page));
                 }
                 else if (
                     string.Equals(entry, "htmlgump", StringComparison.InvariantCultureIgnoreCase)
                 )
                 {
-                    gump.Add(new HtmlControl(gparams, lines), page);
+                    if (!HasMinParts(gparams, 8))
+                    {
+                        Log.Warn($"[CreateGump] Skipped 'htmlgump' on gump 0x{gumpID:X}: not enough parameters ({gparams.Count})");
+                        continue;
+                    }
+
+                    TryAddGumpControl(gump, page, gumpID, entry, () => gump.Add(new HtmlControl(gparams, lines), page));
                 }
                 else if (
                     string.Equals(entry, "xmfhtmlgump", StringComparison.InvariantCultureIgnoreCase)
                 )
                 {
-                    gump.Add(
-                        new HtmlControl(
-                            int.Parse(gparams[1]),
-                            int.Parse(gparams[2]),
-                            int.Parse(gparams[3]),
-                            int.Parse(gparams[4]),
-                            int.Parse(gparams[6]) == 1,
-                            int.Parse(gparams[7]) != 0,
-                            gparams[6] != "0" && gparams[7] == "2",
-                            Client.Game.UO.FileManager.Clilocs.GetString(int.Parse(gparams[5].Replace("#", ""))),
-                            0,
-                            true
-                        )
-                        {
-                            IsFromServer = true
-                        },
-                        page
+                    if (!HasMinParts(gparams, 8))
+                    {
+                        Log.Warn($"[CreateGump] Skipped 'xmfhtmlgump' on gump 0x{gumpID:X}: not enough parameters ({gparams.Count})");
+                        continue;
+                    }
+
+                    TryAddGumpControl(
+                        gump,
+                        page,
+                        gumpID,
+                        entry,
+                        () =>
+                            gump.Add(
+                                new HtmlControl(
+                                    int.Parse(gparams[1]),
+                                    int.Parse(gparams[2]),
+                                    int.Parse(gparams[3]),
+                                    int.Parse(gparams[4]),
+                                    int.Parse(gparams[6]) == 1,
+                                    int.Parse(gparams[7]) != 0,
+                                    gparams[6] != "0" && gparams[7] == "2",
+                                    Client.Game.UO.FileManager.Clilocs.GetString(int.Parse(gparams[5].Replace("#", ""))),
+                                    0,
+                                    true
+                                )
+                                {
+                                    IsFromServer = true
+                                },
+                                page
+                            )
                     );
                 }
                 else if (
@@ -6919,80 +7111,110 @@ namespace ClassicUO.Network
                     )
                 )
                 {
-                    int color = int.Parse(gparams[8]);
-
-                    if (color == 0x7FFF)
+                    if (!HasMinParts(gparams, 9))
                     {
-                        color = 0x00FFFFFF;
+                        Log.Warn($"[CreateGump] Skipped 'xmfhtmlgumpcolor' on gump 0x{gumpID:X}: not enough parameters ({gparams.Count})");
+                        continue;
                     }
 
-                    gump.Add(
-                        new HtmlControl(
-                            int.Parse(gparams[1]),
-                            int.Parse(gparams[2]),
-                            int.Parse(gparams[3]),
-                            int.Parse(gparams[4]),
-                            int.Parse(gparams[6]) == 1,
-                            int.Parse(gparams[7]) != 0,
-                            gparams[6] != "0" && gparams[7] == "2",
-                            Client.Game.UO.FileManager.Clilocs.GetString(int.Parse(gparams[5].Replace("#", ""))),
-                            color,
-                            true
-                        )
+                    TryAddGumpControl(
+                        gump,
+                        page,
+                        gumpID,
+                        entry,
+                        () =>
                         {
-                            IsFromServer = true
-                        },
-                        page
+                            int color = int.Parse(gparams[8]);
+
+                            if (color == 0x7FFF)
+                            {
+                                color = 0x00FFFFFF;
+                            }
+
+                            gump.Add(
+                                new HtmlControl(
+                                    int.Parse(gparams[1]),
+                                    int.Parse(gparams[2]),
+                                    int.Parse(gparams[3]),
+                                    int.Parse(gparams[4]),
+                                    int.Parse(gparams[6]) == 1,
+                                    int.Parse(gparams[7]) != 0,
+                                    gparams[6] != "0" && gparams[7] == "2",
+                                    Client.Game.UO.FileManager.Clilocs.GetString(int.Parse(gparams[5].Replace("#", ""))),
+                                    color,
+                                    true
+                                )
+                                {
+                                    IsFromServer = true
+                                },
+                                page
+                            );
+                        }
                     );
                 }
                 else if (
                     string.Equals(entry, "xmfhtmltok", StringComparison.InvariantCultureIgnoreCase)
                 )
                 {
-                    int color = int.Parse(gparams[7]);
-
-                    if (color == 0x7FFF)
+                    if (!HasMinParts(gparams, 9))
                     {
-                        color = 0x00FFFFFF;
+                        Log.Warn($"[CreateGump] Skipped 'xmfhtmltok' on gump 0x{gumpID:X}: not enough parameters ({gparams.Count})");
+                        continue;
                     }
 
-                    StringBuilder sb = null;
-
-                    if (gparams.Count >= 9)
-                    {
-                        sb = new StringBuilder();
-
-                        for (int i = 9; i < gparams.Count; i++)
+                    TryAddGumpControl(
+                        gump,
+                        page,
+                        gumpID,
+                        entry,
+                        () =>
                         {
-                            sb.Append('\t');
-                            sb.Append(gparams[i]);
-                        }
-                    }
+                            int color = int.Parse(gparams[7]);
 
-                    gump.Add(
-                        new HtmlControl(
-                            int.Parse(gparams[1]),
-                            int.Parse(gparams[2]),
-                            int.Parse(gparams[3]),
-                            int.Parse(gparams[4]),
-                            int.Parse(gparams[5]) == 1,
-                            int.Parse(gparams[6]) != 0,
-                            gparams[5] != "0" && gparams[6] == "2",
-                            sb == null
-                                ? Client.Game.UO.FileManager.Clilocs.GetString(
-                                    int.Parse(gparams[8].Replace("#", ""))
+                            if (color == 0x7FFF)
+                            {
+                                color = 0x00FFFFFF;
+                            }
+
+                            StringBuilder sb = null;
+
+                            if (gparams.Count >= 9)
+                            {
+                                sb = new StringBuilder();
+
+                                for (int i = 9; i < gparams.Count; i++)
+                                {
+                                    sb.Append('\t');
+                                    sb.Append(gparams[i]);
+                                }
+                            }
+
+                            gump.Add(
+                                new HtmlControl(
+                                    int.Parse(gparams[1]),
+                                    int.Parse(gparams[2]),
+                                    int.Parse(gparams[3]),
+                                    int.Parse(gparams[4]),
+                                    int.Parse(gparams[5]) == 1,
+                                    int.Parse(gparams[6]) != 0,
+                                    gparams[5] != "0" && gparams[6] == "2",
+                                    sb == null
+                                        ? Client.Game.UO.FileManager.Clilocs.GetString(
+                                            int.Parse(gparams[8].Replace("#", ""))
+                                        )
+                                        : Client.Game.UO.FileManager.Clilocs.Translate(
+                                            int.Parse(gparams[8].Replace("#", "")),
+                                            sb.ToString().Trim('@').Replace('@', '\t')
+                                        ),
+                                    color,
+                                    true
                                 )
-                                : Client.Game.UO.FileManager.Clilocs.Translate(
-                                    int.Parse(gparams[8].Replace("#", "")),
-                                    sb.ToString().Trim('@').Replace('@', '\t')
-                                ),
-                            color,
-                            true
-                        )
-                        {
-                            IsFromServer = true
-                        },
-                        page
+                                {
+                                    IsFromServer = true
+                                },
+                                page
+                            );
+                        }
                     );
                 }
                 else if (string.Equals(entry, "page", StringComparison.InvariantCultureIgnoreCase))
@@ -7006,14 +7228,23 @@ namespace ClassicUO.Network
                     string.Equals(entry, "resizepic", StringComparison.InvariantCultureIgnoreCase)
                 )
                 {
-                    gump.Add(new ResizePic(gparams), page);
+                    if (!HasMinParts(gparams, 6))
+                    {
+                        Log.Warn($"[CreateGump] Skipped 'resizepic' on gump 0x{gumpID:X}: not enough parameters ({gparams.Count})");
+                        continue;
+                    }
+
+                    TryAddGumpControl(gump, page, gumpID, entry, () => gump.Add(new ResizePic(gparams), page));
                 }
                 else if (string.Equals(entry, "text", StringComparison.InvariantCultureIgnoreCase))
                 {
-                    if (gparams.Count >= 5)
+                    if (!HasMinParts(gparams, 5))
                     {
-                        gump.Add(new Label(gparams, lines), page);
+                        Log.Warn($"[CreateGump] Skipped 'text' on gump 0x{gumpID:X}: not enough parameters ({gparams.Count})");
+                        continue;
                     }
+
+                    TryAddGumpControl(gump, page, gumpID, entry, () => gump.Add(new Label(gparams, lines), page));
                 }
                 else if (
                     string.Equals(
@@ -7028,22 +7259,43 @@ namespace ClassicUO.Network
                     )
                 )
                 {
-                    StbTextBox textBox = new StbTextBox(gparams, lines);
-
-                    if (!textBoxFocused)
+                    if (!HasMinParts(gparams, 5))
                     {
-                        textBox.SetKeyboardFocus();
-                        textBoxFocused = true;
+                        Log.Warn($"[CreateGump] Skipped '{entry}' on gump 0x{gumpID:X}: not enough parameters ({gparams.Count})");
+                        continue;
                     }
 
-                    gump.Add(textBox, page);
+                    TryAddGumpControl(
+                        gump,
+                        page,
+                        gumpID,
+                        entry,
+                        () =>
+                        {
+                            StbTextBox textBox = new StbTextBox(gparams, lines);
+
+                            if (!textBoxFocused)
+                            {
+                                textBox.SetKeyboardFocus();
+                                textBoxFocused = true;
+                            }
+
+                            gump.Add(textBox, page);
+                        }
+                    );
                 }
                 else if (
                     string.Equals(entry, "tilepichue", StringComparison.InvariantCultureIgnoreCase) ||
                     string.Equals(entry, "tilepic", StringComparison.InvariantCultureIgnoreCase)
                 )
                 {
-                    gump.Add(new StaticPic(gparams), page);
+                    if (!HasMinParts(gparams, 4))
+                    {
+                        Log.Warn($"[CreateGump] Skipped '{entry}' on gump 0x{gumpID:X}: not enough parameters ({gparams.Count})");
+                        continue;
+                    }
+
+                    TryAddGumpControl(gump, page, gumpID, entry, () => gump.Add(new StaticPic(gparams), page));
                 }
                 else if (
                     string.Equals(entry, "noclose", StringComparison.InvariantCultureIgnoreCase)
@@ -7072,13 +7324,25 @@ namespace ClassicUO.Network
                 }
                 else if (string.Equals(entry, "radio", StringComparison.InvariantCultureIgnoreCase))
                 {
-                    gump.Add(new RadioButton(group, gparams, lines), page);
+                    if (!HasMinParts(gparams, 5))
+                    {
+                        Log.Warn($"[CreateGump] Skipped 'radio' on gump 0x{gumpID:X}: not enough parameters ({gparams.Count})");
+                        continue;
+                    }
+
+                    TryAddGumpControl(gump, page, gumpID, entry, () => gump.Add(new RadioButton(group, gparams, lines), page));
                 }
                 else if (
                     string.Equals(entry, "checkbox", StringComparison.InvariantCultureIgnoreCase)
                 )
                 {
-                    gump.Add(new Checkbox(gparams, lines), page);
+                    if (!HasMinParts(gparams, 5))
+                    {
+                        Log.Warn($"[CreateGump] Skipped 'checkbox' on gump 0x{gumpID:X}: not enough parameters ({gparams.Count})");
+                        continue;
+                    }
+
+                    TryAddGumpControl(gump, page, gumpID, entry, () => gump.Add(new Checkbox(gparams, lines), page));
                 }
                 else if (
                     string.Equals(entry, "tooltip", StringComparison.InvariantCultureIgnoreCase)
