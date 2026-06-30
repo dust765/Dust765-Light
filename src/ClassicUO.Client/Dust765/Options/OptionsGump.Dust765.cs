@@ -226,11 +226,13 @@ namespace ClassicUO.Game.UI.Gumps
                 AddLabel
                 (
                     null,
-                    "Default counts hostiles only; last-target modes work on any targeted mobile",
+                    "Target a mobile to track blues; hostiles are counted automatically",
                     startX,
                     startY
                 )
             );
+
+            WireEnemyRangeIndicatorOptions();
 
             SettingsSection sectionBars = AddSettingsSection(box, "HP bars & names");
             sectionBars.Y = sectionCombatUi.Bounds.Bottom + 40;
@@ -975,6 +977,25 @@ namespace ClassicUO.Game.UI.Gumps
             );
 
             Add(rightArea, PAGE);
+        }
+
+        private void WireEnemyRangeIndicatorOptions()
+        {
+            _dust765EnemyRangeIndicator.ValueChanged += (_, __) =>
+            {
+                _currentProfile.EnemyRangeIndicator = _dust765EnemyRangeIndicator.IsChecked;
+                EnemyRangeIndicatorGump.RefreshOpenGump(World);
+            };
+
+            _dust765EnemyRangeIndicatorLastTargetOnly.ValueChanged += (_, __) =>
+            {
+                _currentProfile.EnemyRangeIndicator_LastTargetOnly = _dust765EnemyRangeIndicatorLastTargetOnly.IsChecked;
+            };
+
+            _dust765EnemyRangeIndicatorShowOnLastTarget.ValueChanged += (_, __) =>
+            {
+                _currentProfile.EnemyRangeIndicator_ShowOnLastTarget = _dust765EnemyRangeIndicatorShowOnLastTarget.IsChecked;
+            };
         }
 
         internal void ApplyDust765Profile()

@@ -623,7 +623,7 @@ namespace ClassicUO.Game.UI.Gumps
                     }
                 }
 
-                bool isLastTarget = entity == World.TargetManager.LastTargetInfo.Serial;
+                bool isLastTarget = EnemyRangeBucketHelper.IsTrackedMobile(World, entity);
                 if (isLastTarget != _lastIsLastTarget)
                 {
                     _borderColor = isLastTarget ? BORDER_COLOR_RED : BORDER_COLOR_BLACK;

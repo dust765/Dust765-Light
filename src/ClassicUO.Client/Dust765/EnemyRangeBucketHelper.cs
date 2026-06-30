@@ -16,6 +16,43 @@ namespace ClassicUO.Dust765
 
     internal static class EnemyRangeBucketHelper
     {
+        public static uint GetTrackedMobileSerial(World world)
+        {
+            if (world?.Player == null || world.TargetManager == null)
+            {
+                return 0;
+            }
+
+            uint serial = world.TargetManager.LastTargetInfo.Serial;
+
+            if (SerialHelper.IsMobile(serial) && serial != world.Player.Serial)
+            {
+                return serial;
+            }
+
+            serial = world.TargetManager.LastAttack;
+
+            if (SerialHelper.IsMobile(serial) && serial != world.Player.Serial)
+            {
+                return serial;
+            }
+
+            serial = world.TargetManager.SelectedTarget;
+
+            if (SerialHelper.IsMobile(serial) && serial != world.Player.Serial)
+            {
+                return serial;
+            }
+
+            return 0;
+        }
+
+        public static bool IsTrackedMobile(World world, uint mobileSerial)
+        {
+            uint tracked = GetTrackedMobileSerial(world);
+            return tracked != 0 && mobileSerial == tracked;
+        }
+
         public static bool IsHostileNotoriety(NotorietyFlag flag)
         {
             switch (flag)
@@ -41,9 +78,16 @@ namespace ClassicUO.Dust765
                 return false;
             }
 
+            bool isLastTarget = IsTrackedMobile(world, mobile.Serial);
+
             if (lastTargetOnly)
             {
-                return mobile.Serial == world.TargetManager.LastTargetInfo.Serial;
+                return isLastTarget;
+            }
+
+            if (isLastTarget)
+            {
+                return true;
             }
 
             return IsHostileNotoriety(mobile.NotorietyFlag);
@@ -84,7 +128,7 @@ namespace ClassicUO.Dust765
 
             if (lastTargetOnly)
             {
-                Mobile target = world.Mobiles.Get(world.TargetManager.LastTargetInfo.Serial);
+                Mobile target = world.Mobiles.Get(GetTrackedMobileSerial(world));
 
                 if (!ShouldIncludeForBucketCount(world, target, true))
                 {
@@ -113,15 +157,33 @@ namespace ClassicUO.Dust765
                 return EnemyRangeBucket.None;
             }
 
-            Mobile target = world.Mobiles.Get(world.TargetManager.LastTargetInfo.Serial);
+            uint serial = GetTrackedMobileSerial(world);
 
-            if (target == null || target == world.Player || target.IsDead)
+            if (serial == 0)
+            {
+                return EnemyRangeBucket.None;
+            }
+
+            Mobile target = world.Mobiles.Get(serial);
+
+            if (target == null || target.IsDead)
             {
                 return EnemyRangeBucket.None;
             }
 
             int weaponRange = WeaponRangeHelper.GetEquippedWeaponRange(world);
             return ClassifyDistance(target.Distance, weaponRange);
+        }
+
+        public static EnemyRangeBucket GetMobileBucket(World world, Mobile mobile)
+        {
+            if (!ShouldIncludeForBucketCount(world, mobile, false))
+            {
+                return EnemyRangeBucket.None;
+            }
+
+            int weaponRange = WeaponRangeHelper.GetEquippedWeaponRange(world);
+            return ClassifyDistance(mobile.Distance, weaponRange);
         }
 
         private static void AddBucketCount(EnemyRangeBucket bucket, ref int green, ref int yellow, ref int red)
