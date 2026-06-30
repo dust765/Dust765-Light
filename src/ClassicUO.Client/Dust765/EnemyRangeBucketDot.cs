@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
-using System;
 using ClassicUO.Game.Scenes;
 using ClassicUO.Game.UI.Controls;
 using ClassicUO.Renderer;
@@ -12,8 +11,6 @@ namespace ClassicUO.Dust765
     internal sealed class EnemyRangeBucketDot : Control
     {
         private const int SIZE = 12;
-        private const float CENTER = SIZE / 2f;
-        private const float RADIUS = 4.5f;
 
         private Texture2D _fillTexture;
 
@@ -53,29 +50,16 @@ namespace ClassicUO.Dust765
             }
 
             float layerDepth = layerDepthRef;
-            Vector2 center = new Vector2(x + CENTER, y + CENTER);
             Vector3 hue = ShaderHueTranslator.GetHueVector(0, false, Alpha);
 
             renderLists.AddGumpNoAtlas(batcher =>
             {
-                FillCircle(batcher, _fillTexture, center, RADIUS, hue, layerDepth);
+                batcher.Draw(_fillTexture, new Rectangle(x, y, SIZE, SIZE), hue, layerDepth);
+                batcher.DrawRectangle(_fillTexture, x, y, SIZE, SIZE, hue, layerDepth);
                 return true;
             });
 
             return true;
-        }
-
-        private static void FillCircle(UltimaBatcher2D batcher, Texture2D texture, Vector2 center, float radius, Vector3 hue, float depth)
-        {
-            const int segments = 16;
-            float stroke = radius * 0.32f;
-
-            for (int i = 0; i < segments; i++)
-            {
-                float angle = MathHelper.TwoPi * i / segments;
-                Vector2 edge = center + new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * radius;
-                batcher.DrawLine(texture, center, edge, hue, stroke, depth);
-            }
         }
     }
 }
