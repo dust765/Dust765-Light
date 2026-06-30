@@ -2,6 +2,7 @@
 
 using ClassicUO.Assets;
 using ClassicUO.Configuration;
+using ClassicUO.Dust765;
 using ClassicUO.Game;
 using ClassicUO.Game.Data;
 using ClassicUO.Game.GameObjects;
@@ -31,6 +32,7 @@ namespace ClassicUO.Game.UI.Gumps
         private ushort _lastDisplayHue;
         private bool _hasDisplayHue;
         private bool _lastIsLastTarget;
+        private EnemyRangeBucketDot _rangeBucketDot;
 
         // ## BEGIN - END ## // NAMEOVERHEAD
         private LineCHB _hpLineBorder, _hpLineRed, _hpLine;
@@ -628,6 +630,8 @@ namespace ClassicUO.Game.UI.Gumps
                     _lastIsLastTarget = isLastTarget;
                 }
 
+                UpdateRangeBucketDot(entity, isLastTarget);
+
                 ushort hue = entity is Mobile m
                     ? Notoriety.GetHue(m.NotorietyFlag)
                     : (ushort)0x0481;
@@ -686,6 +690,39 @@ namespace ClassicUO.Game.UI.Gumps
                 }
                 // ## BEGIN - END ## // NAMEOVERHEAD
             }
+        }
+
+        private void UpdateRangeBucketDot(Entity entity, bool isLastTarget)
+        {
+            Profile profile = ProfileManager.CurrentProfile;
+
+            if (
+                profile == null
+                || !profile.EnemyRangeIndicator
+                || !profile.EnemyRangeIndicator_ShowOnLastTarget
+                || !isLastTarget
+                || entity is not Mobile
+            )
+            {
+                if (_rangeBucketDot != null)
+                {
+                    _rangeBucketDot.IsVisible = false;
+                }
+
+                return;
+            }
+
+            if (_rangeBucketDot == null)
+            {
+                _rangeBucketDot = new EnemyRangeBucketDot
+                {
+                    X = -14,
+                    Y = 4
+                };
+                Add(_rangeBucketDot);
+            }
+
+            _rangeBucketDot.SetBucket(EnemyRangeBucketHelper.GetLastTargetBucket(World));
         }
 
         public override bool AddToRenderLists(RenderLists renderLists, int x, int y, ref float layerDepthRef)
