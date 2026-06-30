@@ -10,7 +10,6 @@ using ClassicUO.Input;
 using ClassicUO.Renderer;
 using ClassicUO.Resources;
 using Microsoft.Xna.Framework;
-using System.Linq;
 
 namespace ClassicUO.Game.UI.Gumps
 {
@@ -189,16 +188,33 @@ namespace ClassicUO.Game.UI.Gumps
             }
         }
 
+        private bool _refreshPending;
+        private uint _nextRefreshTick;
+
         protected override void UpdateContents()
         {
+            if (IsDisposed || _corpse == null || _corpse.IsDestroyed)
+            {
+                if (!IsDisposed)
+                {
+                    Dispose();
+                }
+
+                return;
+            }
+
             const int GRID_ITEM_SIZE = 50;
 
             int x = 20;
             int y = 20;
 
-            foreach (GridLootItem gridLootItem in Children.OfType<GridLootItem>())
+            for (int i = Children.Count - 1; i >= 0; i--)
             {
-                gridLootItem.Dispose();
+                if (Children[i] is GridLootItem gridLootItem)
+                {
+                    Remove(gridLootItem);
+                    gridLootItem.Dispose();
+                }
             }
 
             int count = 0;
@@ -214,14 +230,23 @@ namespace ClassicUO.Game.UI.Gumps
             {
                 for (LinkedObject i = _corpse.Items; i != null; i = i.Next)
                 {
-                    Item it = (Item)i;
-
-                    if (!ItemBelongsToGroup(it, displayGroup) || !it.IsLootable)
+                    if (i is not Item it || it.IsDestroyed)
                     {
                         continue;
                     }
 
-                    GridLootItem gridItem = new GridLootItem(this, it, GRID_ITEM_SIZE);
+                    if (!ItemBelongsToGroup(it, displayGroup) || !it.IsLootable || it.Container != LocalSerial)
+                    {
+                        continue;
+                    }
+
+                    GridLootItem gridItem = new GridLootItem(this, it.Serial, GRID_ITEM_SIZE);
+
+                    if (!gridItem.IsInitialized)
+                    {
+                        gridItem.Dispose();
+                        continue;
+                    }
 
                     if (x >= MAX_WIDTH - 20)
                     {
@@ -285,6 +310,8 @@ namespace ClassicUO.Game.UI.Gumps
             {
                 IsVisible = true;
             }
+
+            _refreshPending = false;
         }
 
         private bool ItemBelongsToGroup(Item it, int group)
@@ -397,6 +424,77 @@ namespace ClassicUO.Game.UI.Gumps
                 SelectedObject.Object = _corpse;
                 SelectedObject.CorpseObject = _corpse;
             }
+
+            RefreshIfStale();
+        }
+
+        private void RefreshIfStale()
+        {
+            if (_refreshPending || IsDisposed || _corpse == null || _corpse.IsDestroyed)
+            {
+                return;
+            }
+
+            uint now = Time.Ticks;
+
+            if (now < _nextRefreshTick)
+            {
+                return;
+            }
+
+            int displayed = 0;
+
+            for (int i = 0; i < Children.Count; i++)
+            {
+                if (Children[i] is not GridLootItem slot || slot.IsDisposed || !slot.IsInitialized)
+                {
+                    continue;
+                }
+
+                displayed++;
+
+                if (!slot.IsItemStillInCorpse())
+                {
+                    ScheduleRefresh();
+                    return;
+                }
+            }
+
+            int corpseCount = CountLootableItemsInCorpse();
+
+            if (corpseCount != displayed)
+            {
+                ScheduleRefresh();
+            }
+        }
+
+        private void ScheduleRefresh()
+        {
+            _refreshPending = true;
+            _nextRefreshTick = Time.Ticks + 50;
+            RequestUpdateContents();
+        }
+
+        private int CountLootableItemsInCorpse()
+        {
+            if (_corpse == null || _corpse.IsDestroyed)
+            {
+                return 0;
+            }
+
+            int count = 0;
+
+            for (LinkedObject i = _corpse.Items; i != null; i = i.Next)
+            {
+                if (i is not Item it || it.IsDestroyed || !it.IsLootable || it.Container != LocalSerial)
+                {
+                    continue;
+                }
+
+                count++;
+            }
+
+            return count;
         }
 
         protected override void OnMouseExit(int x, int y)
@@ -409,6 +507,11 @@ namespace ClassicUO.Game.UI.Gumps
 
         private string GetCorpseName()
         {
+            if (_corpse == null || _corpse.IsDestroyed)
+            {
+                return "a corpse";
+            }
+
             return _corpse.Name?.Length > 0 ? _corpse.Name : "a corpse";
         }
 
@@ -416,29 +519,41 @@ namespace ClassicUO.Game.UI.Gumps
         {
             private readonly GridLootGump _gump;
             private readonly HitBox _hit;
+            private HSliderBar _amount;
+
+            public bool IsInitialized => _hit != null;
+
+            public bool IsItemStillInCorpse()
+            {
+                if (IsDisposed || _gump == null || _gump.IsDisposed)
+                {
+                    return false;
+                }
+
+                Item item = _gump.World.Items.Get(LocalSerial);
+
+                return item != null && !item.IsDestroyed && item.Container == _gump.LocalSerial;
+            }
 
             public GridLootItem(GridLootGump gump, uint serial, int size)
             {
                 _gump = gump;
                 LocalSerial = serial;
+                CanMove = false;
+                WantUpdateSize = false;
 
                 Item item = _gump.World.Items.Get(serial);
 
-                if (item == null)
+                if (item == null || item.IsDestroyed || item.Container != _gump.LocalSerial)
                 {
-                    Dispose();
-
                     return;
                 }
 
-                CanMove = false;
-
-                HSliderBar amount = new HSliderBar(
+                _amount = new HSliderBar(
                     0,
                     0,
                     size,
                     1,
-                    // OSI has an odd behaviour. It uses the Amount field to store unknown data for non stackable items.
                     item.ItemData.IsStackable
                         ? item.Amount
                         : 1,
@@ -449,9 +564,9 @@ namespace ClassicUO.Game.UI.Gumps
                     drawUp: true
                 );
 
-                Add(amount);
+                Add(_amount);
 
-                amount.IsVisible = amount.IsEnabled = amount.MaxValue > 1;
+                _amount.IsVisible = _amount.IsEnabled = _amount.MaxValue > 1;
 
                 AlphaBlendControl background = new AlphaBlendControl();
                 background.Y = 15;
@@ -469,41 +584,78 @@ namespace ClassicUO.Game.UI.Gumps
 
                 _hit.MouseUp += (sender, e) =>
                 {
-                    if (e.Button == MouseButtonType.Left)
+                    if (e.Button != MouseButtonType.Left || _amount == null)
                     {
-                        GameActions.GrabItem(_gump.World, item, (ushort)amount.Value);
+                        return;
                     }
+
+                    if (!IsItemStillInCorpse())
+                    {
+                        return;
+                    }
+
+                    Item lootItem = _gump.World.Items.Get(LocalSerial);
+
+                    if (lootItem == null)
+                    {
+                        return;
+                    }
+
+                    GameActions.GrabItem(_gump.World, lootItem, (ushort)_amount.Value);
                 };
 
                 Width = background.Width;
                 Height = background.Height + 15;
-
-                WantUpdateSize = false;
             }
 
-            public override bool AddToRenderLists(RenderLists renderLists, int x, int y, ref float layerDepthRef)
+            private bool TryGetValidItem(out Item item)
             {
-                Item item = _gump.World.Items.Get(LocalSerial);
+                item = null;
 
-                if (item == null)
+                if (IsDisposed || _hit == null || _gump == null || _gump.IsDisposed)
                 {
                     return false;
                 }
 
+                item = _gump.World.Items.Get(LocalSerial);
+
+                if (item == null || item.IsDestroyed || item.Container != _gump.LocalSerial)
+                {
+                    return false;
+                }
+
+                return true;
+            }
+
+            public override bool AddToRenderLists(RenderLists renderLists, int x, int y, ref float layerDepthRef)
+            {
+                if (!TryGetValidItem(out Item item))
+                {
+                    return false;
+                }
+
+                ushort graphic = item.DisplayedGraphic;
+                ushort hue = item.Hue;
+                bool partialHue = item.ItemData.IsPartialHue;
+
                 base.AddToRenderLists(renderLists, x, y, ref layerDepthRef);
                 float layerDepth = layerDepthRef;
 
-                Vector3 hueVector;
+                if (Client.Game?.UO?.Arts == null)
+                {
+                    return true;
+                }
 
-                ref readonly var artInfo = ref Client.Game.UO.Arts.GetArt(item.DisplayedGraphic);
+                ref readonly var artInfo = ref Client.Game.UO.Arts.GetArt(graphic);
 
-                var rect = Client.Game.UO.Arts.GetRealArtBounds(item.DisplayedGraphic);
+                var rect = Client.Game.UO.Arts.GetRealArtBounds(graphic);
 
-                hueVector = ShaderHueTranslator.GetHueVector(
-                    item.Hue,
-                    item.ItemData.IsPartialHue,
-                    1f
-                );
+                if (rect.Width <= 0 || rect.Height <= 0)
+                {
+                    return true;
+                }
+
+                Vector3 hueVector = ShaderHueTranslator.GetHueVector(hue, partialHue, 1f);
 
                 Point originalSize = new Point(_hit.Width, _hit.Height);
                 Point point = new Point();
