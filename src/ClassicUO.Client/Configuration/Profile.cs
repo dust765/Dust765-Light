@@ -114,6 +114,8 @@ namespace ClassicUO.Configuration
         public bool ShowAllLayersPaperdoll { get; set; } = true;
         public bool PaperdollHideHeadUnderCoveringRobe { get; set; } = false;
         public bool PaperdollParrotOriginalView { get; set; } = true;
+        public bool MobileHideHeadUnderCoveringRobe { get; set; } = false;
+        public bool MobileParrotOriginalView { get; set; } = true;
         public bool HighlightGameObjects { get; set; }
         public bool HighlightMobilesByParalize { get; set; } = true;
         public bool HighlightMobilesByPoisoned { get; set; } = true;
@@ -390,6 +392,13 @@ namespace ClassicUO.Configuration
         public bool UOClassicCombatBuffbar_Locked { get; set; } = false;
         [JsonConverter(typeof(Point2Converter))]
         public Point UOClassicCombatBuffbarLocation { get; set; } = new Point(50, 50);
+
+        public bool EnemyRangeIndicator { get; set; } = false;
+        public bool EnemyRangeIndicator_Locked { get; set; } = false;
+        public bool EnemyRangeIndicator_LastTargetOnly { get; set; } = false;
+        public bool EnemyRangeIndicator_ShowOnLastTarget { get; set; } = false;
+        [JsonConverter(typeof(Point2Converter))]
+        public Point EnemyRangeIndicatorLocation { get; set; } = new Point(50, 80);
 
         public bool UseOldHealthBars { get; set; } = false;
         public bool HealthBarShowDebuffTimers { get; set; } = true;

@@ -395,9 +395,12 @@ namespace ClassicUO.Game.GameObjects
 
             if (!IsEmpty)
             {
-                for (int i = 0; i < Constants.USED_LAYER_COUNT; i++)
+                Span<Layer> layers = stackalloc Layer[PaperdollOrder.N];
+                int layerCount = PaperdollOrder.BuildInWorld(this, IsFemale || isGargoyle, layerDir, layers);
+
+                for (int i = 0; i < layerCount; i++)
                 {
-                    Layer layer = LayerOrder.UsedLayers[layerDir, i];
+                    Layer layer = layers[i];
 
                     Item item = FindItemByLayer(layer);
 
@@ -413,6 +416,11 @@ namespace ClassicUO.Game.GameObjects
 
                     if (isHuman)
                     {
+                        if (IsParrotRobeLayerHidden(this, layer))
+                        {
+                            continue;
+                        }
+
                         if (IsCovered(this, layer))
                         {
                             continue;
@@ -420,26 +428,7 @@ namespace ClassicUO.Game.GameObjects
 
                         if (item.ItemData.AnimID != 0)
                         {
-                            graphic = item.ItemData.AnimID;
-
-                            if (isGargoyle)
-                            {
-                                FixGargoyleEquipments(ref graphic);
-                            }
-
-                            if (
-                                Client.Game.UO.FileManager.Animations.EquipConversions.TryGetValue(
-                                    Graphic,
-                                    out Dictionary<ushort, EquipConvData> map
-                                )
-                            )
-                            {
-                                if (map.TryGetValue(item.ItemData.AnimID, out EquipConvData data))
-                                {
-                                    _equipConvData = data;
-                                    graphic = data.Graphic;
-                                }
-                            }
+                            graphic = GetAnimationInfo(this, item, isGargoyle);
 
                             DrawInternal(
                                 batcher,
@@ -526,38 +515,92 @@ namespace ClassicUO.Game.GameObjects
             FrameInfo.Width = FrameInfo.X + FrameInfo.Width;
             FrameInfo.Height = FrameInfo.Y + FrameInfo.Height;
 
+            Profile rangeProfile = ProfileManager.CurrentProfile;
+
+            if (
+                rangeProfile != null
+                && rangeProfile.EnemyRangeIndicator
+                && rangeProfile.EnemyRangeIndicator_ShowOnLastTarget
+                && Serial != World.Player.Serial
+                && EnemyRangeBucketHelper.IsTrackedMobile(World, Serial)
+            )
+            {
+                EnemyRangeBucket bucket = EnemyRangeBucketHelper.GetLastTargetBucket(World);
+
+                if (bucket != EnemyRangeBucket.None)
+                {
+                    EnemyRangeBucketDrawHelper.DrawMarker(batcher, drawX + 22, drawY - 32, bucket, depth);
+                }
+            }
+
             return true;
         }
 
         private static ushort GetAnimationInfo(Mobile owner, Item item, bool isGargoyle)
         {
-            if (item.ItemData.AnimID != 0)
+            if (item.ItemData.AnimID == 0)
             {
-                var graphic = item.ItemData.AnimID;
+                return 0xFFFF;
+            }
+
+            ushort graphic = item.ItemData.AnimID;
+
+            if (isGargoyle)
+            {
+                FixGargoyleEquipments(ref graphic);
+            }
+
+            if (
+                Client.Game.UO.FileManager.Animations.EquipConversions.TryGetValue(
+                    owner.Graphic,
+                    out Dictionary<ushort, EquipConvData> map
+                )
+                && map.TryGetValue(item.ItemData.AnimID, out EquipConvData data)
+            )
+            {
+                _equipConvData = data;
+                graphic = data.Graphic;
+            }
+
+            ushort mobileGraphic = owner.Graphic;
+            Client.Game.UO.Animations.ConvertBodyIfNeeded(ref mobileGraphic);
+
+            if (
+                Client.Game.UO.FileManager.TileArt.TryGetTileArtInfo(item.Graphic, out var tileArtInfo)
+                && TryResolveTileArtAppearance(tileArtInfo, mobileGraphic, out uint appearanceId)
+                && appearanceId != 0
+            )
+            {
+                graphic = (ushort)appearanceId;
+                _equipConvData = null;
 
                 if (isGargoyle)
                 {
                     FixGargoyleEquipments(ref graphic);
                 }
-
-                if (
-                    Client.Game.UO.FileManager.Animations.EquipConversions.TryGetValue(
-                        owner.Graphic,
-                        out Dictionary<ushort, EquipConvData> map
-                    )
-                )
-                {
-                    if (map.TryGetValue(item.ItemData.AnimID, out EquipConvData data))
-                    {
-                        _equipConvData = data;
-                        graphic = data.Graphic;
-                    }
-                }
-
-                return graphic;
             }
 
-            return 0xFFFF;
+            return graphic;
+        }
+
+        private static bool TryResolveTileArtAppearance(TileArtInfo tileArtInfo, ushort mobileGraphic, out uint appearanceId)
+        {
+            appearanceId = 0;
+
+            if (tileArtInfo.TryGetAppearance(mobileGraphic, out appearanceId) && appearanceId != 0)
+            {
+                return true;
+            }
+
+            foreach (KeyValuePair<byte, Dictionary<uint, uint>> subtype in tileArtInfo.Appearances)
+            {
+                if (subtype.Value.TryGetValue(mobileGraphic, out appearanceId) && appearanceId != 0)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static void FixGargoyleEquipments(ref ushort graphic)
@@ -1211,184 +1254,304 @@ namespace ClassicUO.Game.GameObjects
                 return false;
             }
 
+            Item robe = mobile.FindItemByLayer(Layer.Robe);
+            ushort robeGfx = robe?.Graphic ?? 0;
+            ushort robeAnim = robe?.ItemData.AnimID ?? 0;
+
+            bool robeLeavesChestVisible =
+                robeGfx == 0x9985 || robeGfx == 0x9986 || robeGfx == 0xA2CA
+                || robeGfx == 0xA2CB || robeGfx == 0xA412 || robeGfx == 0xB1DE;
+
             switch (layer)
             {
                 case Layer.Shoes:
+                {
                     Item pants = mobile.FindItemByLayer(Layer.Pants);
-                    Item robe;
+                    ushort pantsAnim = pants?.ItemData.AnimID ?? 0;
 
-                    if (
-                        mobile.FindItemByLayer(Layer.Legs) != null
-                        || pants != null
-                            && (
-                                pants.Graphic == 0x1411 /*|| pants.Graphic == 0x141A*/
-                            )
-                    )
+                    if (robeAnim != 0x504 && pantsAnim != 0x513 && pantsAnim != 0x514)
                     {
-                        return true;
-                    }
-                    else
-                    {
-                        robe = mobile.FindItemByLayer(Layer.Robe);
+                        ushort pantsGfx = pants?.Graphic ?? 0;
 
-                        if (
-                            pants != null && (pants.Graphic == 0x0513 || pants.Graphic == 0x0514)
-                            || robe != null && robe.Graphic == 0x0504
-                        )
+                        if (pantsGfx < 0xAEB2)
                         {
-                            return true;
-                        }
-                    }
-
-                    break;
-
-                case Layer.Pants:
-
-                    robe = mobile.FindItemByLayer(Layer.Robe);
-                    pants = mobile.FindItemByLayer(Layer.Pants);
-
-                    if (
-                        mobile.FindItemByLayer(Layer.Legs) != null
-                        || robe != null && robe.Graphic == 0x0504
-                    )
-                    {
-                        return true;
-                    }
-
-                    if (
-                        pants != null
-                        && (
-                            pants.Graphic == 0x01EB
-                            || pants.Graphic == 0x03E5
-                            || pants.Graphic == 0x03eB
-                        )
-                    )
-                    {
-                        Item skirt = mobile.FindItemByLayer(Layer.Skirt);
-
-                        if (skirt != null && skirt.Graphic != 0x01C7 && skirt.Graphic != 0x01E4)
-                        {
-                            return true;
-                        }
-
-                        if (
-                            robe != null
-                            && robe.Graphic != 0x0229
-                            && (robe.Graphic <= 0x04E7 || robe.Graphic > 0x04EB)
-                        )
-                        {
-                            return true;
-                        }
-                    }
-
-                    break;
-
-                case Layer.Tunic:
-                    robe = mobile.FindItemByLayer(Layer.Robe);
-                    Item tunic = mobile.FindItemByLayer(Layer.Tunic);
-
-                    /*if (robe != null && robe.Graphic != 0)
-                        return true;
-                    else*/
-                    if (tunic != null && tunic.Graphic == 0x0238)
-                    {
-                        return robe != null
-                            && robe.Graphic != 0x9985
-                            && robe.Graphic != 0x9986
-                            && robe.Graphic != 0xA412
-                            && robe.Graphic != 0xA2CB
-                            && robe.Graphic != 0xA2CA;
-                    }
-
-                    break;
-
-                case Layer.Torso:
-                    robe = mobile.FindItemByLayer(Layer.Robe);
-
-                    if (
-                        robe != null
-                        && robe.Graphic != 0
-                        && robe.Graphic != 0x9985
-                        && robe.Graphic != 0x9986
-                        && robe.Graphic != 0xA412
-                        && robe.Graphic != 0xA2CB
-                        && robe.Graphic != 0xA2CA
-                    )
-                    {
-                        return true;
-                    }
-                    else
-                    {
-                        tunic = mobile.FindItemByLayer(Layer.Tunic);
-
-                        if (tunic != null && tunic.Graphic != 0x1541 && tunic.Graphic != 0x1542)
-                        {
-                            Item torso = mobile.FindItemByLayer(Layer.Torso);
-
-                            if (
-                                torso != null
-                                && (torso.Graphic == 0x782A || torso.Graphic == 0x782B)
-                            )
+                            if (pantsGfx == 0xAEB1 || pantsGfx == 0x1411)
                             {
                                 return true;
                             }
-                        }
-                    }
 
-                    break;
-
-                case Layer.Arms:
-                    robe = mobile.FindItemByLayer(Layer.Robe);
-
-                    return robe != null
-                        && robe.Graphic != 0
-                        && robe.Graphic != 0x9985
-                        && robe.Graphic != 0x9986
-                        && robe.Graphic != 0xA412
-                        && robe.Graphic != 0xA2CB
-                        && robe.Graphic != 0xA2CA;
-
-                case Layer.Helmet:
-                case Layer.Hair:
-                    robe = mobile.FindItemByLayer(Layer.Robe);
-
-                    if (robe != null)
-                    {
-                        if (robe.Graphic > 0x3173)
-                        {
-                            if (robe.Graphic == 0x4B9D || robe.Graphic == 0x7816)
+                            if (pantsGfx != 0xAEA2)
                             {
-                                return true;
+                                return mobile.FindItemByLayer(Layer.Legs) != null;
                             }
                         }
                         else
                         {
-                            if (robe.Graphic <= 0x2687)
+                            if (pantsGfx == 0xAEC0)
                             {
-                                if (robe.Graphic < 0x2683)
-                                {
-                                    return robe.Graphic >= 0x204E && robe.Graphic <= 0x204F;
-                                }
-
                                 return true;
                             }
 
-                            if (robe.Graphic == 0x2FB9 || robe.Graphic == 0x3173)
+                            if (pantsGfx != 0xAECF)
                             {
-                                return true;
+                                return mobile.FindItemByLayer(Layer.Legs) != null;
                             }
                         }
                     }
 
+                    return true;
+                }
+
+                case Layer.Pants:
+                {
+                    if (mobile.FindItemByLayer(Layer.Legs) != null || robeAnim == 0x504)
+                    {
+                        return true;
+                    }
+
+                    Item pants = mobile.FindItemByLayer(Layer.Pants);
+                    ushort pantsAnim = pants?.ItemData.AnimID ?? 0;
+
+                    if (pantsAnim != 0x1EB && pantsAnim != 0x1FA && pantsAnim != 0x200)
+                    {
+                        return false;
+                    }
+
+                    Item skirt = mobile.FindItemByLayer(Layer.Skirt);
+
+                    if (skirt != null)
+                    {
+                        ushort skirtAnim = skirt.ItemData.AnimID;
+
+                        if (skirtAnim != 0x1C7 && skirtAnim != 0x1E4)
+                        {
+                            return true;
+                        }
+                    }
+
+                    if (robe == null)
+                    {
+                        return false;
+                    }
+
+                    if (robeAnim < 0x4EC)
+                    {
+                        if (robeAnim > 0x4E7)
+                        {
+                            return false;
+                        }
+
+                        return robeAnim != 0x229;
+                    }
+
+                    return (uint)(robeAnim - 0x5E2) > 3;
+                }
+
+                case Layer.Tunic:
+                {
+                    Item tunic = mobile.FindItemByLayer(Layer.Tunic);
+
+                    if (tunic != null && tunic.ItemData.AnimID == 0x0238)
+                    {
+                        return robe != null && !robeLeavesChestVisible;
+                    }
+
                     break;
+                }
 
-                /*case Layer.Skirt:
-                    skirt = mobile.FindItemByLayer( Layer.Skirt];
+                case Layer.Torso:
+                {
+                    if (robeGfx != 0 && !robeLeavesChestVisible)
+                    {
+                        return true;
+                    }
 
-                    break;*/
+                    Item tunic = mobile.FindItemByLayer(Layer.Tunic);
+
+                    if (tunic != null && tunic.Graphic != 0x1541 && tunic.Graphic != 0x1542)
+                    {
+                        Item torso = mobile.FindItemByLayer(Layer.Torso);
+
+                        if (torso != null && (torso.Graphic == 0x782A || torso.Graphic == 0x782B))
+                        {
+                            return true;
+                        }
+                    }
+
+                    break;
+                }
+
+                case Layer.Arms:
+                    return robeGfx != 0 && !robeLeavesChestVisible;
+
+                case Layer.Necklace:
+                {
+                    if (robe == null)
+                    {
+                        return false;
+                    }
+
+                    if (robeAnim == 0x5F2 || robeAnim == 0x5F5
+                        || (robeAnim >= 0x4E8 && robeAnim <= 0x4EB)
+                        || (robeAnim >= 0x5E2 && robeAnim <= 0x5E5))
+                    {
+                        return false;
+                    }
+
+                    Item neck = mobile.FindItemByLayer(Layer.Necklace);
+
+                    return neck != null && neck.ItemData.AnimID == 0x5EC;
+                }
+
+                case Layer.Bracelet:
+                {
+                    Item bracelet = mobile.FindItemByLayer(Layer.Bracelet);
+
+                    return bracelet != null
+                        && bracelet.Graphic == 0xB1C0
+                        && mobile.FindItemByLayer(Layer.Arms) != null;
+                }
+
+                case Layer.Hair:
+                {
+                    Item helmet = mobile.FindItemByLayer(Layer.Helmet);
+
+                    if (helmet != null && (uint)(helmet.Graphic - 0xA42B) < 2)
+                    {
+                        return true;
+                    }
+
+                    if (!ShouldApplyMobileHeadHide(mobile))
+                    {
+                        return false;
+                    }
+
+                    goto case Layer.Helmet;
+                }
+
+                case Layer.Helmet:
+                    if (!ShouldApplyMobileHeadHide(mobile))
+                    {
+                        return false;
+                    }
+
+                    if (robeGfx < 0x4B9E)
+                    {
+                        if (robeGfx != 0x4B9D)
+                        {
+                            if (robeGfx < 0x2FBA)
+                            {
+                                if (robeGfx != 0x2FB9)
+                                {
+                                    if (robeGfx > 0x2687)
+                                    {
+                                        return false;
+                                    }
+
+                                    if (robeGfx < 0x2683 && (robeGfx < 0x204E || robeGfx > 0x204F))
+                                    {
+                                        return false;
+                                    }
+                                }
+                            }
+                            else if (robeGfx != 0x3173)
+                            {
+                                return false;
+                            }
+
+                            return true;
+                        }
+                    }
+                    else if (robeGfx < 0xA0B0)
+                    {
+                        if (robeGfx < 0xA0AB && robeGfx != 0x7816)
+                        {
+                            return false;
+                        }
+                    }
+                    else if (robeGfx != 0xB2B7)
+                    {
+                        return false;
+                    }
+
+                    bool isGargoyle = mobile.Graphic == 0x029A || mobile.Graphic == 0x029B
+                        || mobile.Graphic == 0x02B6 || mobile.Graphic == 0x02B7;
+
+                    return !isGargoyle;
+
+                case Layer.Skirt:
+                {
+                    Item skirt = mobile.FindItemByLayer(Layer.Skirt);
+                    ushort skirtAnim = skirt?.ItemData.AnimID ?? 0;
+
+                    if (skirtAnim != 0x1C7 && skirtAnim != 0x1E4)
+                    {
+                        return false;
+                    }
+
+                    Item pants = mobile.FindItemByLayer(Layer.Pants);
+                    ushort pantsAnim = pants?.ItemData.AnimID ?? 0;
+
+                    return pantsAnim == 0x1EB || pantsAnim == 0x1FA || pantsAnim == 0x200;
+                }
             }
 
             return false;
+        }
+
+        private static bool ShouldApplyMobileHeadHide(Mobile mobile)
+        {
+            if (mobile.World?.Player == null || mobile.Serial != mobile.World.Player.Serial)
+            {
+                return true;
+            }
+
+            return ProfileManager.CurrentProfile?.MobileHideHeadUnderCoveringRobe ?? false;
+        }
+
+        private static bool IsParrotRobeLayerHidden(Mobile mobile, Layer layer)
+        {
+            if (!(ProfileManager.CurrentProfile?.MobileParrotOriginalView ?? true))
+            {
+                return false;
+            }
+
+            Item robe = mobile.FindItemByLayer(Layer.Robe);
+
+            if (!IsParrotRobe(robe, mobile))
+            {
+                return false;
+            }
+
+            return layer == Layer.Tunic || layer == Layer.Torso || layer == Layer.Arms;
+        }
+
+        private static bool IsParrotRobe(Item robe, Mobile mobile)
+        {
+            if (robe == null || mobile == null)
+            {
+                return false;
+            }
+
+            ushort mobileGraphic = mobile.Graphic;
+            Client.Game.UO.Animations.ConvertBodyIfNeeded(ref mobileGraphic);
+
+            if (
+                Client.Game.UO.FileManager.TileArt.TryGetTileArtInfo(robe.Graphic, out var tileArtInfo)
+                && TryResolveTileArtAppearance(tileArtInfo, mobileGraphic, out uint appearanceId)
+                && appearanceId != 0
+            )
+            {
+                return true;
+            }
+
+            ushort graphic = robe.Graphic;
+            ushort anim = robe.ItemData.AnimID;
+
+            return graphic == 0xA2CA || graphic == 0xA2CB
+                || graphic == 0x9985 || graphic == 0x9986
+                || graphic == 0xA412 || graphic == 0xB1DE
+                || anim == 0xA2CA || anim == 0xA2CB;
         }
     }
 }

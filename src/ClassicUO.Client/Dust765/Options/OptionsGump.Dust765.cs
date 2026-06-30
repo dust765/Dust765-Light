@@ -17,6 +17,10 @@ namespace ClassicUO.Game.UI.Gumps
         private Checkbox _dust765UccBuffbar;
         private Checkbox _dust765UccSwing;
         private Checkbox _dust765UccLocked;
+        private Checkbox _dust765EnemyRangeIndicator;
+        private Checkbox _dust765EnemyRangeIndicatorLocked;
+        private Checkbox _dust765EnemyRangeIndicatorLastTargetOnly;
+        private Checkbox _dust765EnemyRangeIndicatorShowOnLastTarget;
         private Checkbox _dust765NamePlateHealthBar;
         private Checkbox _dust765UseOldHealthBars;
         private Checkbox _dust765MultiUnderlinesParty;
@@ -28,6 +32,7 @@ namespace ClassicUO.Game.UI.Gumps
         private Checkbox _dust765ShowDeathOnWorldmap;
         private Checkbox _dust765GridContainer;
         private Checkbox _dust765ShowAllLayersPaperdoll, _dust765HideHeadUnderCoveringRobe, _dust765ParrotOriginalView;
+        private Checkbox _dust765MobileHideHeadUnderCoveringRobe, _dust765MobileParrotOriginalView;
         private HSliderBar _dust765NamePlateOpacity;
         private HSliderBar _dust765MultiUnderlinesTransparency;
         private HSliderBar _dust765TransparentHousesZ;
@@ -80,6 +85,7 @@ namespace ClassicUO.Game.UI.Gumps
             rightArea.Add(box);
 
             SettingsSection sectionMove = AddSettingsSection(box, "Movement");
+            sectionMove.Y = startY;
 
             sectionMove.Add
             (
@@ -155,6 +161,78 @@ namespace ClassicUO.Game.UI.Gumps
                     startY
                 )
             );
+
+            sectionCombatUi.Add
+            (
+                _dust765EnemyRangeIndicator = AddCheckBox
+                (
+                    null,
+                    "Enemy range indicator",
+                    _currentProfile.EnemyRangeIndicator,
+                    startX,
+                    startY
+                )
+            );
+
+            sectionCombatUi.Add
+            (
+                _dust765EnemyRangeIndicatorLocked = AddCheckBox
+                (
+                    null,
+                    "Lock range indicator position",
+                    _currentProfile.EnemyRangeIndicator_Locked,
+                    startX,
+                    startY
+                )
+            );
+
+            sectionCombatUi.Add
+            (
+                _dust765EnemyRangeIndicatorLastTargetOnly = AddCheckBox
+                (
+                    null,
+                    "Track last target only",
+                    _currentProfile.EnemyRangeIndicator_LastTargetOnly,
+                    startX,
+                    startY
+                )
+            );
+
+            sectionCombatUi.Add
+            (
+                _dust765EnemyRangeIndicatorShowOnLastTarget = AddCheckBox
+                (
+                    null,
+                    "Show range bucket on last target",
+                    _currentProfile.EnemyRangeIndicator_ShowOnLastTarget,
+                    startX,
+                    startY
+                )
+            );
+
+            sectionCombatUi.Add
+            (
+                AddLabel
+                (
+                    null,
+                    "Green = weapon range, yellow = up to 7 tiles, red = 8+",
+                    startX,
+                    startY
+                )
+            );
+
+            sectionCombatUi.Add
+            (
+                AddLabel
+                (
+                    null,
+                    "Target a mobile to track blues; hostiles are counted automatically",
+                    startX,
+                    startY
+                )
+            );
+
+            WireEnemyRangeIndicatorOptions();
 
             SettingsSection sectionBars = AddSettingsSection(box, "HP bars & names");
             sectionBars.Y = sectionCombatUi.Bounds.Bottom + 40;
@@ -515,7 +593,7 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765HideHeadUnderCoveringRobe = AddCheckBox
                 (
                     null,
-                    "Hide head items under covering robes",
+                    "Hide head items under covering robes (paperdoll)",
                     _currentProfile.PaperdollHideHeadUnderCoveringRobe,
                     startX,
                     startY
@@ -527,8 +605,32 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765ParrotOriginalView = AddCheckBox
                 (
                     null,
-                    "Parrot robe original paperdoll view",
+                    "Parrot robe original view (paperdoll)",
                     _currentProfile.PaperdollParrotOriginalView,
+                    startX,
+                    startY
+                )
+            );
+
+            sectionPaperdoll.Add
+            (
+                _dust765MobileHideHeadUnderCoveringRobe = AddCheckBox
+                (
+                    null,
+                    "Hide head items under covering robes (mobile)",
+                    _currentProfile.MobileHideHeadUnderCoveringRobe,
+                    startX,
+                    startY
+                )
+            );
+
+            sectionPaperdoll.Add
+            (
+                _dust765MobileParrotOriginalView = AddCheckBox
+                (
+                    null,
+                    "Parrot robe original view (mobile)",
+                    _currentProfile.MobileParrotOriginalView,
                     startX,
                     startY
                 )
@@ -877,6 +979,25 @@ namespace ClassicUO.Game.UI.Gumps
             Add(rightArea, PAGE);
         }
 
+        private void WireEnemyRangeIndicatorOptions()
+        {
+            _dust765EnemyRangeIndicator.ValueChanged += (_, __) =>
+            {
+                _currentProfile.EnemyRangeIndicator = _dust765EnemyRangeIndicator.IsChecked;
+                EnemyRangeIndicatorGump.RefreshOpenGump(World);
+            };
+
+            _dust765EnemyRangeIndicatorLastTargetOnly.ValueChanged += (_, __) =>
+            {
+                _currentProfile.EnemyRangeIndicator_LastTargetOnly = _dust765EnemyRangeIndicatorLastTargetOnly.IsChecked;
+            };
+
+            _dust765EnemyRangeIndicatorShowOnLastTarget.ValueChanged += (_, __) =>
+            {
+                _currentProfile.EnemyRangeIndicator_ShowOnLastTarget = _dust765EnemyRangeIndicatorShowOnLastTarget.IsChecked;
+            };
+        }
+
         internal void ApplyDust765Profile()
         {
             _currentProfile.AvoidObstacles = _dust765AvoidObstacles.IsChecked;
@@ -885,6 +1006,11 @@ namespace ClassicUO.Game.UI.Gumps
             _currentProfile.UOClassicCombatBuffbar = _dust765UccBuffbar.IsChecked;
             _currentProfile.UOClassicCombatBuffbar_SwingEnabled = _dust765UccSwing.IsChecked;
             _currentProfile.UOClassicCombatBuffbar_Locked = _dust765UccLocked.IsChecked;
+            _currentProfile.EnemyRangeIndicator = _dust765EnemyRangeIndicator.IsChecked;
+            _currentProfile.EnemyRangeIndicator_Locked = _dust765EnemyRangeIndicatorLocked.IsChecked;
+            _currentProfile.EnemyRangeIndicator_LastTargetOnly = _dust765EnemyRangeIndicatorLastTargetOnly.IsChecked;
+            _currentProfile.EnemyRangeIndicator_ShowOnLastTarget = _dust765EnemyRangeIndicatorShowOnLastTarget.IsChecked;
+            EnemyRangeIndicatorGump.RefreshOpenGump(World);
             _currentProfile.NamePlateHealthBar = _dust765NamePlateHealthBar.IsChecked;
             _currentProfile.NamePlateHealthBarOpacity = (byte)Math.Clamp(_dust765NamePlateOpacity.Value, 0, 100);
             _currentProfile.UseOldHealthBars = _dust765UseOldHealthBars.IsChecked;
@@ -911,6 +1037,8 @@ namespace ClassicUO.Game.UI.Gumps
             _currentProfile.ShowAllLayersPaperdoll = _dust765ShowAllLayersPaperdoll.IsChecked;
             _currentProfile.PaperdollHideHeadUnderCoveringRobe = _dust765HideHeadUnderCoveringRobe.IsChecked;
             _currentProfile.PaperdollParrotOriginalView = _dust765ParrotOriginalView.IsChecked;
+            _currentProfile.MobileHideHeadUnderCoveringRobe = _dust765MobileHideHeadUnderCoveringRobe.IsChecked;
+            _currentProfile.MobileParrotOriginalView = _dust765MobileParrotOriginalView.IsChecked;
             UIManager.GetGump<PaperDollGump>(World.Player?.Serial)?.RequestUpdateContents();
 
             // Art / Hue Changes
@@ -1011,5 +1139,6 @@ namespace ClassicUO.Game.UI.Gumps
             _currentProfile.NamePlateHideAtFullHealth = _dust765NamePlateHideAtFullHealth.IsChecked;
             _currentProfile.NamePlateOpacity = (byte)Math.Clamp(_dust765NamePlateBgOpacity.Value, 0, 100);
         }
+
     }
 }
