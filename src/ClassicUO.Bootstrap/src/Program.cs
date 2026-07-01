@@ -44,7 +44,9 @@ AppDomain.CurrentDomain.UnhandledException += (s, e) =>
 #endif
 
 Global.Host.Run(args);
+#if DEBUG
 Console.WriteLine("finished");
+#endif
 
 
 static class Global
@@ -188,7 +190,9 @@ sealed class ClassicUOHost : IPluginHandler
             throw new NotSupportedException("OS not suported");
         }
 
+#if DEBUG
         Console.WriteLine("ClassicUO lib loaded: {0}", libName);
+#endif
         
         var libPtr = Native.LoadLibrary(libName);
         if (libPtr == IntPtr.Zero)

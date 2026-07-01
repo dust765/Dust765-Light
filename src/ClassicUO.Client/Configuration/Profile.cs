@@ -146,6 +146,11 @@ namespace ClassicUO.Configuration
 
         // tooltip
         public bool UseTooltip { get; set; } = true;
+        public bool? LiteContainerTooltips { get; set; }
+
+        [JsonIgnore]
+        public bool LiteContainerTooltipsEnabled => LiteContainerTooltips ?? true;
+
         public ushort TooltipTextHue { get; set; } = 0xFFFF;
         public int TooltipDelayBeforeDisplay { get; set; } = 250;
         public int TooltipDisplayZoom { get; set; } = 100;
