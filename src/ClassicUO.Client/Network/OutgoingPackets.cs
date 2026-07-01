@@ -3099,7 +3099,7 @@ namespace ClassicUO.Network
                 writer.WriteZero(2);
             }
 
-            int count = Math.Min(15, serials.Count);
+            int count = Math.Min(5, serials.Count);
 
             for (int i = 0; i < count; ++i)
             {

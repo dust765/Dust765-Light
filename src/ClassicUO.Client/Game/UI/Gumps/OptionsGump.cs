@@ -156,6 +156,7 @@ namespace ClassicUO.Game.UI.Gumps
         private HSliderBar _maxScreenEffectSprites, _maxDynamicLights;
 
         private Checkbox _use_tooltip;
+        private Checkbox _lite_container_tooltips;
         private Checkbox _useStandardSkillsGump, _showMobileNameIncoming, _showCorpseNameIncoming;
         private Checkbox _showStatsMessage, _showSkillsMessage;
         private HSliderBar _showSkillsMessageDelta;
@@ -2382,6 +2383,17 @@ namespace ClassicUO.Game.UI.Gumps
 
             startY += _use_tooltip.Height + 2;
 
+            _lite_container_tooltips = AddCheckBox
+            (
+                rightArea,
+                ResGumps.LiteContainerTooltips,
+                _currentProfile.LiteContainerTooltipsEnabled,
+                startX,
+                startY
+            );
+
+            startY += _lite_container_tooltips.Height + 2;
+
             startX += 40;
 
             Label text = AddLabel(rightArea, ResGumps.DelayBeforeDisplay, startX, startY);
@@ -4048,6 +4060,7 @@ namespace ClassicUO.Game.UI.Gumps
 
                 case 5: // tooltip
                     _use_tooltip.IsChecked = true;
+                    _lite_container_tooltips.IsChecked = true;
                     _tooltip_font_hue.Hue = 0xFFFF;
                     _delay_before_display_tooltip.Value = 200;
                     _tooltip_background_opacity.Value = 70;
@@ -4733,6 +4746,7 @@ namespace ClassicUO.Game.UI.Gumps
 
             // tooltip
             _currentProfile.UseTooltip = _use_tooltip.IsChecked;
+            _currentProfile.LiteContainerTooltips = _lite_container_tooltips.IsChecked;
             _currentProfile.TooltipTextHue = _tooltip_font_hue.Hue;
             _currentProfile.TooltipDelayBeforeDisplay = _delay_before_display_tooltip.Value;
             _currentProfile.TooltipBackgroundOpacity = _tooltip_background_opacity.Value;

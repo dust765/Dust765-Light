@@ -54,6 +54,22 @@ namespace ClassicUO.Network
         private readonly PacketLogger _packetLogger = new PacketLogger();
         private readonly CircularBuffer _buffer = new CircularBuffer();
         private readonly CircularBuffer _pluginsBuffer = new CircularBuffer();
+#if DEBUG
+        private byte _pendingPacketId;
+        private int _pendingPacketLen;
+        private bool _loggedPendingPacket;
+#endif
+        private uint _nextMegaClilocSendTime;
+        private readonly HashSet<uint> _oversizedOplSerials = new HashSet<uint>();
+        private readonly Dictionary<uint, uint> _clilocRequestCooldown = new Dictionary<uint, uint>();
+
+        private const int MaxMegaClilocQueueSize = 32;
+        private const int MaxVariablePacketSize = 65535;
+        private const uint MegaClilocSendIntervalMs = 500;
+        private const uint MegaClilocRequestCooldownMs = 3000;
+        private const int LargeMegaClilocPacketBytes = 4096;
+        private const int OversizedMegaClilocPacketBytes = 12288;
+        private const int MaxMegaClilocLines = 48;
 
         public int ParsePackets(NetClient socket, World world, Span<byte> data)
         {
@@ -83,22 +99,76 @@ namespace ClassicUO.Network
                         )
                     )
                     {
+#if DEBUG
                         Log.Warn(
                             $"Invalid ID: {packetID:X2} | off: {offset} | len: {packetlength} | stream.pos: {stream.Length}"
                         );
+#endif
 
                         break;
+                    }
+
+                    if (packetlength > MaxVariablePacketSize)
+                    {
+#if DEBUG
+                        Log.Error(
+                            $"oversized packet ID: {packetID:X2} | len: {packetlength} | stream.pos: {stream.Length}"
+                        );
+#endif
+
+                        stream.Dequeue(packetBuffer, 0, 1);
+#if DEBUG
+                        _loggedPendingPacket = false;
+#endif
+
+                        continue;
                     }
 
                     if (stream.Length < packetlength)
                     {
-                        Log.Warn(
-                            $"need more data ID: {packetID:X2} | off: {offset} | len: {packetlength} | stream.pos: {stream.Length}"
-                        );
+#if DEBUG
+                        if (
+                            !_loggedPendingPacket
+                            || _pendingPacketId != packetID
+                            || _pendingPacketLen != packetlength
+                        )
+                        {
+                            if (
+                                packetID == 0xD6
+                                && packetlength >= LargeMegaClilocPacketBytes
+                                && stream.Length >= 9
+                            )
+                            {
+                                uint serial = (uint)(
+                                    (stream[5] << 24)
+                                    | (stream[6] << 16)
+                                    | (stream[7] << 8)
+                                    | stream[8]
+                                );
 
-                        // need more data
+                                Log.Warn(
+                                    $"[MegaCliloc] receiving large packet ({stream.Length}/{packetlength} bytes): {FormatMegaClilocTarget(world, serial)}"
+                                );
+                            }
+                            else
+                            {
+                                Log.Trace(
+                                    $"waiting for packet 0x{packetID:X2} ({stream.Length}/{packetlength} bytes)"
+                                );
+                            }
+
+                            _pendingPacketId = packetID;
+                            _pendingPacketLen = packetlength;
+                            _loggedPendingPacket = true;
+                        }
+#endif
+
                         break;
                     }
+
+#if DEBUG
+                    _loggedPendingPacket = false;
+#endif
 
                     while (packetlength > packetBuffer.Length)
                     {
@@ -313,14 +383,17 @@ namespace ClassicUO.Network
 
         public static void SendMegaClilocRequests(World world)
         {
-            if (world.ClientFeatures.TooltipsEnabled && Handler._clilocRequests.Count != 0)
+            if (
+                world.ClientFeatures.TooltipsEnabled
+                && Handler._clilocRequests.Count != 0
+                && Time.Ticks >= Handler._nextMegaClilocSendTime
+            )
             {
+                Handler._nextMegaClilocSendTime = Time.Ticks + MegaClilocSendIntervalMs;
+
                 if (Client.Game.UO.Version >= Utility.ClientVersion.CV_5090)
                 {
-                    if (Handler._clilocRequests.Count != 0)
-                    {
-                        NetClient.Socket.Send_MegaClilocRequest(Handler._clilocRequests);
-                    }
+                    NetClient.Socket.Send_MegaClilocRequest(Handler._clilocRequests);
                 }
                 else
                 {
@@ -346,6 +419,26 @@ namespace ClassicUO.Network
 
         public static void AddMegaClilocRequest(uint serial)
         {
+            World world = Client.Game.GetScene<GameScene>()?.World;
+
+            if (world != null && ShouldSkipLiteContainerTooltip(world, serial))
+            {
+                return;
+            }
+
+            if (Handler._oversizedOplSerials.Contains(serial))
+            {
+                return;
+            }
+
+            if (
+                Handler._clilocRequestCooldown.TryGetValue(serial, out uint nextAllowed)
+                && Time.Ticks < nextAllowed
+            )
+            {
+                return;
+            }
+
             foreach (uint s in Handler._clilocRequests)
             {
                 if (s == serial)
@@ -354,8 +447,83 @@ namespace ClassicUO.Network
                 }
             }
 
+            if (Handler._clilocRequests.Count >= MaxMegaClilocQueueSize)
+            {
+                return;
+            }
+
+            Handler._clilocRequestCooldown[serial] = Time.Ticks + MegaClilocRequestCooldownMs;
             Handler._clilocRequests.Add(serial);
         }
+
+        public static bool IsOversizedOplItem(uint serial) => Handler._oversizedOplSerials.Contains(serial);
+
+        public static bool ShouldSkipLiteContainerTooltip(World world, uint serial)
+        {
+            Profile profile = ProfileManager.CurrentProfile;
+
+            if (profile == null || !profile.LiteContainerTooltipsEnabled)
+            {
+                return false;
+            }
+
+            Item item = world.Items.Get(serial);
+
+            if (item == null || item.OnGround)
+            {
+                return false;
+            }
+
+            Entity parent = world.Get(item.Container);
+
+            if (parent is Mobile)
+            {
+                return false;
+            }
+
+            return parent is Item;
+        }
+
+#if DEBUG
+        private static string FormatMegaClilocTarget(World world, uint serial)
+        {
+            Entity entity = world.Items.Get(serial);
+
+            if (entity == null)
+            {
+                entity = world.Mobiles.Get(serial);
+            }
+
+            ushort graphic = 0;
+            string tileName = null;
+            string knownName = null;
+
+            if (entity is Item item)
+            {
+                graphic = item.Graphic;
+                knownName = item.Name;
+                tileName = item.ItemData.Name;
+            }
+            else if (entity is Mobile mobile)
+            {
+                graphic = mobile.Graphic;
+                knownName = mobile.Name;
+            }
+
+            if (string.IsNullOrEmpty(knownName))
+            {
+                world.OPL.TryGetNameAndData(serial, out knownName, out _);
+            }
+
+            string displayName = !string.IsNullOrEmpty(knownName)
+                ? knownName
+                : !string.IsNullOrEmpty(tileName)
+                    ? tileName
+                    : "(sem nome)";
+
+            return $"serial=0x{serial:X} graphic=0x{graphic:X4} \"{displayName}\"";
+        }
+#endif
 
         private static void TargetCursor(World world, ref StackDataReader p)
         {
@@ -1638,7 +1806,6 @@ namespace ClassicUO.Network
                         )
                         {
                             // Server should send an UpdateContainedItem after this packet.
-                            Console.WriteLine("=== DENY === ADD TO CONTAINER");
 
                             AddItemToContainer(
                                 world,
@@ -1677,8 +1844,6 @@ namespace ClassicUO.Network
                             {
                                 if (SerialHelper.IsMobile(container.Serial))
                                 {
-                                    Console.WriteLine("=== DENY === ADD TO PAPERDOLL");
-
                                     world.RemoveItemFromContainer(item);
                                     container.PushToBack(item);
                                     item.Container = container.Serial;
@@ -1689,15 +1854,11 @@ namespace ClassicUO.Network
                                 }
                                 else
                                 {
-                                    Console.WriteLine("=== DENY === SOMETHING WRONG");
-
                                     world.RemoveItem(item, true);
                                 }
                             }
                             else
                             {
-                                Console.WriteLine("=== DENY === ADD TO TERRAIN");
-
                                 world.RemoveItemFromContainer(item);
 
                                 item.SetInWorldTile(item.X, item.Y, item.Z);
@@ -1762,8 +1923,6 @@ namespace ClassicUO.Network
 
             Client.Game.UO.GameCursor.ItemHold.Enabled = false;
             Client.Game.UO.GameCursor.ItemHold.Dropped = false;
-
-            Console.WriteLine("PACKET - ITEM DROP OK!");
         }
 
         private static void DeathScreen(World world, ref StackDataReader p)
@@ -4957,6 +5116,8 @@ namespace ClassicUO.Network
                 return;
             }
 
+            int packetBytes = (int)p.Length;
+
             ushort unknown = p.ReadUInt16BE();
 
             if (unknown > 1)
@@ -4985,7 +5146,7 @@ namespace ClassicUO.Network
             List<(int, string, int)> list = new List<(int, string, int)>();
             int totalLength = 0;
 
-            while (p.Position < p.Length)
+            while (p.Remaining >= 6 && list.Count < MaxMegaClilocLines)
             {
                 int cliloc = (int)p.ReadUInt32BE();
 
@@ -4994,7 +5155,21 @@ namespace ClassicUO.Network
                     break;
                 }
 
+                if (p.Remaining < 2)
+                {
+                    break;
+                }
+
                 ushort length = p.ReadUInt16BE();
+
+                if (length > p.Remaining)
+                {
+                    Log.Warn(
+                        $"[MegaCliloc] truncated entry serial=0x{serial:X} cliloc={cliloc} argLen={length} remaining={p.Remaining}"
+                    );
+
+                    break;
+                }
 
                 string argument = string.Empty;
 
@@ -5060,6 +5235,13 @@ namespace ClassicUO.Network
                 totalLength += str.Length;
             }
 
+            if (list.Count >= MaxMegaClilocLines && p.Position < p.Length)
+            {
+                p.Seek(p.Length);
+            }
+
+            bool truncatedTooltip = list.Count >= MaxMegaClilocLines;
+
             Item container = null;
 
             if (entity is Item it && SerialHelper.IsValid(it.Container))
@@ -5085,8 +5267,9 @@ namespace ClassicUO.Network
 
             if (list.Count != 0)
             {
-                Span<char> span = stackalloc char[totalLength];
-                ValueStringBuilder sb = new ValueStringBuilder(span);
+                ValueStringBuilder sb = totalLength <= 4096
+                    ? new ValueStringBuilder(stackalloc char[totalLength])
+                    : new ValueStringBuilder(totalLength);
 
                 foreach (var s in list)
                 {
@@ -5118,6 +5301,11 @@ namespace ClassicUO.Network
                 data = sb.ToString();
 
                 sb.Dispose();
+
+                if (truncatedTooltip)
+                {
+                    data += string.IsNullOrEmpty(data) ? "[...]" : "\n[...]";
+                }
             }
 
             int[] clilocs = null;
@@ -5133,6 +5321,20 @@ namespace ClassicUO.Network
             }
 
             world.OPL.Add(serial, revision, name, data, namecliloc, clilocs);
+
+            if (packetBytes >= LargeMegaClilocPacketBytes)
+            {
+                if (packetBytes >= OversizedMegaClilocPacketBytes && list.Count > 0)
+                {
+                    Handler._oversizedOplSerials.Add(serial);
+                }
+
+#if DEBUG
+                Log.Warn(
+                    $"[MegaCliloc] large tooltip done ({packetBytes} bytes, {list.Count} lines): \"{name}\" | {FormatMegaClilocTarget(world, serial)}"
+                );
+#endif
+            }
 
             UIManager.GetGump<SpellbookGump>(serial)?.RequestUpdateContents();
 
@@ -5418,7 +5620,7 @@ namespace ClassicUO.Network
 
                 if (!world.OPL.IsRevisionEquals(serial, revision))
                 {
-                    AddMegaClilocRequest(serial);
+                    world.OPL.Remove(serial);
                 }
             }
         }
@@ -6242,7 +6444,6 @@ namespace ClassicUO.Network
             {
                 if (Client.Game.UO.GameCursor.ItemHold.Dropped)
                 {
-                    Console.WriteLine("ADD ITEM TO CONTAINER -- CLEAR HOLD");
                     Client.Game.UO.GameCursor.ItemHold.Clear();
                 }
 
