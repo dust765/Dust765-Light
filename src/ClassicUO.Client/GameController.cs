@@ -654,12 +654,16 @@ namespace ClassicUO
             switch ((SDL_EventType)sdlEvent->type)
             {
                 case SDL_EventType.SDL_EVENT_AUDIO_DEVICE_ADDED:
+#if DEBUG
                     Console.WriteLine("AUDIO ADDED: {0}", sdlEvent->adevice.which);
+#endif
 
                     break;
 
                 case SDL_EventType.SDL_EVENT_AUDIO_DEVICE_REMOVED:
+#if DEBUG
                     Console.WriteLine("AUDIO REMOVED: {0}", sdlEvent->adevice.which);
+#endif
 
                     break;
 

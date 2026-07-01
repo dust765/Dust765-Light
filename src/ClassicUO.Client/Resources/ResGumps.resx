@@ -508,6 +508,9 @@ delete it?</value>
   <data name="UseTooltip" xml:space="preserve">
     <value>Use tooltip</value>
   </data>
+  <data name="LiteContainerTooltips" xml:space="preserve">
+    <value>Lite container tooltips</value>
+  </data>
   <data name="DelayBeforeDisplay" xml:space="preserve">
     <value>Delay before display:</value>
   </data>
