@@ -36,12 +36,14 @@ namespace ClassicUO.Game.Managers
         {
             if (_itemsProperties.TryGetValue(serial, out ItemProperty p))
             {
-                return true; //p.Revision != 0;  <-- revision == 0 can contain the name.
+                return true;
             }
 
-            // if we don't have the OPL of this item, let's request it to the server.
-            // Original client seems asking for OPL when character is not running.
-            // We'll ask OPL when mouse is over an object.
+            if (PacketHandlers.IsOversizedOplItem(serial))
+            {
+                return false;
+            }
+
             PacketHandlers.AddMegaClilocRequest(serial);
 
             return false;

@@ -4545,6 +4545,15 @@ namespace ClassicUO.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Lite container tooltips.
+        /// </summary>
+        public static string LiteContainerTooltips {
+            get {
+                return ResourceManager.GetString("LiteContainerTooltips", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Use xBR effect [BETA].
         /// </summary>
         public static string UseXBREffectBETA {
