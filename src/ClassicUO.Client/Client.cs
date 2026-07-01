@@ -221,15 +221,19 @@ namespace ClassicUO
         {
             Debug.Assert(Game == null);
 
+#if DEBUG
             SplashScreenManager.Show();
             SplashScreenManager.SetStatus("Loading client files...");
+#endif
 
             var uo = new UltimaOnline();
             uo.LoadDataFiles();
 
             Log.Trace("Running game...");
 
+#if DEBUG
             SplashScreenManager.SetStatus("Starting up...");
+#endif
 
             using (Game = new GameController(pluginHost, uo))
             {
@@ -254,7 +258,9 @@ namespace ClassicUO
 
                 Log.Trace("Done!");
 
+#if DEBUG
                 SplashScreenManager.Close();
+#endif
 
                 Game.Run();
             }

@@ -43,7 +43,11 @@ namespace ClassicUO
         {
             CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
 
+#if DEBUG
             Log.Start(LogTypes.All);
+#else
+            Log.Start(LogTypes.None);
+#endif
 
             DllMap.Init();
 

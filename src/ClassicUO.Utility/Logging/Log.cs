@@ -42,26 +42,31 @@ namespace ClassicUO.Utility.Logging
             _logger?.Message(LogTypes.Debug, text);
         }
 
+        [Conditional("DEBUG")]
         public static void Info(string text)
         {
             _logger?.Message(LogTypes.Info, text);
         }
 
+        [Conditional("DEBUG")]
         public static void Trace(string text)
         {
             _logger?.Message(LogTypes.Trace, text);
         }
 
+        [Conditional("DEBUG")]
         public static void Warn(string text)
         {
             _logger?.Message(LogTypes.Warning, text);
         }
 
+        [Conditional("DEBUG")]
         public static void Error(string text)
         {
             _logger?.Message(LogTypes.Error, text);
         }
 
+        [Conditional("DEBUG")]
         public static void Panic(string text)
         {
             _logger?.Message(LogTypes.Error, text);

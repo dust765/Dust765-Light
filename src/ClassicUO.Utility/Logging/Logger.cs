@@ -52,6 +52,11 @@ namespace ClassicUO.Utility.Logging
 
         public void Message(LogTypes logType, string text)
         {
+            if (!_isLogging || (LogTypes & logType) != logType)
+            {
+                return;
+            }
+
             lock (_syncObject)
             {
                 SetLogger(logType, text);
