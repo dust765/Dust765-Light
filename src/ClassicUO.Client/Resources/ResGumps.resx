@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -347,6 +347,21 @@
   </data>
   <data name="TreesStumps" xml:space="preserve">
     <value>Trees to stumps</value>
+  </data>
+  <data name="TreesNormal" xml:space="preserve">
+    <value>Normal</value>
+  </data>
+  <data name="TreesStump" xml:space="preserve">
+    <value>Stump</value>
+  </data>
+  <data name="TreesBlock" xml:space="preserve">
+    <value>Block tile</value>
+  </data>
+  <data name="TreesStumpBrown" xml:space="preserve">
+    <value>Stump brown</value>
+  </data>
+  <data name="TreesStumpWallWhite" xml:space="preserve">
+    <value>Stump wall white</value>
   </data>
   <data name="UseBlackBackgr" xml:space="preserve">
     <value>Opaque background</value>

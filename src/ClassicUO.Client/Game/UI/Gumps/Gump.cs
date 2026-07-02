@@ -73,17 +73,10 @@ namespace ClassicUO.Game.UI.Gumps
         public void SetInScreen()
         {
             Rectangle windowBounds = Client.Game.ClientBounds;
-            Rectangle bounds = Bounds;
-            bounds.X += windowBounds.X;
-            bounds.Y += windowBounds.Y;
-
-            if (windowBounds.Intersects(bounds))
-            {
-                return;
-            }
-
-            X = 0;
-            Y = 0;
+            int maxX = Math.Max(0, windowBounds.Width - Width);
+            int maxY = Math.Max(0, windowBounds.Height - Height);
+            X = Math.Clamp(X, 0, maxX);
+            Y = Math.Clamp(Y, 0, maxY);
         }
 
         public virtual void Restore(XmlElement xml)

@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
+using System;
+using ClassicUO.Configuration;
 using ClassicUO.Game;
 using ClassicUO.Game.Data;
 using ClassicUO.Game.GameObjects;
@@ -16,6 +18,76 @@ namespace ClassicUO.Dust765
 
     internal static class EnemyRangeBucketHelper
     {
+        public const int DefaultYellowMaxTiles = 7;
+        public const int DefaultRedMaxTiles = 24;
+        public const int MinRangeTiles = 1;
+        public const int MaxRangeTiles = 24;
+
+        public static void NormalizeRangeTiles(Profile profile)
+        {
+            if (profile == null)
+            {
+                return;
+            }
+
+            profile.EnemyRangeIndicator_GreenMaxTiles = Math.Clamp(
+                profile.EnemyRangeIndicator_GreenMaxTiles,
+                0,
+                MaxRangeTiles
+            );
+            profile.EnemyRangeIndicator_YellowMaxTiles = Math.Clamp(
+                profile.EnemyRangeIndicator_YellowMaxTiles,
+                MinRangeTiles,
+                MaxRangeTiles
+            );
+            profile.EnemyRangeIndicator_RedMaxTiles = Math.Clamp(
+                profile.EnemyRangeIndicator_RedMaxTiles,
+                MinRangeTiles,
+                MaxRangeTiles
+            );
+
+            if (
+                profile.EnemyRangeIndicator_GreenMaxTiles > 0
+                && profile.EnemyRangeIndicator_YellowMaxTiles < profile.EnemyRangeIndicator_GreenMaxTiles
+            )
+            {
+                profile.EnemyRangeIndicator_YellowMaxTiles = profile.EnemyRangeIndicator_GreenMaxTiles;
+            }
+
+            if (profile.EnemyRangeIndicator_RedMaxTiles < profile.EnemyRangeIndicator_YellowMaxTiles)
+            {
+                profile.EnemyRangeIndicator_RedMaxTiles = profile.EnemyRangeIndicator_YellowMaxTiles;
+            }
+        }
+
+        public static void GetRangeThresholds(
+            Profile profile,
+            int weaponRange,
+            out int greenMax,
+            out int yellowMax,
+            out int redMax
+        )
+        {
+            NormalizeRangeTiles(profile);
+
+            int configuredGreen = profile?.EnemyRangeIndicator_GreenMaxTiles ?? 0;
+            greenMax = configuredGreen > 0
+                ? configuredGreen
+                : Math.Max(weaponRange, MinRangeTiles);
+            yellowMax = profile?.EnemyRangeIndicator_YellowMaxTiles ?? DefaultYellowMaxTiles;
+            redMax = profile?.EnemyRangeIndicator_RedMaxTiles ?? DefaultRedMaxTiles;
+
+            if (yellowMax < greenMax)
+            {
+                yellowMax = greenMax;
+            }
+
+            if (redMax < yellowMax)
+            {
+                redMax = yellowMax;
+            }
+        }
+
         public static uint GetTrackedMobileSerial(World world)
         {
             if (world?.Player == null || world.TargetManager == null)
@@ -23,14 +95,14 @@ namespace ClassicUO.Dust765
                 return 0;
             }
 
-            uint serial = world.TargetManager.LastTargetInfo.Serial;
+            uint serial = world.TargetManager.NewTargetSystemSerial;
 
             if (SerialHelper.IsMobile(serial) && serial != world.Player.Serial)
             {
                 return serial;
             }
 
-            serial = world.TargetManager.LastAttack;
+            serial = world.TargetManager.LastTargetInfo.Serial;
 
             if (SerialHelper.IsMobile(serial) && serial != world.Player.Serial)
             {
@@ -38,6 +110,13 @@ namespace ClassicUO.Dust765
             }
 
             serial = world.TargetManager.SelectedTarget;
+
+            if (SerialHelper.IsMobile(serial) && serial != world.Player.Serial)
+            {
+                return serial;
+            }
+
+            serial = world.TargetManager.LastAttack;
 
             if (SerialHelper.IsMobile(serial) && serial != world.Player.Serial)
             {
@@ -93,19 +172,24 @@ namespace ClassicUO.Dust765
             return IsHostileNotoriety(mobile.NotorietyFlag);
         }
 
-        public static EnemyRangeBucket ClassifyDistance(int distance, int weaponRange)
+        public static EnemyRangeBucket ClassifyDistance(
+            int distance,
+            int greenMax,
+            int yellowMax,
+            int redMax
+        )
         {
-            if (distance <= weaponRange)
+            if (distance <= greenMax)
             {
                 return EnemyRangeBucket.Green;
             }
 
-            if (distance <= 7)
+            if (distance <= yellowMax)
             {
                 return EnemyRangeBucket.Yellow;
             }
 
-            if (distance >= 8)
+            if (distance <= redMax)
             {
                 return EnemyRangeBucket.Red;
             }
@@ -113,7 +197,7 @@ namespace ClassicUO.Dust765
             return EnemyRangeBucket.None;
         }
 
-        public static void CountBuckets(World world, bool lastTargetOnly, out int green, out int yellow, out int red)
+        public static void CountBuckets(World world, out int green, out int yellow, out int red)
         {
             green = 0;
             yellow = 0;
@@ -124,29 +208,24 @@ namespace ClassicUO.Dust765
                 return;
             }
 
+            Profile profile = ProfileManager.CurrentProfile;
             int weaponRange = WeaponRangeHelper.GetEquippedWeaponRange(world);
-
-            if (lastTargetOnly)
-            {
-                Mobile target = world.Mobiles.Get(GetTrackedMobileSerial(world));
-
-                if (!ShouldIncludeForBucketCount(world, target, true))
-                {
-                    return;
-                }
-
-                AddBucketCount(ClassifyDistance(target.Distance, weaponRange), ref green, ref yellow, ref red);
-                return;
-            }
+            GetRangeThresholds(profile, weaponRange, out int greenMax, out int yellowMax, out int redMax);
+            bool lastTargetOnly = profile?.EnemyRangeIndicator_LastTargetOnly ?? false;
 
             foreach (Mobile mobile in world.Mobiles.Values)
             {
-                if (!ShouldIncludeForBucketCount(world, mobile, false))
+                if (!ShouldIncludeForBucketCount(world, mobile, lastTargetOnly))
                 {
                     continue;
                 }
 
-                AddBucketCount(ClassifyDistance(mobile.Distance, weaponRange), ref green, ref yellow, ref red);
+                AddBucketCount(
+                    ClassifyDistance(mobile.Distance, greenMax, yellowMax, redMax),
+                    ref green,
+                    ref yellow,
+                    ref red
+                );
             }
         }
 
@@ -171,8 +250,10 @@ namespace ClassicUO.Dust765
                 return EnemyRangeBucket.None;
             }
 
+            Profile profile = ProfileManager.CurrentProfile;
             int weaponRange = WeaponRangeHelper.GetEquippedWeaponRange(world);
-            return ClassifyDistance(target.Distance, weaponRange);
+            GetRangeThresholds(profile, weaponRange, out int greenMax, out int yellowMax, out int redMax);
+            return ClassifyDistance(target.Distance, greenMax, yellowMax, redMax);
         }
 
         public static EnemyRangeBucket GetMobileBucket(World world, Mobile mobile)
@@ -182,8 +263,10 @@ namespace ClassicUO.Dust765
                 return EnemyRangeBucket.None;
             }
 
+            Profile profile = ProfileManager.CurrentProfile;
             int weaponRange = WeaponRangeHelper.GetEquippedWeaponRange(world);
-            return ClassifyDistance(mobile.Distance, weaponRange);
+            GetRangeThresholds(profile, weaponRange, out int greenMax, out int yellowMax, out int redMax);
+            return ClassifyDistance(mobile.Distance, greenMax, yellowMax, redMax);
         }
 
         private static void AddBucketCount(EnemyRangeBucket bucket, ref int green, ref int yellow, ref int red)

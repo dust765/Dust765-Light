@@ -1770,7 +1770,18 @@ namespace ClassicUO.Game.Managers
 
                 case MacroType.ToggleTreeStumps:
                     StaticFilters.CleanTreeTextures();
-                    ProfileManager.CurrentProfile.TreeToStumps = !ProfileManager.CurrentProfile.TreeToStumps;
+
+                    if (ProfileManager.CurrentProfile.TreeReplaceType != 0)
+                    {
+                        ProfileManager.CurrentProfile.TreeReplaceType = 0;
+                    }
+                    else
+                    {
+                        ProfileManager.CurrentProfile.TreeReplaceType = 1;
+                    }
+
+                    ProfileManager.CurrentProfile.TreeToStumps =
+                        ProfileManager.CurrentProfile.TreeReplaceType != 0;
 
                     break;
 
@@ -1830,9 +1841,7 @@ namespace ClassicUO.Game.Managers
                     {
                         GameActions.MessageOverhead(_world, string.Format(ResGeneral.Target0, ent.Name), Notoriety.GetHue(((Mobile) ent).NotorietyFlag), _world.Player);
 
-                        _world.TargetManager.NewTargetSystemSerial = serial;
-                        _world.TargetManager.SelectedTarget = serial;
-                        _world.TargetManager.LastTargetInfo.SetEntity(serial);
+                        _world.TargetManager.SetTrackedMobile(serial);
 
                         return;
                     }

@@ -227,7 +227,8 @@ namespace ClassicUO.Game.GameObjects
             Vector3 hue,
             bool shadow,
             float depth,
-            bool isWet = false
+            bool isWet = false,
+            float heightScale = 1f
         )
         {
             ref UOFileIndex index = ref Client.Game.UO.FileManager.Arts.File.GetValidRefEntry(graphic + 0x4000);
@@ -246,22 +247,31 @@ namespace ClassicUO.Game.GameObjects
                 y -= index.Height;
 
                 Vector2 pos = new Vector2(x, y);
+                Vector2 drawPos = pos;
+                Vector2 origin = Vector2.Zero;
+                var scale = Vector2.One;
+
+                if (heightScale != 1f)
+                {
+                    scale.Y = heightScale;
+                    origin = new Vector2(0f, artInfo.UV.Height);
+                    drawPos = new Vector2(pos.X, pos.Y + artInfo.UV.Height);
+                }
 
                 if (shadow)
                 {
-                    batcher.DrawShadow(artInfo.Texture, pos, artInfo.UV, false, depth + 0.25f);
+                    batcher.DrawShadow(artInfo.Texture, drawPos, artInfo.UV, false, depth + 0.25f);
                 }
 
-                var scale = Vector2.One;
                 if (isWet)
                 {
                     batcher.Draw(
                         artInfo.Texture,
-                        pos,
+                        drawPos,
                         artInfo.UV,
                         hue,
                         0f,
-                        Vector2.Zero,
+                        origin,
                         scale,
                         SpriteEffects.None,
                         depth + 0.5f
@@ -269,16 +279,16 @@ namespace ClassicUO.Game.GameObjects
 
                     var sin = (float)Math.Sin(Time.Ticks / 1000f);
                     var cos = (float)Math.Cos(Time.Ticks / 1000f);
-                    scale = new Vector2(1.1f + sin * 0.1f, 1.1f + cos * 0.5f * 0.1f);
+                    scale = new Vector2(1.1f + sin * 0.1f, (1.1f + cos * 0.5f * 0.1f) * heightScale);
                 }
 
                 batcher.Draw(
                     artInfo.Texture,
-                    pos,
+                    drawPos,
                     artInfo.UV,
                     hue,
                     0f,
-                    Vector2.Zero,
+                    origin,
                     scale,
                     SpriteEffects.None,
                     depth + 0.5f

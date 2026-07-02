@@ -1,6 +1,4 @@
-﻿// SPDX-License-Identifier: BSD-2-Clause
-
-using System.Diagnostics;
+// SPDX-License-Identifier: BSD-2-Clause
 
 namespace ClassicUO.Utility.Logging
 {
@@ -36,37 +34,31 @@ namespace ClassicUO.Utility.Logging
                 _logger.LogTypes = LogTypes.None;
         }
 
-        [Conditional("DEBUG")]
         public static void Debug(string text)
         {
             _logger?.Message(LogTypes.Debug, text);
         }
 
-        [Conditional("DEBUG")]
         public static void Info(string text)
         {
             _logger?.Message(LogTypes.Info, text);
         }
 
-        [Conditional("DEBUG")]
         public static void Trace(string text)
         {
             _logger?.Message(LogTypes.Trace, text);
         }
 
-        [Conditional("DEBUG")]
         public static void Warn(string text)
         {
             _logger?.Message(LogTypes.Warning, text);
         }
 
-        [Conditional("DEBUG")]
         public static void Error(string text)
         {
             _logger?.Message(LogTypes.Error, text);
         }
 
-        [Conditional("DEBUG")]
         public static void Panic(string text)
         {
             _logger?.Message(LogTypes.Error, text);

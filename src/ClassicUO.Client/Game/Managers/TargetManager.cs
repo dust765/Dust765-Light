@@ -114,6 +114,54 @@ namespace ClassicUO.Game.Managers
 
         public readonly LastTargetInfo LastTargetInfo = new LastTargetInfo();
 
+        public void SetTrackedMobile(uint serial)
+        {
+            if (!SerialHelper.IsMobile(serial) || serial == _world.Player?.Serial)
+            {
+                return;
+            }
+
+            NewTargetSystemSerial = serial;
+            SelectedTarget = serial;
+            LastTargetInfo.SetEntity(serial);
+        }
+
+        public static void TryTrackOutgoingPacket(World world, ReadOnlySpan<byte> message)
+        {
+            if (world == null || !world.InGame || message.IsEmpty)
+            {
+                return;
+            }
+
+            switch (message[0])
+            {
+                case 0x05 when message.Length >= 5:
+                {
+                    uint serial = (uint)((message[1] << 24) | (message[2] << 16) | (message[3] << 8) | message[4]);
+
+                    if (SerialHelper.IsMobile(serial) && serial != world.Player?.Serial)
+                    {
+                        world.TargetManager.SetTrackedMobile(serial);
+                        world.TargetManager.LastAttack = serial;
+                    }
+
+                    break;
+                }
+
+                case 0x6C when message.Length >= 11 && message[1] == 0x00:
+                {
+                    if (message[6] == (byte)TargetType.Cancel)
+                    {
+                        break;
+                    }
+
+                    uint serial = (uint)((message[7] << 24) | (message[8] << 16) | (message[9] << 8) | message[10]);
+                    world.TargetManager.SetTrackedMobile(serial);
+                    break;
+                }
+            }
+        }
+
 
         public MultiTargetInfo MultiTargetInfo { get; private set; }
 
@@ -260,7 +308,14 @@ namespace ClassicUO.Game.Managers
 
                         if (entity != _world.Player)
                         {
-                            LastTargetInfo.SetEntity(serial);
+                            if (SerialHelper.IsMobile(serial))
+                            {
+                                SetTrackedMobile(serial);
+                            }
+                            else
+                            {
+                                LastTargetInfo.SetEntity(serial);
+                            }
                         }
 
                         if (SerialHelper.IsMobile(serial) && serial != _world.Player && (_world.Player.NotorietyFlag == NotorietyFlag.Innocent || _world.Player.NotorietyFlag == NotorietyFlag.Ally))

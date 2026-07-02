@@ -23,6 +23,10 @@
     <DefineConstants>$(DefineConstants);DEV_BUILD</DefineConstants>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(ConsoleLog)' == 'true'">
+    <DefineConstants>$(DefineConstants);CONSOLE_LOG</DefineConstants>
+  </PropertyGroup>
+
   <ItemGroup Condition="$(TargetFramework.StartsWith('net4'))">
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.*" PrivateAssets="All" />
     <PackageReference Include="System.Buffers" Version="4.5.1" />

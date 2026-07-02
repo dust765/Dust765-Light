@@ -1,4 +1,4 @@
-﻿// SPDX-License-Identifier: BSD-2-Clause
+// SPDX-License-Identifier: BSD-2-Clause
 
 namespace ClassicUO.Game
 {
@@ -67,6 +67,12 @@ namespace ClassicUO.Game
 
         public const ushort FIELD_REPLACE_GRAPHIC = 0x1826;
         public const ushort TREE_REPLACE_GRAPHIC = 0x0E59;
+        public const ushort TREE_REPLACE_GRAPHIC_TILE = 0x07BD;
+        public const ushort TREE_REPLACE_STUMP_BROWN = 0x03EE;
+        public const ushort TREE_REPLACE_STUMP_WALL_WHITE = 0x0709;
+        public const ushort TREE_REPLACE_BLOCK_HUE = 0x080A;
+        public const float TREE_REPLACE_BLOCK_HEIGHT_SCALE = 0.5f;
+        public const int TREE_REPLACE_TYPE_MAX = 4;
 
         public const int MIN_CIRCLE_OF_TRANSPARENCY_RADIUS = 50;
         public const int MAX_CIRCLE_OF_TRANSPARENCY_RADIUS = 1000;
