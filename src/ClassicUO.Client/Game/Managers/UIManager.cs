@@ -9,6 +9,7 @@ using ClassicUO.Renderer;
 using ClassicUO.Utility;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using System;
 using System.Collections.Generic;
 
 namespace ClassicUO.Game.Managers
@@ -272,6 +273,19 @@ namespace ClassicUO.Game.Managers
             }
 
             Add(ContextMenu);
+        }
+
+        public static void ClampAllGumpsToScreen()
+        {
+            for (LinkedListNode<Gump> node = Gumps.First; node != null; node = node.Next)
+            {
+                if (node.Value is WorldViewportGump || node.Value.IsDisposed)
+                {
+                    continue;
+                }
+
+                node.Value.SetInScreen();
+            }
         }
 
         public static T GetGump<T>(uint? serial = null) where T : Control

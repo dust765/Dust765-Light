@@ -69,14 +69,22 @@ namespace ClassicUO.Game.GameObjects
             }
 
             bool isTree = StaticFilters.IsTree(graphic, out _);
+            float heightScale = 1f;
 
             bool cot = !isTree && !ItemData.IsFoliage && TransparentTest(World.Player.Z + 5);
-            Vector3 hueVec = ShaderHueTranslator.GetHueVector(hue, partial, AlphaHue / 255f, circletrans: cot);
 
-            if (isTree && ProfileManager.CurrentProfile.TreeToStumps)
+            if (isTree)
             {
-                graphic = Constants.TREE_REPLACE_GRAPHIC;
+                TreeReplace.TryApply(
+                    ProfileManager.CurrentProfile.TreeReplaceType,
+                    ref graphic,
+                    ref hue,
+                    ref partial,
+                    ref heightScale
+                );
             }
+
+            Vector3 hueVec = ShaderHueTranslator.GetHueVector(hue, partial, AlphaHue / 255f, circletrans: cot);
 
             DrawStaticAnimated(
                 batcher,
@@ -88,7 +96,8 @@ namespace ClassicUO.Game.GameObjects
                     && ProfileManager.CurrentProfile.ShadowsStatics
                     && (isTree || ItemData.IsFoliage || StaticFilters.IsRock(graphic)),
                 depth,
-                ProfileManager.CurrentProfile.AnimatedWaterEffect && ItemData.IsWet
+                ProfileManager.CurrentProfile.AnimatedWaterEffect && ItemData.IsWet,
+                heightScale
             );
 
             if (ItemData.IsLight && !InChunkMesh)
@@ -117,23 +126,48 @@ namespace ClassicUO.Game.GameObjects
                 ushort graphic = Graphic;
 
                 bool isTree = StaticFilters.IsTree(graphic, out _);
+                float heightScale = 1f;
+                ushort hue = Hue;
+                bool partial = ItemData.IsPartialHue;
 
-                if (isTree && ProfileManager.CurrentProfile.TreeToStumps)
+                if (isTree)
                 {
-                    graphic = Constants.TREE_REPLACE_GRAPHIC;
+                    TreeReplace.TryApply(
+                        ProfileManager.CurrentProfile.TreeReplaceType,
+                        ref graphic,
+                        ref hue,
+                        ref partial,
+                        ref heightScale
+                    );
                 }
 
                 ref var index = ref Client.Game.UO.FileManager.Arts.File.GetValidRefEntry(graphic + 0x4000);
+                graphic = (ushort)(graphic + index.AnimOffset);
+
+                ref readonly var artInfo = ref Client.Game.UO.Arts.GetArt(graphic);
 
                 Point position = RealScreenPosition;
-                position.X -= index.Width;
-                position.Y -= index.Height;
+                position.X -= (artInfo.UV.Width >> 1) - 22;
+                position.Y -= artInfo.UV.Height - 44;
 
-                return Client.Game.UO.Arts.PixelCheck(
-                    graphic,
-                    SelectedObject.TranslatedMousePositionByViewport.X - position.X,
-                    SelectedObject.TranslatedMousePositionByViewport.Y - position.Y
-                );
+                int mouseX = SelectedObject.TranslatedMousePositionByViewport.X - position.X;
+                int mouseY = SelectedObject.TranslatedMousePositionByViewport.Y - position.Y;
+
+                if (heightScale != 1f)
+                {
+                    int artHeight = artInfo.UV.Height;
+                    int visibleHeight = (int)(artHeight * heightScale);
+                    mouseY -= artHeight - visibleHeight;
+
+                    if (mouseX < 0 || mouseY < 0 || mouseY >= visibleHeight)
+                    {
+                        return false;
+                    }
+
+                    mouseY = (int)(mouseY / heightScale);
+                }
+
+                return Client.Game.UO.Arts.PixelCheck(graphic, mouseX, mouseY);
             }
 
             return false;

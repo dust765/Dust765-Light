@@ -62,7 +62,6 @@ namespace ClassicUO.Game.Scenes
         private Item _multi;
         private Rectangle _rectangleObj = Rectangle.Empty,
             _rectanglePlayer;
-        private long _lastMeshBuildTick;
         private uint _houseFilterState;
 
         private uint _timeToPlaceMultiInHouseCustomization;
@@ -98,6 +97,55 @@ namespace ClassicUO.Game.Scenes
         public void DoubleClickDelayed(uint serial)
         {
             _useItemQueue.Add(serial);
+        }
+
+        internal void RefreshHousesOnLogin()
+        {
+            if (_world.Player == null || _world.Map == null)
+            {
+                return;
+            }
+
+            _world.Map.PreloadChunksAround(_world.Player.X, _world.Player.Y, 8, 64);
+
+            foreach (Item foundation in _world.Items.Values)
+            {
+                if (foundation == null || foundation.IsDestroyed || !foundation.IsMulti || !foundation.OnGround)
+                {
+                    continue;
+                }
+
+                if (!_world.HouseManager.EntityIntoHouse(foundation.Serial, _world.Player))
+                {
+                    continue;
+                }
+
+                if (foundation.MultiInfo == null)
+                {
+                    foundation.WantUpdateMulti = true;
+                    foundation.CheckGraphicChange();
+                }
+
+                _world.HouseManager.TryGetHouse(foundation.Serial, out House house);
+
+                if (house != null && house.IsCustom)
+                {
+                    _world.Map.EnsureChunksLoadedForHouse(foundation);
+                    house.RelinkComponentsToTiles();
+                    _world.Map.MarkChunksMeshDirtyForHouse(foundation);
+                    _world.HouseManager.ScheduleRelink(foundation.Serial);
+                }
+                else
+                {
+                    PacketHandlers.RequestCustomHouseData(_world, foundation.Serial);
+                }
+            }
+
+            PacketHandlers.SendMegaClilocRequests(_world);
+            _world.HouseManager.EnsurePlayerHouseWalls();
+            _world.HouseManager.ProcessPendingRelinks();
+            UpdateMaxDrawZ(true);
+            UpdateDrawPosition = true;
         }
 
         public override void Load()
@@ -155,6 +203,11 @@ namespace ClassicUO.Game.Scenes
                 EnemyRangeIndicatorGump.RefreshOpenGump(_world);
             }
 
+            if (prof != null && prof.AllyRangeIndicator)
+            {
+                AllyRangeIndicatorGump.RefreshOpenGump(_world);
+            }
+
             NetClient.Socket.Disconnected += SocketOnDisconnected;
             _world.MessageManager.MessageReceived += ChatOnMessageReceived;
             UIManager.ContainerScale = ProfileManager.CurrentProfile.ContainersScale / 100f;
@@ -180,6 +233,8 @@ namespace ClassicUO.Game.Scenes
 
                 Client.Game.SetWindowSize(w, h);
             }
+
+            WorldViewportGump.SyncGameViewportOnLoad();
 
             Plugin.OnConnected();
         }
@@ -593,7 +648,6 @@ namespace ClassicUO.Game.Scenes
         {
             _renderLists.Clear();
             _visibleChunks.Clear();
-            _dirtyMeshChunks.Clear();
 
             _foliageCount = 0;
 
@@ -603,8 +657,6 @@ namespace ClassicUO.Game.Scenes
             }
 
             Profile profile = ProfileManager.CurrentProfile;
-            HouseVisibilityHelper.BeginFrame(_world, profile);
-            SyncHouseFilterState(profile);
 
             _alphaChanged = _alphaTimer < Time.Ticks;
 
@@ -634,6 +686,17 @@ namespace ClassicUO.Game.Scenes
             }
 
             GetViewPort();
+
+            HouseVisibilityHelper.BeginFrame(_world, profile);
+            HouseContentVisibilityHelper.BeginFrame(
+                _world,
+                profile,
+                _minTile.X,
+                _minTile.Y,
+                _maxTile.X,
+                _maxTile.Y
+            );
+            SyncHouseFilterState(profile);
 
             var ctrlShiftHeld = Keyboard.Ctrl && Keyboard.Shift;
             var useObjectHandles = _world.NameOverHeadManager.IsShowing;
@@ -682,9 +745,6 @@ namespace ClassicUO.Game.Scenes
             (var minChunkX, var minChunkY) = (minX >> 3, minY >> 3);
             (var maxChunkX, var maxChunkY) = (maxX >> 3, maxY >> 3);
 
-            int playerX = _world.Player.X;
-            int playerY = _world.Player.Y;
-
             for (var chunkX = minChunkX; chunkX <= maxChunkX; chunkX++)
             {
                 for (var chunkY = minChunkY; chunkY <= maxChunkY; chunkY++)
@@ -695,18 +755,12 @@ namespace ClassicUO.Game.Scenes
 
                     if (chunk.Mesh.IsDirty)
                     {
-                        int cx = (chunkX << 3) + 4;
-                        int cy = (chunkY << 3) + 4;
-                        int dx = cx - playerX;
-                        int dy = cy - playerY;
-                        _dirtyMeshChunks.Add(new DirtyMeshChunk { Chunk = chunk, DistSq = dx * dx + dy * dy });
+                        chunk.Mesh.Build(chunk, _world, Client.Game.GraphicsDevice);
                     }
 
                     _visibleChunks.Add(chunk);
                 }
             }
-
-            _dirtyMeshChunks.Sort();
 
             for (int ci = 0; ci < _visibleChunks.Count; ci++)
             {
@@ -761,42 +815,6 @@ namespace ClassicUO.Game.Scenes
             UpdateTextServerEntities(_world.Items.Values, false);
 
             UpdateDrawPosition = false;
-
-            Client.Game.DrainIncomingPackets();
-        }
-
-        private void ProcessDirtyMeshBuilds(GraphicsDevice graphicsDevice)
-        {
-            if (NetClient.Socket.Statistics.HasPendingPing())
-            {
-                return;
-            }
-
-            int throttleMs = _dirtyMeshChunks.Count > 12 || HouseVisibilityHelper.IsFilterActive ? 200 : 100;
-
-            if (Time.Ticks - _lastMeshBuildTick < throttleMs)
-            {
-                return;
-            }
-
-            int maxBuilds = 3;
-            int built = 0;
-
-            for (int i = 0; i < _dirtyMeshChunks.Count; i++)
-            {
-                Map.Chunk dc = _dirtyMeshChunks[i].Chunk;
-                if (dc != null && !dc.IsDestroyed && dc.Mesh.IsDirty)
-                {
-                    dc.Mesh.Build(dc, _world, graphicsDevice);
-                    _lastMeshBuildTick = Time.Ticks;
-                    built++;
-
-                    if (built >= maxBuilds)
-                    {
-                        break;
-                    }
-                }
-            }
 
             Client.Game.DrainIncomingPackets();
         }
@@ -857,6 +875,8 @@ namespace ClassicUO.Game.Scenes
             }
 
             PacketHandlers.SendMegaClilocRequests(_world);
+            _world.HouseManager.EnsurePlayerHouseWalls();
+            _world.HouseManager.ProcessPendingRelinks();
 
             if (_forceStopScene)
             {
@@ -871,6 +891,8 @@ namespace ClassicUO.Game.Scenes
             {
                 return;
             }
+
+            HouseContentVisibilityHelper.PrepareFrame(_world, currentProfile);
 
             _world.Update();
             _animatedStaticsManager.Process();
@@ -1074,8 +1096,6 @@ namespace ClassicUO.Game.Scenes
         private void DrawWorld(UltimaBatcher2D batcher, ref Matrix matrix, RenderTargets renderTargets)
         {
             batcher.GraphicsDevice.SetRenderTarget(renderTargets.WorldRenderTarget);
-
-            ProcessDirtyMeshBuilds(batcher.GraphicsDevice);
 
             SelectedObject.Object = null;
             Profiler.EnterContext(Profiler.ProfilerContext.RENDER_FRAME_WORLD_PREPARE);

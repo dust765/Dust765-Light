@@ -53,15 +53,6 @@ namespace ClassicUO.Game.Scenes
 
         private readonly RenderLists _renderLists = new();
         private readonly List<Map.Chunk> _visibleChunks = new();
-        private readonly List<DirtyMeshChunk> _dirtyMeshChunks = new();
-
-        private struct DirtyMeshChunk : IComparable<DirtyMeshChunk>
-        {
-            public Map.Chunk Chunk;
-            public int DistSq;
-
-            public int CompareTo(DirtyMeshChunk other) => DistSq.CompareTo(other.DistSq);
-        }
 
         public sbyte FoliageIndex { get; private set; }
 
@@ -1135,6 +1126,11 @@ namespace ClassicUO.Game.Scenes
 
                     case Item item:
                         {
+                            if (!HouseContentVisibilityHelper.ShouldDrawItem(item))
+                            {
+                                continue;
+                            }
+
                             ref StaticTiles itemData = ref (
                                 item.IsMulti
                                     ? ref Client.Game.UO.FileManager.TileData.StaticData[item.MultiGraphic]

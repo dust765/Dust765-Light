@@ -21,6 +21,14 @@ namespace ClassicUO.Game.UI.Gumps
         private Checkbox _dust765EnemyRangeIndicatorLocked;
         private Checkbox _dust765EnemyRangeIndicatorLastTargetOnly;
         private Checkbox _dust765EnemyRangeIndicatorShowOnLastTarget;
+        private InputField _dust765EnemyRangeIndicatorGreenMax;
+        private InputField _dust765EnemyRangeIndicatorYellowMax;
+        private InputField _dust765EnemyRangeIndicatorRedMax;
+        private Checkbox _dust765AllyRangeIndicator;
+        private Checkbox _dust765AllyRangeIndicatorLocked;
+        private InputField _dust765AllyRangeIndicatorGreenMax;
+        private InputField _dust765AllyRangeIndicatorYellowMax;
+        private InputField _dust765AllyRangeIndicatorRedMax;
         private Checkbox _dust765NamePlateHealthBar;
         private Checkbox _dust765UseOldHealthBars;
         private Checkbox _dust765MultiUnderlinesParty;
@@ -215,7 +223,106 @@ namespace ClassicUO.Game.UI.Gumps
                 AddLabel
                 (
                     null,
-                    "Green = weapon range, yellow = up to 7 tiles, red = 8+",
+                    "Green max tiles (0 = weapon range)",
+                    startX,
+                    startY
+                )
+            );
+
+            sectionCombatUi.AddRight
+            (
+                _dust765EnemyRangeIndicatorGreenMax = new InputField
+                (
+                    0x0BB8,
+                    FONT,
+                    HUE_FONT,
+                    true,
+                    50,
+                    TEXTBOX_HEIGHT,
+                    50,
+                    EnemyRangeBucketHelper.MaxRangeTiles
+                )
+                {
+                    NumbersOnly = true
+                },
+                2
+            );
+            _dust765EnemyRangeIndicatorGreenMax.SetText(
+                _currentProfile.EnemyRangeIndicator_GreenMaxTiles.ToString()
+            );
+
+            sectionCombatUi.Add
+            (
+                AddLabel
+                (
+                    null,
+                    "Yellow max tiles",
+                    startX,
+                    startY
+                )
+            );
+
+            sectionCombatUi.AddRight
+            (
+                _dust765EnemyRangeIndicatorYellowMax = new InputField
+                (
+                    0x0BB8,
+                    FONT,
+                    HUE_FONT,
+                    true,
+                    50,
+                    TEXTBOX_HEIGHT,
+                    50,
+                    EnemyRangeBucketHelper.MaxRangeTiles
+                )
+                {
+                    NumbersOnly = true
+                },
+                2
+            );
+            _dust765EnemyRangeIndicatorYellowMax.SetText(
+                _currentProfile.EnemyRangeIndicator_YellowMaxTiles.ToString()
+            );
+
+            sectionCombatUi.Add
+            (
+                AddLabel
+                (
+                    null,
+                    "Red max tiles",
+                    startX,
+                    startY
+                )
+            );
+
+            sectionCombatUi.AddRight
+            (
+                _dust765EnemyRangeIndicatorRedMax = new InputField
+                (
+                    0x0BB8,
+                    FONT,
+                    HUE_FONT,
+                    true,
+                    50,
+                    TEXTBOX_HEIGHT,
+                    50,
+                    EnemyRangeBucketHelper.MaxRangeTiles
+                )
+                {
+                    NumbersOnly = true
+                },
+                2
+            );
+            _dust765EnemyRangeIndicatorRedMax.SetText(
+                _currentProfile.EnemyRangeIndicator_RedMaxTiles.ToString()
+            );
+
+            sectionCombatUi.Add
+            (
+                AddLabel
+                (
+                    null,
+                    "Each bucket counts hostiles within its tile range",
                     startX,
                     startY
                 )
@@ -232,7 +339,142 @@ namespace ClassicUO.Game.UI.Gumps
                 )
             );
 
+            sectionCombatUi.Add
+            (
+                _dust765AllyRangeIndicator = AddCheckBox
+                (
+                    null,
+                    "Ally range indicator (party / guild)",
+                    _currentProfile.AllyRangeIndicator,
+                    startX,
+                    startY
+                )
+            );
+
+            sectionCombatUi.Add
+            (
+                _dust765AllyRangeIndicatorLocked = AddCheckBox
+                (
+                    null,
+                    "Lock ally range indicator position",
+                    _currentProfile.AllyRangeIndicator_Locked,
+                    startX,
+                    startY
+                )
+            );
+
+            sectionCombatUi.Add
+            (
+                AddLabel
+                (
+                    null,
+                    "Ally green max tiles",
+                    startX,
+                    startY
+                )
+            );
+
+            sectionCombatUi.AddRight
+            (
+                _dust765AllyRangeIndicatorGreenMax = new InputField
+                (
+                    0x0BB8,
+                    FONT,
+                    HUE_FONT,
+                    true,
+                    50,
+                    TEXTBOX_HEIGHT,
+                    50,
+                    AllyRangeBucketHelper.MaxRangeTiles
+                )
+                {
+                    NumbersOnly = true
+                },
+                2
+            );
+            _dust765AllyRangeIndicatorGreenMax.SetText(
+                _currentProfile.AllyRangeIndicator_GreenMaxTiles.ToString()
+            );
+
+            sectionCombatUi.Add
+            (
+                AddLabel
+                (
+                    null,
+                    "Ally yellow max tiles",
+                    startX,
+                    startY
+                )
+            );
+
+            sectionCombatUi.AddRight
+            (
+                _dust765AllyRangeIndicatorYellowMax = new InputField
+                (
+                    0x0BB8,
+                    FONT,
+                    HUE_FONT,
+                    true,
+                    50,
+                    TEXTBOX_HEIGHT,
+                    50,
+                    AllyRangeBucketHelper.MaxRangeTiles
+                )
+                {
+                    NumbersOnly = true
+                },
+                2
+            );
+            _dust765AllyRangeIndicatorYellowMax.SetText(
+                _currentProfile.AllyRangeIndicator_YellowMaxTiles.ToString()
+            );
+
+            sectionCombatUi.Add
+            (
+                AddLabel
+                (
+                    null,
+                    "Ally red max tiles",
+                    startX,
+                    startY
+                )
+            );
+
+            sectionCombatUi.AddRight
+            (
+                _dust765AllyRangeIndicatorRedMax = new InputField
+                (
+                    0x0BB8,
+                    FONT,
+                    HUE_FONT,
+                    true,
+                    50,
+                    TEXTBOX_HEIGHT,
+                    50,
+                    AllyRangeBucketHelper.MaxRangeTiles
+                )
+                {
+                    NumbersOnly = true
+                },
+                2
+            );
+            _dust765AllyRangeIndicatorRedMax.SetText(
+                _currentProfile.AllyRangeIndicator_RedMaxTiles.ToString()
+            );
+
+            sectionCombatUi.Add
+            (
+                AddLabel
+                (
+                    null,
+                    "Counts party members and guild allies (blue) by distance",
+                    startX,
+                    startY
+                )
+            );
+
             WireEnemyRangeIndicatorOptions();
+            WireAllyRangeIndicatorOptions();
 
             SettingsSection sectionBars = AddSettingsSection(box, "HP bars & names");
             sectionBars.Y = sectionCombatUi.Bounds.Bottom + 40;
@@ -979,6 +1221,57 @@ namespace ClassicUO.Game.UI.Gumps
             Add(rightArea, PAGE);
         }
 
+        private void WireAllyRangeIndicatorOptions()
+        {
+            _dust765AllyRangeIndicator.ValueChanged += (_, __) =>
+            {
+                _currentProfile.AllyRangeIndicator = _dust765AllyRangeIndicator.IsChecked;
+                AllyRangeIndicatorGump.RefreshOpenGump(World);
+            };
+        }
+
+        private void ApplyAllyRangeIndicatorRangeTiles()
+        {
+            if (int.TryParse(_dust765AllyRangeIndicatorGreenMax.Text, out int greenMax))
+            {
+                _currentProfile.AllyRangeIndicator_GreenMaxTiles = Math.Clamp(
+                    greenMax,
+                    AllyRangeBucketHelper.MinRangeTiles,
+                    AllyRangeBucketHelper.MaxRangeTiles
+                );
+            }
+
+            if (int.TryParse(_dust765AllyRangeIndicatorYellowMax.Text, out int yellowMax))
+            {
+                _currentProfile.AllyRangeIndicator_YellowMaxTiles = Math.Clamp(
+                    yellowMax,
+                    AllyRangeBucketHelper.MinRangeTiles,
+                    AllyRangeBucketHelper.MaxRangeTiles
+                );
+            }
+
+            if (int.TryParse(_dust765AllyRangeIndicatorRedMax.Text, out int redMax))
+            {
+                _currentProfile.AllyRangeIndicator_RedMaxTiles = Math.Clamp(
+                    redMax,
+                    AllyRangeBucketHelper.MinRangeTiles,
+                    AllyRangeBucketHelper.MaxRangeTiles
+                );
+            }
+
+            AllyRangeBucketHelper.NormalizeRangeTiles(_currentProfile);
+            _dust765AllyRangeIndicatorGreenMax.SetText(
+                _currentProfile.AllyRangeIndicator_GreenMaxTiles.ToString()
+            );
+            _dust765AllyRangeIndicatorYellowMax.SetText(
+                _currentProfile.AllyRangeIndicator_YellowMaxTiles.ToString()
+            );
+            _dust765AllyRangeIndicatorRedMax.SetText(
+                _currentProfile.AllyRangeIndicator_RedMaxTiles.ToString()
+            );
+            AllyRangeIndicatorGump.RefreshOpenGump(World);
+        }
+
         private void WireEnemyRangeIndicatorOptions()
         {
             _dust765EnemyRangeIndicator.ValueChanged += (_, __) =>
@@ -998,6 +1291,48 @@ namespace ClassicUO.Game.UI.Gumps
             };
         }
 
+        private void ApplyEnemyRangeIndicatorRangeTiles()
+        {
+            if (int.TryParse(_dust765EnemyRangeIndicatorGreenMax.Text, out int greenMax))
+            {
+                _currentProfile.EnemyRangeIndicator_GreenMaxTiles = Math.Clamp(
+                    greenMax,
+                    0,
+                    EnemyRangeBucketHelper.MaxRangeTiles
+                );
+            }
+
+            if (int.TryParse(_dust765EnemyRangeIndicatorYellowMax.Text, out int yellowMax))
+            {
+                _currentProfile.EnemyRangeIndicator_YellowMaxTiles = Math.Clamp(
+                    yellowMax,
+                    EnemyRangeBucketHelper.MinRangeTiles,
+                    EnemyRangeBucketHelper.MaxRangeTiles
+                );
+            }
+
+            if (int.TryParse(_dust765EnemyRangeIndicatorRedMax.Text, out int redMax))
+            {
+                _currentProfile.EnemyRangeIndicator_RedMaxTiles = Math.Clamp(
+                    redMax,
+                    EnemyRangeBucketHelper.MinRangeTiles,
+                    EnemyRangeBucketHelper.MaxRangeTiles
+                );
+            }
+
+            EnemyRangeBucketHelper.NormalizeRangeTiles(_currentProfile);
+            _dust765EnemyRangeIndicatorGreenMax.SetText(
+                _currentProfile.EnemyRangeIndicator_GreenMaxTiles.ToString()
+            );
+            _dust765EnemyRangeIndicatorYellowMax.SetText(
+                _currentProfile.EnemyRangeIndicator_YellowMaxTiles.ToString()
+            );
+            _dust765EnemyRangeIndicatorRedMax.SetText(
+                _currentProfile.EnemyRangeIndicator_RedMaxTiles.ToString()
+            );
+            EnemyRangeIndicatorGump.RefreshOpenGump(World);
+        }
+
         internal void ApplyDust765Profile()
         {
             _currentProfile.AvoidObstacles = _dust765AvoidObstacles.IsChecked;
@@ -1010,7 +1345,10 @@ namespace ClassicUO.Game.UI.Gumps
             _currentProfile.EnemyRangeIndicator_Locked = _dust765EnemyRangeIndicatorLocked.IsChecked;
             _currentProfile.EnemyRangeIndicator_LastTargetOnly = _dust765EnemyRangeIndicatorLastTargetOnly.IsChecked;
             _currentProfile.EnemyRangeIndicator_ShowOnLastTarget = _dust765EnemyRangeIndicatorShowOnLastTarget.IsChecked;
-            EnemyRangeIndicatorGump.RefreshOpenGump(World);
+            ApplyEnemyRangeIndicatorRangeTiles();
+            _currentProfile.AllyRangeIndicator = _dust765AllyRangeIndicator.IsChecked;
+            _currentProfile.AllyRangeIndicator_Locked = _dust765AllyRangeIndicatorLocked.IsChecked;
+            ApplyAllyRangeIndicatorRangeTiles();
             _currentProfile.NamePlateHealthBar = _dust765NamePlateHealthBar.IsChecked;
             _currentProfile.NamePlateHealthBarOpacity = (byte)Math.Clamp(_dust765NamePlateOpacity.Value, 0, 100);
             _currentProfile.UseOldHealthBars = _dust765UseOldHealthBars.IsChecked;

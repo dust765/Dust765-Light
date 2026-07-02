@@ -1,4 +1,4 @@
-﻿// SPDX-License-Identifier: BSD-2-Clause
+// SPDX-License-Identifier: BSD-2-Clause
 
 using ClassicUO.Configuration;
 using ClassicUO.Game;
@@ -46,7 +46,12 @@ namespace ClassicUO
 #if DEBUG
             Log.Start(LogTypes.All);
 #else
-            Log.Start(LogTypes.None);
+            Log.Start(ConsoleLog.IsEnabled() ? LogTypes.All : LogTypes.None);
+
+            if (ConsoleLog.IsEnabled())
+            {
+                Log.Warn($"Console logging enabled — {CUOEnviroment.Version}");
+            }
 #endif
 
             DllMap.Init();

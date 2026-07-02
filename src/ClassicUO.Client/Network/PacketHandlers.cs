@@ -44,6 +44,8 @@ namespace ClassicUO.Network
 
         private List<uint> _clilocRequests = new List<uint>();
         private List<uint> _customHouseRequests = new List<uint>();
+        private readonly Dictionary<uint, uint> _houseRequestSentAt = new Dictionary<uint, uint>();
+        private const uint HouseRequestCooldownMs = 750;
         private readonly OnPacketBufferReader[] _handlers = new OnPacketBufferReader[0x100];
 
         public static PacketHandlers Handler { get; } = new PacketHandlers();
@@ -70,6 +72,13 @@ namespace ClassicUO.Network
         private const int LargeMegaClilocPacketBytes = 4096;
         private const int OversizedMegaClilocPacketBytes = 12288;
         private const int MaxMegaClilocLines = 48;
+
+        public static void MarkOversizedOplSerial(uint serial)
+        {
+            Handler._oversizedOplSerials.Add(serial);
+        }
+
+        public static bool IsOversizedOplItem(uint serial) => Handler._oversizedOplSerials.Contains(serial);
 
         public int ParsePackets(NetClient socket, World world, Span<byte> data)
         {
@@ -383,6 +392,17 @@ namespace ClassicUO.Network
 
         public static void SendMegaClilocRequests(World world)
         {
+            if (Handler._customHouseRequests.Count > 0)
+            {
+                uint[] pending = Handler._customHouseRequests.ToArray();
+                Handler._customHouseRequests.Clear();
+
+                for (int i = 0; i < pending.Length; i++)
+                {
+                    RequestCustomHouseData(world, pending[i]);
+                }
+            }
+
             if (
                 world.ClientFeatures.TooltipsEnabled
                 && Handler._clilocRequests.Count != 0
@@ -391,37 +411,110 @@ namespace ClassicUO.Network
             {
                 Handler._nextMegaClilocSendTime = Time.Ticks + MegaClilocSendIntervalMs;
 
-                if (Client.Game.UO.Version >= Utility.ClientVersion.CV_5090)
+                for (int i = Handler._clilocRequests.Count - 1; i >= 0; i--)
                 {
-                    NetClient.Socket.Send_MegaClilocRequest(Handler._clilocRequests);
-                }
-                else
-                {
-                    foreach (uint serial in Handler._clilocRequests)
+                    if (ShouldSkipOplRequest(world, Handler._clilocRequests[i]))
                     {
-                        NetClient.Socket.Send_MegaClilocRequest_Old(serial);
+                        Handler._clilocRequests.RemoveAt(i);
                     }
-
-                    Handler._clilocRequests.Clear();
                 }
-            }
 
-            if (Handler._customHouseRequests.Count > 0)
-            {
-                for (int i = 0; i < Handler._customHouseRequests.Count; ++i)
+                if (Handler._clilocRequests.Count > 0)
                 {
-                    NetClient.Socket.Send_CustomHouseDataRequest(Handler._customHouseRequests[i]);
-                }
+                    if (Client.Game.UO.Version >= Utility.ClientVersion.CV_5090)
+                    {
+                        NetClient.Socket.Send_MegaClilocRequest(Handler._clilocRequests);
+                    }
+                    else
+                    {
+                        foreach (uint serial in Handler._clilocRequests)
+                        {
+                            NetClient.Socket.Send_MegaClilocRequest_Old(serial);
+                        }
 
-                Handler._customHouseRequests.Clear();
+                        Handler._clilocRequests.Clear();
+                    }
+                }
             }
+        }
+
+        public static void QueueCustomHouseRequest(uint serial)
+        {
+            if (serial == 0)
+            {
+                return;
+            }
+
+            foreach (uint s in Handler._customHouseRequests)
+            {
+                if (s == serial)
+                {
+                    return;
+                }
+            }
+
+            Handler._customHouseRequests.Add(serial);
+        }
+
+        public static void RequestCustomHouseData(World world, uint serial)
+        {
+            if (world == null || serial == 0)
+            {
+                return;
+            }
+
+            Item foundation = world.Items.Get(serial);
+
+            if (foundation == null)
+            {
+                Log.Trace($"[House] 0xD8 request queued — foundation 0x{serial:X} not in world yet");
+                QueueCustomHouseRequest(serial);
+
+                return;
+            }
+
+            if (foundation.MultiInfo == null)
+            {
+                foundation.WantUpdateMulti = true;
+                foundation.CheckGraphicChange();
+            }
+
+            if (!foundation.IsMulti || foundation.MultiInfo == null)
+            {
+                Log.Trace($"[House] 0xD8 request queued — multi info missing for 0x{serial:X}");
+                QueueCustomHouseRequest(serial);
+
+                return;
+            }
+
+            if (
+                Handler._houseRequestSentAt.TryGetValue(serial, out uint nextAllowed)
+                && Time.Ticks < nextAllowed
+            )
+            {
+                return;
+            }
+
+            Log.Trace($"[House] sending 0xD8 request for foundation 0x{serial:X}");
+            Handler._houseRequestSentAt[serial] = Time.Ticks + HouseRequestCooldownMs;
+            NetClient.Socket.Send_CustomHouseDataRequest(serial);
+
+            if (UoDreamsNetworkOptimizer.IsShard(world))
+            {
+                UoDreamsNetworkOptimizer.MarkHouseLoadPending(serial);
+            }
+        }
+
+        public static void TrySendCustomHouseDataRequest(World world, uint serial)
+        {
+            RequestCustomHouseData(world, serial);
         }
 
         public static void AddMegaClilocRequest(uint serial)
         {
             World world = Client.Game.GetScene<GameScene>()?.World;
 
-            if (world != null && ShouldSkipLiteContainerTooltip(world, serial))
+            if (world != null && ShouldSkipOplRequest(world, serial))
             {
                 return;
             }
@@ -456,20 +549,23 @@ namespace ClassicUO.Network
             Handler._clilocRequests.Add(serial);
         }
 
-        public static bool IsOversizedOplItem(uint serial) => Handler._oversizedOplSerials.Contains(serial);
-
-        public static bool ShouldSkipLiteContainerTooltip(World world, uint serial)
+        public static bool ShouldSkipOplRequest(World world, uint serial)
         {
-            Profile profile = ProfileManager.CurrentProfile;
+            Item item = world.Items.Get(serial);
 
-            if (profile == null || !profile.LiteContainerTooltipsEnabled)
+            if (UoDreamsNetworkOptimizer.IsStoneRoofProblemItem(world, item))
+            {
+                UoDreamsNetworkOptimizer.EnsureStubOpl(world, serial, item);
+
+                return true;
+            }
+
+            if (item == null || item.OnGround)
             {
                 return false;
             }
 
-            Item item = world.Items.Get(serial);
-
-            if (item == null || item.OnGround)
+            if (IsInsidePlayerBackpack(world, item))
             {
                 return false;
             }
@@ -481,7 +577,102 @@ namespace ClassicUO.Network
                 return false;
             }
 
-            return parent is Item;
+            if (IsInsideClosedWorldContainer(world, item))
+            {
+                return true;
+            }
+
+            Profile profile = ProfileManager.CurrentProfile;
+
+            if (profile != null && profile.LiteContainerTooltipsEnabled && parent is Item)
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool IsInsideClosedWorldContainer(World world, Item item)
+        {
+            Item backpack = world.Player?.FindItemByLayer(Layer.Backpack);
+            uint backpackSerial = backpack?.Serial ?? 0;
+
+            Item current = item;
+
+            for (int i = 0; i < 32; i++)
+            {
+                if (!SerialHelper.IsValid(current.Container))
+                {
+                    return false;
+                }
+
+                if (backpackSerial != 0 && current.Container == backpackSerial)
+                {
+                    return false;
+                }
+
+                Entity parent = world.Get(current.Container);
+
+                if (parent is Mobile)
+                {
+                    return false;
+                }
+
+                if (parent is Item container)
+                {
+                    if (
+                        !container.Opened
+                        && (container.IsCorpse || container.ItemData.IsContainer)
+                    )
+                    {
+                        return true;
+                    }
+
+                    current = container;
+                    continue;
+                }
+
+                return false;
+            }
+
+            return false;
+        }
+
+        private static bool IsInsidePlayerBackpack(World world, Item item)
+        {
+            Item backpack = world.Player?.FindItemByLayer(Layer.Backpack);
+
+            if (backpack == null)
+            {
+                return false;
+            }
+
+            Item current = item;
+
+            for (int i = 0; i < 32; i++)
+            {
+                if (!SerialHelper.IsValid(current.Container))
+                {
+                    return false;
+                }
+
+                if (current.Container == backpack.Serial)
+                {
+                    return true;
+                }
+
+                Entity parent = world.Get(current.Container);
+
+                if (parent is Item parentItem)
+                {
+                    current = parentItem;
+                    continue;
+                }
+
+                return false;
+            }
+
+            return false;
         }
 
 #if DEBUG
@@ -1120,8 +1311,9 @@ namespace ClassicUO.Network
                 && ProfileManager.CurrentProfile != null
             )
             {
-                NetClient.Socket.Send_ShowPublicHouseContent(
-                    ProfileManager.CurrentProfile.ShowHouseContent
+                HouseContentVisibilityHelper.SendShowHouseContentPreference(
+                    world,
+                    ProfileManager.CurrentProfile
                 );
             }
 
@@ -1304,6 +1496,7 @@ namespace ClassicUO.Network
                 if (item.IsMulti)
                 {
                     world.HouseManager.Remove(serial);
+                    UoDreamsNetworkOptimizer.ClearHouseLoadPending(serial);
                 }
 
                 Entity cont = world.Get(item.Container);
@@ -2472,7 +2665,12 @@ namespace ClassicUO.Network
                     {
                         UIManager.Add(gump);
                     }
+
+                    UIManager.ClampAllGumpsToScreen();
+                    WorldViewportGump.SyncGameViewportOnLoad();
                 }
+
+                scene.RefreshHousesOnLogin();
             }
         }
 
@@ -3714,6 +3912,7 @@ namespace ClassicUO.Network
             //}
 
             GameActions.SendCloseStatus(world, world.TargetManager.LastAttack);
+            world.TargetManager.SetTrackedMobile(serial);
             world.TargetManager.LastAttack = serial;
             GameActions.RequestMobileStatus(world, serial);
         }
@@ -4764,6 +4963,12 @@ namespace ClassicUO.Network
                     if (multi == null)
                     {
                         world.HouseManager.Remove(serial);
+                        UoDreamsNetworkOptimizer.ClearHouseLoadPending(serial);
+                    }
+                    else if (multi.MultiInfo == null)
+                    {
+                        multi.WantUpdateMulti = true;
+                        multi.CheckGraphicChange();
                     }
 
                     if (
@@ -4772,7 +4977,7 @@ namespace ClassicUO.Network
                         || house.Revision != revision
                     )
                     {
-                        Handler._customHouseRequests.Add(serial);
+                        QueueCustomHouseRequest(serial);
                     }
                     else
                     {
@@ -5141,6 +5346,32 @@ namespace ClassicUO.Network
                 }
 
                 entity = world.Items.Get(serial);
+            }
+
+            if (entity is Item uoDreamsItem && UoDreamsNetworkOptimizer.IsStoneRoofProblemItem(world, uoDreamsItem))
+            {
+                MarkOversizedOplSerial(serial);
+
+                string stubName = uoDreamsItem.Name;
+
+                if (string.IsNullOrEmpty(stubName))
+                {
+                    stubName = uoDreamsItem.ItemData.Name;
+                }
+
+                if (string.IsNullOrEmpty(stubName))
+                {
+                    stubName = "stone roof";
+                }
+
+                world.OPL.Add(serial, revision, stubName, string.Empty, 0, null);
+
+                if (p.Position < p.Length)
+                {
+                    p.Seek(p.Length);
+                }
+
+                return;
             }
 
             List<(int, string, int)> list = new List<(int, string, int)>();
@@ -5521,13 +5752,27 @@ namespace ClassicUO.Network
 
             if (foundation == null)
             {
+                Log.Warn($"[House] 0xD8 received but foundation 0x{serial:X} missing — re-queueing");
+                QueueCustomHouseRequest(serial);
+                p.Seek(p.Length);
+
                 return;
+            }
+
+            if (foundation.MultiInfo == null)
+            {
+                foundation.WantUpdateMulti = true;
+                foundation.CheckGraphicChange();
             }
 
             Rectangle? multi = foundation.MultiInfo;
 
             if (!foundation.IsMulti || multi == null)
             {
+                Log.Warn($"[House] 0xD8 received before multi info ready for 0x{serial:X} — re-queueing");
+                QueueCustomHouseRequest(serial);
+                p.Seek(p.Length);
+
                 return;
             }
 
@@ -5592,6 +5837,18 @@ namespace ClassicUO.Network
                 p.Skip(clen);
             }
 
+            UoDreamsNetworkOptimizer.ClearHouseLoadPending(serial);
+
+            Log.Trace($"[House] 0xD8 applied for 0x{serial:X} — {house.Components.Count} components");
+
+            Handler._houseRequestSentAt.Remove(serial);
+            house.IsCustom = true;
+
+            house.RelinkComponentsToTiles();
+            world.Map?.EnsureChunksLoadedForHouse(foundation);
+            world.Map?.MarkChunksMeshDirtyForHouse(foundation);
+            world.HouseManager.ScheduleRelink(serial);
+
             if (world.CustomHouseManager != null)
             {
                 world.CustomHouseManager.GenerateFloorPlace();
@@ -5603,7 +5860,14 @@ namespace ClassicUO.Network
 
             if (world.HouseManager.EntityIntoHouse(serial, world.Player))
             {
-                Client.Game.GetScene<GameScene>()?.UpdateMaxDrawZ(true);
+                GameScene gameScene = Client.Game.GetScene<GameScene>();
+
+                gameScene?.UpdateMaxDrawZ(true);
+
+                if (gameScene != null)
+                {
+                    gameScene.UpdateDrawPosition = true;
+                }
             }
 
             world.BoatMovingManager.ClearSteps(serial);
@@ -6685,7 +6949,8 @@ namespace ClassicUO.Network
                 {
                     item.IsMulti = true;
                     item.WantUpdateMulti =
-                        (graphic & 0x3FFF) != item.Graphic
+                        created
+                        || (graphic & 0x3FFF) != item.Graphic
                         || item.X != x
                         || item.Y != y
                         || item.Z != z

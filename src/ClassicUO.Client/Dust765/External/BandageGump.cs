@@ -3,6 +3,7 @@
 using System;
 using ClassicUO.Assets;
 using ClassicUO.Configuration;
+using ClassicUO.Dust765;
 using ClassicUO.Game;
 using ClassicUO.Game.GameObjects;
 using ClassicUO.Game.Managers;
@@ -57,10 +58,10 @@ namespace ClassicUO.Dust765.External
 
         private BandageDialControl _dial;
         private AlphaBlendControl _panelBg;
-        private BandageFrameControl _frame;
-        private BandageFillBar _barShell;
-        private BandageFillBar _barTrack;
-        private BandageFillBar _barFill;
+        private HudPanelFrameControl _frame;
+        private HudFillBar _barShell;
+        private HudFillBar _barTrack;
+        private HudFillBar _barFill;
         private Label _timerLabel;
 
         private bool _useTime;
@@ -176,7 +177,7 @@ namespace ClassicUO.Dust765.External
             );
 
             Add(
-                _frame = new BandageFrameControl
+                _frame = new HudPanelFrameControl
                 {
                     X = 0,
                     Y = 0,
@@ -186,15 +187,15 @@ namespace ClassicUO.Dust765.External
                 }
             );
 
-            _barShell = new BandageFillBar(_barX, _barY, LINE_BAR_OUTER_W, LINE_BAR_OUTER_H, COLOR_SHELL);
+            _barShell = new HudFillBar(_barX, _barY, LINE_BAR_OUTER_W, LINE_BAR_OUTER_H, COLOR_SHELL);
             _barShell.AcceptMouseInput = false;
             Add(_barShell);
 
-            _barTrack = new BandageFillBar(trackX, trackY, LINE_BAR_TRACK_W, LINE_BAR_TRACK_H, COLOR_TRACK);
+            _barTrack = new HudFillBar(trackX, trackY, LINE_BAR_TRACK_W, LINE_BAR_TRACK_H, COLOR_TRACK);
             _barTrack.AcceptMouseInput = false;
             Add(_barTrack);
 
-            _barFill = new BandageFillBar(trackX, trackY, LINE_BAR_TRACK_W, LINE_BAR_TRACK_H, COLOR_FILL);
+            _barFill = new HudFillBar(trackX, trackY, LINE_BAR_TRACK_W, LINE_BAR_TRACK_H, COLOR_FILL);
             _barFill.AcceptMouseInput = false;
             Add(_barFill);
 
@@ -441,63 +442,6 @@ namespace ClassicUO.Dust765.External
 
             world.Player.BandageTimer = gump;
             UIManager.Add(gump);
-        }
-
-        private sealed class BandageFrameControl : Control
-        {
-            private static readonly Texture2D _texture = SolidColorTextureCache.GetTexture(Color.White);
-
-            public override bool AddToRenderLists(RenderLists renderLists, int x, int y, ref float layerDepthRef)
-            {
-                float layerDepth = layerDepthRef;
-                Vector3 outer = ShaderHueTranslator.GetHueVector(34, false, Alpha * 0.55f);
-                Vector3 inner = ShaderHueTranslator.GetHueVector(0, false, Alpha * 0.35f);
-
-                renderLists.AddGumpNoAtlas(batcher =>
-                {
-                    batcher.DrawRectangle(_texture, x, y, Width, Height, outer, layerDepth);
-                    batcher.DrawRectangle(_texture, x + 1, y + 1, Width - 2, Height - 2, inner, layerDepth);
-                    return true;
-                });
-
-                return true;
-            }
-        }
-
-        private sealed class BandageFillBar : Control
-        {
-            private Texture2D _texture;
-
-            public BandageFillBar(int x, int y, int maxWidth, int height, uint colorPacked)
-            {
-                X = x;
-                Y = y;
-                Width = maxWidth;
-                Height = height;
-                SetColor(colorPacked);
-            }
-
-            public int FillWidth { get; set; }
-
-            public void SetColor(uint colorPacked)
-            {
-                _texture = SolidColorTextureCache.GetTexture(new Color { PackedValue = colorPacked });
-            }
-
-            public override bool AddToRenderLists(RenderLists renderLists, int x, int y, ref float layerDepthRef)
-            {
-                float layerDepth = layerDepthRef;
-                int w = Math.Max(0, Math.Min(FillWidth, Width));
-                Vector3 hueVector = ShaderHueTranslator.GetHueVector(0, false, Alpha);
-
-                renderLists.AddGumpNoAtlas(batcher =>
-                {
-                    batcher.Draw(_texture, new Rectangle(x, y, w, Height), hueVector, layerDepth);
-                    return true;
-                });
-
-                return true;
-            }
         }
 
         private sealed class BandageIconControl : Control

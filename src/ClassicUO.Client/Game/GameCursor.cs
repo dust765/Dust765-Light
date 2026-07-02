@@ -385,7 +385,30 @@ namespace ClassicUO.Game
                 {
                     if (UIManager.IsMouseOverWorld)
                     {
-                        if (SelectedObject.Object is GameObject obj)
+                        if (SelectedObject.Object is Mobile mobile)
+                        {
+                            string dist = mobile.Distance.ToString();
+                            Vector3 hue = new Vector3(0, 1, 1f);
+                            sb.DrawString(
+                                Fonts.Bold,
+                                dist,
+                                Mouse.Position.X - 26,
+                                Mouse.Position.Y - 21,
+                                hue,
+                                0f
+                            );
+
+                            hue.Y = 0;
+                            sb.DrawString(
+                                Fonts.Bold,
+                                dist,
+                                Mouse.Position.X - 25,
+                                Mouse.Position.Y - 20,
+                                hue,
+                                0f
+                            );
+                        }
+                        else if (SelectedObject.Object is GameObject obj)
                         {
                             string dist = obj.Distance.ToString();
 
