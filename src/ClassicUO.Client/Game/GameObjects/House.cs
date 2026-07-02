@@ -1,4 +1,4 @@
-﻿// SPDX-License-Identifier: BSD-2-Clause
+// SPDX-License-Identifier: BSD-2-Clause
 
 using System;
 using System.Collections.Generic;
@@ -101,6 +101,19 @@ namespace ClassicUO.Game.GameObjects
                     {
                         Components.RemoveAt(i--);
                     }
+                }
+            }
+        }
+
+        public void RelinkComponentsToTiles()
+        {
+            for (int i = 0; i < Components.Count; i++)
+            {
+                Multi component = Components[i];
+
+                if (!component.IsDestroyed)
+                {
+                    component.SetInWorldTile(component.X, component.Y, component.Z);
                 }
             }
         }

@@ -289,7 +289,7 @@ namespace ClassicUO.Game
                 }
             }
 
-            world.TargetManager.NewTargetSystemSerial = serial;
+            world.TargetManager.SetTrackedMobile(serial);
             world.TargetManager.LastAttack = serial;
             Socket.Send_AttackRequest(serial);
         }
@@ -315,7 +315,7 @@ namespace ClassicUO.Game
             {
                 if (SerialHelper.IsMobile(serial))
                 {
-                    world.TargetManager.NewTargetSystemSerial = serial;
+                    world.TargetManager.SetTrackedMobile(serial);
                 }
                 world.LastObject = serial;
             }

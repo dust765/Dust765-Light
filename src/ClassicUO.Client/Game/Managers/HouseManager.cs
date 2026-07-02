@@ -1,14 +1,18 @@
-﻿// SPDX-License-Identifier: BSD-2-Clause
+// SPDX-License-Identifier: BSD-2-Clause
 
 using System;
 using System.Collections.Generic;
 using ClassicUO.Game.GameObjects;
+using ClassicUO.Game.Map;
+using ClassicUO.Game.Scenes;
+using ClassicUO.Network;
 
 namespace ClassicUO.Game.Managers
 {
     internal sealed class HouseManager
     {
         private readonly Dictionary<uint, House> _houses = new Dictionary<uint, House>();
+        private readonly HashSet<uint> _housesNeedingRelink = new HashSet<uint>();
         private readonly World _world;
 
         public HouseManager(World world)
@@ -49,8 +53,8 @@ namespace ClassicUO.Game.Managers
         {
             if (TryGetHouse(serial, out _))
             {
-                int currX = _world.RangeSize.X;
-                int currY = _world.RangeSize.Y;
+                int currX = _world.Player != null ? _world.Player.X : _world.RangeSize.X;
+                int currY = _world.Player != null ? _world.Player.Y : _world.RangeSize.Y;
 
                 //if (World.Player.IsMoving)
                 //{
@@ -78,6 +82,213 @@ namespace ClassicUO.Game.Managers
             }
 
             return false;
+        }
+
+        public void EnsurePlayerHouseWalls()
+        {
+            if (_world.Player == null || _world.Map == null)
+            {
+                return;
+            }
+
+            foreach (Item foundation in _world.Items.Values)
+            {
+                if (foundation == null || foundation.IsDestroyed || !foundation.IsMulti || !foundation.OnGround)
+                {
+                    continue;
+                }
+
+                if (!EntityIntoHouse(foundation.Serial, _world.Player))
+                {
+                    continue;
+                }
+
+                TryGetHouse(foundation.Serial, out House house);
+
+                int customCount = 0;
+
+                if (house != null)
+                {
+                    for (int i = 0; i < house.Components.Count; i++)
+                    {
+                        Multi component = house.Components[i];
+
+                        if (component.IsCustom && !component.IsDestroyed)
+                        {
+                            customCount++;
+                        }
+                    }
+                }
+
+                if (customCount == 0)
+                {
+                    PacketHandlers.RequestCustomHouseData(_world, foundation.Serial);
+
+                    continue;
+                }
+
+                _world.Map.EnsureChunksLoadedForHouse(foundation);
+
+                if (house != null && HouseNeedsRelink(house))
+                {
+                    house.RelinkComponentsToTiles();
+                }
+
+                _world.Map.MarkChunksMeshDirtyForHouse(foundation);
+            }
+        }
+
+        public void ScheduleRelink(uint serial)
+        {
+            if (serial != 0)
+            {
+                _housesNeedingRelink.Add(serial);
+            }
+        }
+
+        public void RelinkCustomHousesNearPlayer()
+        {
+            if (_world.Player == null || _world.Map == null)
+            {
+                return;
+            }
+
+            foreach (House house in _houses.Values)
+            {
+                if (!house.IsCustom)
+                {
+                    continue;
+                }
+
+                Item foundation = _world.Items.Get(house.Serial);
+
+                if (foundation == null)
+                {
+                    continue;
+                }
+
+                if (
+                    !EntityIntoHouse(house.Serial, _world.Player)
+                    && !IsHouseInRange(house.Serial, _world.ClientViewRange)
+                )
+                {
+                    continue;
+                }
+
+                if (!HouseNeedsRelink(house))
+                {
+                    continue;
+                }
+
+                _world.Map.EnsureChunksLoadedForHouse(foundation);
+                house.RelinkComponentsToTiles();
+                _world.Map.MarkChunksMeshDirtyForHouse(foundation);
+
+                GameScene scene = Client.Game.GetScene<GameScene>();
+
+                if (scene != null)
+                {
+                    scene.UpdateMaxDrawZ(true);
+                    scene.UpdateDrawPosition = true;
+                }
+            }
+        }
+
+        public void ProcessPendingRelinks()
+        {
+            if (_housesNeedingRelink.Count == 0)
+            {
+                RelinkCustomHousesNearPlayer();
+
+                return;
+            }
+
+            if (_world.Player == null || _world.Map == null)
+            {
+                return;
+            }
+
+            uint[] pending = new uint[_housesNeedingRelink.Count];
+            _housesNeedingRelink.CopyTo(pending);
+
+            for (int i = 0; i < pending.Length; i++)
+            {
+                uint serial = pending[i];
+
+                if (!TryGetHouse(serial, out House house) || !house.IsCustom)
+                {
+                    _housesNeedingRelink.Remove(serial);
+
+                    continue;
+                }
+
+                Item foundation = _world.Items.Get(serial);
+
+                if (foundation == null)
+                {
+                    _housesNeedingRelink.Remove(serial);
+
+                    continue;
+                }
+
+                _world.Map.EnsureChunksLoadedForHouse(foundation);
+                house.RelinkComponentsToTiles();
+                _world.Map.MarkChunksMeshDirtyForHouse(foundation);
+                _housesNeedingRelink.Remove(serial);
+
+                GameScene scene = Client.Game.GetScene<GameScene>();
+
+                if (scene != null)
+                {
+                    scene.UpdateMaxDrawZ(true);
+                    scene.UpdateDrawPosition = true;
+                }
+            }
+
+            RelinkCustomHousesNearPlayer();
+        }
+
+        private bool HouseNeedsRelink(House house)
+        {
+            for (int i = 0; i < house.Components.Count; i++)
+            {
+                Multi component = house.Components[i];
+
+                if (component.IsDestroyed || !component.IsCustom)
+                {
+                    continue;
+                }
+
+                if (ComponentNeedsRelink(component))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private bool ComponentNeedsRelink(Multi component)
+        {
+            Chunk chunk = _world.Map?.GetChunk(component.X, component.Y, false);
+
+            if (chunk == null)
+            {
+                return true;
+            }
+
+            int cellX = component.X % 8;
+            int cellY = component.Y % 8;
+
+            for (GameObject obj = chunk.GetHeadObject(cellX, cellY); obj != null; obj = obj.TNext)
+            {
+                if (ReferenceEquals(obj, component))
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         public bool EntityIntoHouse(uint house, GameObject obj)

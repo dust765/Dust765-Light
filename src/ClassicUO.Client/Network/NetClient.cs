@@ -8,6 +8,9 @@ using System.Net;
 using System.Net.Sockets;
 using System.Net.WebSockets;
 using ClassicUO.Network.Socket;
+using ClassicUO.Game;
+using ClassicUO.Game.Managers;
+using ClassicUO.Game.Scenes;
 
 namespace ClassicUO.Network
 {
@@ -232,6 +235,12 @@ namespace ClassicUO.Network
             if (message.IsEmpty)
                 return;
 
+            World world = Client.Game?.GetScene<GameScene>()?.World;
+            if (world != null)
+            {
+                TargetManager.TryTrackOutgoingPacket(world, message);
+            }
+
             PacketLogger.Default?.Log(message, true);
 
             if (!skipEncryption)
@@ -264,6 +273,12 @@ namespace ClassicUO.Network
             if (message.IsEmpty)
             {
                 return;
+            }
+
+            World world = Client.Game?.GetScene<GameScene>()?.World;
+            if (world != null)
+            {
+                TargetManager.TryTrackOutgoingPacket(world, message);
             }
 
             PacketLogger.Default?.Log(message, true);

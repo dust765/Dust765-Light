@@ -195,6 +195,11 @@ namespace ClassicUO.Game.GameObjects
                 return false;
             }
 
+            if (!HouseContentVisibilityHelper.ShouldDrawItem(this))
+            {
+                return false;
+            }
+
             DrawStaticAnimated(batcher, graphic, posX, posY, hueVec, false, depth);
 
             return true;
@@ -500,6 +505,11 @@ namespace ClassicUO.Game.GameObjects
                 }
 
                 if (HouseVisibilityHelper.IsInvisibleHouseTile(this))
+                {
+                    return false;
+                }
+
+                if (!HouseContentVisibilityHelper.ShouldDrawItem(this))
                 {
                     return false;
                 }

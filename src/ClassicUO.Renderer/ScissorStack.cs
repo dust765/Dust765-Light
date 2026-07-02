@@ -1,4 +1,4 @@
-﻿// SPDX-License-Identifier: BSD-2-Clause
+// SPDX-License-Identifier: BSD-2-Clause
 
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -39,6 +39,28 @@ namespace ClassicUO.Renderer
                 scissor.Width = maxX - minX;
                 scissor.Height = Math.Max(1, maxY - minY);
             }
+
+            Rectangle viewport = device.Viewport.Bounds;
+            int viewportMinX = Math.Max(viewport.X, scissor.X);
+            int viewportMaxX = Math.Min(viewport.X + viewport.Width, scissor.X + scissor.Width);
+
+            if (viewportMaxX - viewportMinX < 1)
+            {
+                return false;
+            }
+
+            int viewportMinY = Math.Max(viewport.Y, scissor.Y);
+            int viewportMaxY = Math.Min(viewport.Y + viewport.Height, scissor.Y + scissor.Height);
+
+            if (viewportMaxY - viewportMinY < 1)
+            {
+                return false;
+            }
+
+            scissor.X = viewportMinX;
+            scissor.Y = viewportMinY;
+            scissor.Width = viewportMaxX - viewportMinX;
+            scissor.Height = Math.Max(1, viewportMaxY - viewportMinY);
 
             _scissors.Push(scissor);
             device.ScissorRectangle = scissor;

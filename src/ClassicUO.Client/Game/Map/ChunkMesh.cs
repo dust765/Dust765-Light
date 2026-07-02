@@ -273,7 +273,7 @@ namespace ClassicUO.Game.Map
             if (!multi.AllowedToDraw || multi.IsDestroyed)
                 return;
 
-            if (multi.State != 0)
+            if (multi.State != 0 && !multi.IsCustom)
                 return;
 
             CountStaticLike(chunk, multi, ref multi.ItemData, multi.Graphic);
@@ -416,7 +416,7 @@ namespace ClassicUO.Game.Map
             if (!multi.AllowedToDraw || multi.IsDestroyed)
                 return;
 
-            if (multi.State != 0)
+            if (multi.State != 0 && !multi.IsCustom)
                 return;
 
             TryAddStaticLike(chunk, multi, ref multi.ItemData, multi.Graphic, multi.Hue);

@@ -11,7 +11,7 @@ using Microsoft.Xna.Framework;
 
 namespace ClassicUO.Dust765
 {
-    internal sealed class EnemyRangeIndicatorGump : Gump
+    internal sealed class AllyRangeIndicatorGump : Gump
     {
         private const int BUCKET_SIZE = 26;
         private const int BUCKET_GAP = 5;
@@ -24,7 +24,7 @@ namespace ClassicUO.Dust765
         private readonly RangeBucketGumpControl _red;
         private uint _nextScanTick;
 
-        public EnemyRangeIndicatorGump(World world)
+        public AllyRangeIndicatorGump(World world)
             : base(world, 0, 0)
         {
             CanMove = true;
@@ -36,7 +36,7 @@ namespace ClassicUO.Dust765
 
             Profile profile = ProfileManager.CurrentProfile;
 
-            if (profile != null && profile.EnemyRangeIndicator_Locked)
+            if (profile != null && profile.AllyRangeIndicator_Locked)
             {
                 CanMove = false;
                 AcceptMouseInput = false;
@@ -60,7 +60,7 @@ namespace ClassicUO.Dust765
             int greenX = PANEL_PADDING;
 
             _green = new RangeBucketGumpControl(
-                Color.FromNonPremultiplied(80, 185, 75, 255),
+                Color.FromNonPremultiplied(70, 145, 220, 255),
                 0x3F,
                 BUCKET_SIZE
             );
@@ -69,7 +69,7 @@ namespace ClassicUO.Dust765
             Add(_green);
 
             _yellow = new RangeBucketGumpControl(
-                Color.FromNonPremultiplied(210, 175, 55, 255),
+                Color.FromNonPremultiplied(90, 185, 210, 255),
                 0x35,
                 BUCKET_SIZE
             );
@@ -78,7 +78,7 @@ namespace ClassicUO.Dust765
             Add(_yellow);
 
             _red = new RangeBucketGumpControl(
-                Color.FromNonPremultiplied(200, 70, 55, 255),
+                Color.FromNonPremultiplied(120, 100, 200, 255),
                 0x26,
                 BUCKET_SIZE
             );
@@ -108,7 +108,7 @@ namespace ClassicUO.Dust765
 
             if (profile != null)
             {
-                profile.EnemyRangeIndicatorLocation = new Point(ScreenCoordinateX, ScreenCoordinateY);
+                profile.AllyRangeIndicatorLocation = new Point(ScreenCoordinateX, ScreenCoordinateY);
             }
         }
 
@@ -134,16 +134,27 @@ namespace ClassicUO.Dust765
 
         private void RefreshBucketCounts()
         {
-            EnemyRangeBucketHelper.CountBuckets(World, out int greenCount, out int yellowCount, out int redCount);
+            AllyRangeBucketHelper.CountBuckets(
+                World,
+                out int greenCount,
+                out int yellowCount,
+                out int redCount,
+                out ushort greenHue,
+                out ushort yellowHue,
+                out ushort redHue
+            );
 
             _green.SetCount(greenCount);
             _yellow.SetCount(yellowCount);
             _red.SetCount(redCount);
+            _green.SetBorderHue(greenHue);
+            _yellow.SetBorderHue(yellowHue);
+            _red.SetBorderHue(redHue);
         }
 
         internal static void RefreshOpenGump(World world)
         {
-            EnemyRangeIndicatorGump existing = UIManager.GetGump<EnemyRangeIndicatorGump>();
+            AllyRangeIndicatorGump existing = UIManager.GetGump<AllyRangeIndicatorGump>();
 
             if (existing != null)
             {
@@ -152,18 +163,18 @@ namespace ClassicUO.Dust765
 
             Profile profile = ProfileManager.CurrentProfile;
 
-            if (profile == null || !profile.EnemyRangeIndicator || world == null)
+            if (profile == null || !profile.AllyRangeIndicator || world == null)
             {
                 return;
             }
 
-            Point location = profile.EnemyRangeIndicatorLocation;
+            Point location = profile.AllyRangeIndicatorLocation;
             int maxX = Math.Max(0, Client.Game.ClientBounds.Width - 90);
             int maxY = Math.Max(0, Client.Game.ClientBounds.Height - 40);
             location.X = Math.Clamp(location.X, 0, maxX);
             location.Y = Math.Clamp(location.Y, 0, maxY);
 
-            EnemyRangeIndicatorGump gump = new EnemyRangeIndicatorGump(world)
+            AllyRangeIndicatorGump gump = new AllyRangeIndicatorGump(world)
             {
                 X = location.X,
                 Y = location.Y
