@@ -13,6 +13,7 @@ usage() {
   echo "ClassicUO.exe subsystem (Bootstrap only; Windows):"
   echo "  --winexe     WinExe — no extra console window (default)"
   echo "  --console    Exe   — show console (stdout / alloc console)"
+  echo "               also enables in-game Log.* output (CONSOLE_LOG)"
   echo "  --exe        same as --console"
   echo ""
   echo "Console output during build (dotnet --verbosity):"
@@ -26,15 +27,18 @@ usage() {
 
 VERBOSITY="minimal"
 BOOTSTRAP_OUTPUT_TYPE="WinExe"
+CONSOLE_LOG_MSBUILD=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --winexe)
       BOOTSTRAP_OUTPUT_TYPE="WinExe"
+      CONSOLE_LOG_MSBUILD=""
       shift
       ;;
     --console|--exe)
       BOOTSTRAP_OUTPUT_TYPE="Exe"
+      CONSOLE_LOG_MSBUILD="-p:ConsoleLog=true"
       shift
       ;;
     --quiet|-q)
@@ -95,6 +99,9 @@ esac
 
 echo "dotnet publish verbosity: $VERBOSITY"
 echo "Bootstrap OutputType (ClassicUO.exe): $BOOTSTRAP_OUTPUT_TYPE"
+if [[ -n "$CONSOLE_LOG_MSBUILD" ]]; then
+  echo "Client logging: CONSOLE_LOG (Log.Warn/Trace/Error visible in console)"
+fi
 
-dotnet publish "$bootstrap_project" -c Release -o "$output_directory" -p:OutputType="$BOOTSTRAP_OUTPUT_TYPE" --verbosity "$VERBOSITY"
-dotnet publish "$client_project" -c Release -p:NativeLib=Shared -p:OutputType=Library -r $target -o "$output_directory" --verbosity "$VERBOSITY"
+dotnet publish "$bootstrap_project" -c Release -o "$output_directory" -p:OutputType="$BOOTSTRAP_OUTPUT_TYPE" $CONSOLE_LOG_MSBUILD --verbosity "$VERBOSITY"
+dotnet publish "$client_project" -c Release -p:NativeLib=Shared -p:OutputType=Library -r $target -o "$output_directory" $CONSOLE_LOG_MSBUILD --verbosity "$VERBOSITY"

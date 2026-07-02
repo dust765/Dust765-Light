@@ -2,6 +2,7 @@
 
 using ClassicUO.Assets;
 using ClassicUO.Configuration;
+using ClassicUO.Dust765;
 using ClassicUO.Game.Data;
 using ClassicUO.Game.GameObjects;
 using ClassicUO.Game.Managers;
@@ -715,25 +716,22 @@ namespace ClassicUO.Game.UI.Gumps
                     _bars[0].IsVisible = true;
                 }
 
-                if (World.TargetManager.LastTargetInfo.Serial != World.Player && !_outOfRange && mobile != null)
+                if (!_outOfRange && mobile != null && EnemyRangeBucketHelper.IsTrackedMobile(World, mobile.Serial))
                 {
-                    if (mobile == World.TargetManager.LastTargetInfo.Serial)
-                    {
-                        _border[0].LineColor = HPB_COLOR_RED;
+                    _border[0].LineColor = HPB_COLOR_RED;
 
-                        if (_border.Length >= 3)
-                        {
-                            _border[1].LineColor = _border[2].LineColor = _border[3].LineColor = HPB_COLOR_RED;
-                        }
+                    if (_border.Length >= 3)
+                    {
+                        _border[1].LineColor = _border[2].LineColor = _border[3].LineColor = HPB_COLOR_RED;
                     }
-                    else if (mobile != World.TargetManager.LastTargetInfo.Serial)
-                    {
-                        _border[0].LineColor = HPB_COLOR_BLACK;
+                }
+                else if (!_outOfRange && mobile != null)
+                {
+                    _border[0].LineColor = HPB_COLOR_BLACK;
 
-                        if (_border.Length >= 3)
-                        {
-                            _border[1].LineColor = _border[2].LineColor = _border[3].LineColor = HPB_COLOR_BLACK;
-                        }
+                    if (_border.Length >= 3)
+                    {
+                        _border[1].LineColor = _border[2].LineColor = _border[3].LineColor = HPB_COLOR_BLACK;
                     }
                 }
 

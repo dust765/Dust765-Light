@@ -1,69 +1,62 @@
 // SPDX-License-Identifier: BSD-2-Clause
-// Swing timer bar (Dust765 / UO Classic Combat) — adapted for ClassicUO-light render pipeline
 
 using System;
 using System.Collections.Generic;
 using System.IO;
+using ClassicUO.Assets;
 using ClassicUO;
 using ClassicUO.Configuration;
+using ClassicUO.Dust765;
+using ClassicUO.Game;
 using ClassicUO.Game.Data;
 using ClassicUO.Game.GameObjects;
 using ClassicUO.Game.Managers;
 using ClassicUO.Game.Scenes;
 using ClassicUO.Game.UI.Controls;
-using ClassicUO.Renderer;
+using ClassicUO.Game.UI.Gumps;
 using ClassicUO.Utility;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
 
 namespace ClassicUO.Game.UI.Gumps
 {
-    internal sealed class UccSwingFillLine : Control
-    {
-        private readonly Texture2D _texture;
-
-        public UccSwingFillLine(int x, int y, int maxWidth, int height, uint colorPacked)
-        {
-            X = x;
-            Y = y;
-            Width = maxWidth;
-            Height = height;
-            AcceptMouseInput = false;
-            _texture = SolidColorTextureCache.GetTexture(new Color { PackedValue = colorPacked });
-        }
-
-        public int FillWidth { get; set; }
-
-        public override bool AddToRenderLists(RenderLists renderLists, int px, int py, ref float layerDepthRef)
-        {
-            float layerDepth = layerDepthRef;
-            int w = Math.Max(0, Math.Min(FillWidth, Width));
-            Vector3 hueVector = ShaderHueTranslator.GetHueVector(0, false, Alpha);
-
-            renderLists.AddGumpNoAtlas(batcher =>
-            {
-                batcher.Draw(_texture, new Rectangle(px, py, w, Height), hueVector, layerDepth);
-                return true;
-            });
-
-            return true;
-        }
-    }
-
     internal sealed class UOClassicCombatSwingGump : Gump
     {
         public static readonly List<ushort> WeaponsList = new List<ushort>();
 
         private const byte FONT = 0xFF;
-        private const ushort HUE_LABEL = 999;
         private const ushort HUE_YELLOW = 0x35;
         private const ushort HUE_RED = 0x26;
         private const ushort HUE_GREEN = 0x3F;
+        private const ushort HUE_WAR_BORDER = 0x0026;
 
-        private readonly AlphaBlendControl _background;
+        private const int LINE_HEIGHT = 24;
+        private const int LABEL_WIDTH = 38;
+        private const int LINE_CONTENT_GAP = 4;
+        private const int LINE_BAR_OUTER_W = 52;
+        private const int LINE_BAR_OUTER_H = 12;
+        private const int LINE_BAR_TRACK_W = 44;
+        private const int LINE_BAR_TRACK_H = 8;
+        private const int LINE_TIMER_SLOT_W = 22;
+        private const int LINE_PADDING_LEFT = 4;
+        private const int LINE_PADDING_RIGHT = 4;
+
+        private static readonly uint COLOR_TRACK = Color.FromNonPremultiplied(38, 38, 38, 255).PackedValue;
+        private static readonly uint COLOR_SHELL = Color.FromNonPremultiplied(18, 18, 18, 255).PackedValue;
+        private static readonly uint COLOR_FILL = Color.FromNonPremultiplied(210, 175, 55, 255).PackedValue;
+        private static readonly uint COLOR_FILL_READY = Color.FromNonPremultiplied(80, 185, 75, 255).PackedValue;
+
+        private readonly HudPanelFrameControl _frame;
         private readonly Label _titleLabel;
-        private readonly UccSwingFillLine _fillLine;
+        private readonly HudFillBar _barShell;
+        private readonly HudFillBar _barTrack;
+        private readonly HudFillBar _barFill;
         private readonly Label _timerLabel;
+
+        private readonly int _barX;
+        private readonly int _barY;
+        private readonly int _trackX;
+        private readonly int _trackY;
+        private readonly int _timerX;
 
         private bool _triggerSwing;
         private uint _timerSwing;
@@ -84,40 +77,86 @@ namespace ClassicUO.Game.UI.Gumps
                 AcceptMouseInput = false;
             }
 
-            Width = 141;
-            Height = 24;
+            _barY = (LINE_HEIGHT - LINE_BAR_OUTER_H) / 2;
+            int labelX = LINE_PADDING_LEFT;
+            _barX = labelX + LABEL_WIDTH + LINE_CONTENT_GAP;
+            _timerX = _barX + LINE_BAR_OUTER_W + 6;
+            int panelWidth = _timerX + LINE_TIMER_SLOT_W + LINE_PADDING_RIGHT;
+
+            _trackX = _barX + (LINE_BAR_OUTER_W - LINE_BAR_TRACK_W) / 2;
+            _trackY = _barY + (LINE_BAR_OUTER_H - LINE_BAR_TRACK_H) / 2;
+
+            Width = panelWidth;
+            Height = LINE_HEIGHT;
 
             Add(
-                _background = new AlphaBlendControl(0.6f)
+                new AlphaBlendControl(0.9f)
                 {
-                    Width = Width,
-                    Height = Height
+                    X = 0,
+                    Y = 0,
+                    Width = panelWidth,
+                    Height = LINE_HEIGHT
                 }
             );
 
-            _titleLabel = new Label("Swing", true, HUE_YELLOW, font: FONT, style: FontStyle.BlackBorder)
+            Add(
+                _frame = new HudPanelFrameControl
+                {
+                    X = 0,
+                    Y = 0,
+                    Width = panelWidth,
+                    Height = LINE_HEIGHT,
+                    AcceptMouseInput = false
+                }
+            );
+
+            _titleLabel = new Label(
+                "Swing",
+                true,
+                HUE_YELLOW,
+                LABEL_WIDTH,
+                font: FONT,
+                style: FontStyle.BlackBorder,
+                align: TEXT_ALIGN_TYPE.TS_CENTER
+            )
             {
-                X = 0,
-                Y = 0,
-                Width = 40,
-                Height = 20,
+                X = labelX,
+                Y = (LINE_HEIGHT - 12) / 2,
                 AcceptMouseInput = false
             };
             Add(_titleLabel);
 
-            _fillLine = new UccSwingFillLine(_titleLabel.Width + 1, 0, 100, 20, Color.Red.PackedValue);
-            Add(_fillLine);
+            _barShell = new HudFillBar(_barX, _barY, LINE_BAR_OUTER_W, LINE_BAR_OUTER_H, COLOR_SHELL);
+            _barShell.AcceptMouseInput = false;
+            Add(_barShell);
 
-            _timerLabel = new Label("0", true, HUE_GREEN, font: FONT, style: FontStyle.BlackBorder)
+            _barTrack = new HudFillBar(_trackX, _trackY, LINE_BAR_TRACK_W, LINE_BAR_TRACK_H, COLOR_TRACK);
+            _barTrack.AcceptMouseInput = false;
+            Add(_barTrack);
+
+            _barFill = new HudFillBar(_trackX, _trackY, LINE_BAR_TRACK_W, LINE_BAR_TRACK_H, COLOR_FILL_READY);
+            _barFill.AcceptMouseInput = false;
+            Add(_barFill);
+
+            _timerLabel = new Label(
+                "0",
+                true,
+                HUE_GREEN,
+                LINE_TIMER_SLOT_W,
+                font: FONT,
+                style: FontStyle.BlackBorder,
+                align: TEXT_ALIGN_TYPE.TS_CENTER
+            )
             {
-                X = _titleLabel.Width + 10,
-                Y = 0,
+                X = _timerX,
+                Y = (LINE_HEIGHT - 12) / 2,
                 AcceptMouseInput = false
             };
             Add(_timerLabel);
 
             WantUpdateSize = false;
             LoadSwingTimerFile();
+            ResetBarVisuals();
         }
 
         public override GumpType GumpType => GumpType.None;
@@ -177,6 +216,8 @@ namespace ClassicUO.Game.UI.Gumps
                 return;
             }
 
+            UpdateFrameHue();
+
             if (_timerSwing == 0)
             {
                 _timerLabel.Hue = HUE_GREEN;
@@ -190,6 +231,34 @@ namespace ClassicUO.Game.UI.Gumps
             {
                 RunSwingCooldown();
             }
+        }
+
+        private void UpdateFrameHue()
+        {
+            if (World.Player.InWarMode)
+            {
+                _frame.OuterHue = HUE_WAR_BORDER;
+                return;
+            }
+
+            NotorietyFlag flag = World.Player.NotorietyFlag;
+
+            if (flag == NotorietyFlag.Criminal || flag == NotorietyFlag.Gray)
+            {
+                _frame.OuterHue = 34;
+                return;
+            }
+
+            ushort hue = Notoriety.GetHue(flag);
+            _frame.OuterHue = hue > 0 ? hue : (ushort)34;
+        }
+
+        private void ResetBarVisuals()
+        {
+            _barShell.FillWidth = LINE_BAR_OUTER_W;
+            _barTrack.FillWidth = LINE_BAR_TRACK_W;
+            _barFill.FillWidth = LINE_BAR_TRACK_W;
+            _barFill.SetColor(COLOR_FILL_READY);
         }
 
         private void RunSwingCooldown()
@@ -227,15 +296,19 @@ namespace ClassicUO.Game.UI.Gumps
                 _timerSwing = 0;
                 _tickSwing = 0;
                 _triggerSwing = false;
-                _fillLine.FillWidth = 0;
+                ResetBarVisuals();
             }
 
             _timerLabel.Text = $"{_timerSwing}";
 
             if (_tickSwing != 0 && swingCooldown > 0)
             {
-                uint w = 100 / (swingCooldown / 100) * _timerSwing;
-                _fillLine.FillWidth = (int)w;
+                float progress = _timerSwing / (swingCooldown / 100f);
+                progress = Math.Clamp(progress, 0f, 1f);
+                _barFill.SetColor(progress <= 0.2f ? COLOR_FILL_READY : COLOR_FILL);
+                _barFill.FillWidth = (int)(LINE_BAR_TRACK_W * progress);
+                _barShell.FillWidth = LINE_BAR_OUTER_W;
+                _barTrack.FillWidth = LINE_BAR_TRACK_W;
             }
         }
 
@@ -329,7 +402,7 @@ namespace ClassicUO.Game.UI.Gumps
                 existing.Dispose();
             }
 
-            var p = ProfileManager.CurrentProfile;
+            Profile p = ProfileManager.CurrentProfile;
 
             if (p != null && p.UOClassicCombatBuffbar && p.UOClassicCombatBuffbar_SwingEnabled)
             {

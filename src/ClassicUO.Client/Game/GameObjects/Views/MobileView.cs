@@ -180,7 +180,7 @@ namespace ClassicUO.Game.GameObjects
             var _profile = ProfileManager.CurrentProfile;
             if (_profile != null && Serial != World.Player.Serial)
             {
-                bool isLastTarget = World.Get(World.TargetManager.LastTargetInfo.Serial) == this;
+                bool isLastTarget = EnemyRangeBucketHelper.IsTrackedMobile(World, Serial);
                 if (isLastTarget)
                 {
                     overridedHue = CombatCollection.LastTargetHue(this, overridedHue);
@@ -570,6 +570,11 @@ namespace ClassicUO.Game.GameObjects
                 {
                     EnemyRangeBucketDrawHelper.DrawMarker(batcher, drawX + 22, drawY - 32, bucket, depth);
                 }
+            }
+
+            if (TargetRangeIndicatorHelper.ShouldDrawOnMobile(World, this))
+            {
+                TargetRangeIndicatorHelper.DrawMobileDistance(batcher, this, drawX + 22, drawY, depth);
             }
 
             return true;
