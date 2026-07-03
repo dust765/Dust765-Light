@@ -9,6 +9,13 @@ using Microsoft.Xna.Framework;
 
 namespace ClassicUO.Game.GameObjects
 {
+    internal enum HouseComponentClearMode
+    {
+        All,
+        CustomOnly,
+        NonCustomOnly
+    }
+
     internal sealed class House : IEquatable<uint>
     {
         private readonly World _world;
@@ -153,7 +160,7 @@ namespace ClassicUO.Game.GameObjects
             _world.CustomHouseManager?.GenerateFloorPlace();
         }
 
-        public void ClearComponents(bool removeCustomOnly = false)
+        public void ClearComponents(HouseComponentClearMode mode = HouseComponentClearMode.All)
         {
             Item item = _world.Items.Get(Serial);
 
@@ -166,7 +173,12 @@ namespace ClassicUO.Game.GameObjects
             {
                 Multi s = Components[i];
 
-                if (!s.IsCustom && removeCustomOnly)
+                if (mode == HouseComponentClearMode.CustomOnly && !s.IsCustom)
+                {
+                    continue;
+                }
+
+                if (mode == HouseComponentClearMode.NonCustomOnly && s.IsCustom)
                 {
                     continue;
                 }
@@ -174,8 +186,6 @@ namespace ClassicUO.Game.GameObjects
                 s.Destroy();
                 Components.RemoveAt(i--);
             }
-
-            //Components.Clear();
         }
     }
 }
