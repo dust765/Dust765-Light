@@ -5,6 +5,7 @@ using ClassicUO.Game.Data;
 using ClassicUO.Game.Managers;
 using ClassicUO.Game.Scenes;
 using ClassicUO.Game.UI.Gumps;
+using ClassicUO.Network;
 using Microsoft.Xna.Framework;
 using System;
 
@@ -240,13 +241,22 @@ namespace ClassicUO.Game.GameObjects
                 house = new House(World, Serial, 0, false);
                 World.HouseManager.Add(Serial, house);
             }
+            else if (house.IsCustom)
+            {
+                for (int i = house.Components.Count - 1; i >= 0; i--)
+                {
+                    Multi s = house.Components[i];
+
+                    if (!s.IsCustom)
+                    {
+                        s.Destroy();
+                        house.Components.RemoveAt(i);
+                    }
+                }
+            }
             else
             {
-                house.ClearComponents(
-                    house.IsCustom
-                        ? HouseComponentClearMode.NonCustomOnly
-                        : HouseComponentClearMode.All
-                );
+                house.ClearComponents();
             }
 
             var movable = false;
@@ -340,6 +350,11 @@ namespace ClassicUO.Game.GameObjects
             }
 
             World.BoatMovingManager.ClearSteps(Serial);
+
+            if (!movable && !house.IsCustom)
+            {
+                PacketHandlers.QueueCustomHouseRequest(Serial);
+            }
         }
 
         public override void CheckGraphicChange(byte animIndex = 0)
@@ -375,10 +390,6 @@ namespace ClassicUO.Game.GameObjects
                 if (
                     MultiDistanceBonus == 0
                     || World.HouseManager.IsHouseInRange(Serial, World.ClientViewRange)
-                    || (
-                        World.Player != null
-                        && World.HouseManager.EntityIntoHouse(Serial, World.Player)
-                    )
                 )
                 {
                     LoadMulti();
