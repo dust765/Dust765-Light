@@ -2,6 +2,7 @@
 
 using ClassicUO.Assets;
 using ClassicUO.Configuration;
+using ClassicUO.Dust765;
 using ClassicUO.Game.Data;
 using ClassicUO.Game.GameObjects;
 using ClassicUO.Game.Managers;
@@ -90,7 +91,6 @@ namespace ClassicUO.Game.UI.Gumps
                          _highlightByInvul,
                          _drawRoofs,
                          _hideInvulnerableMannequinsOnInvisibleHouses,
-                         _treeToStumps,
                          _hideVegetation,
                          _noColorOutOfRangeObjects,
                          _useCircleOfTransparency,
@@ -103,7 +103,7 @@ namespace ClassicUO.Game.UI.Gumps
                          _chatShiftEnterCheckbox,
                          _enableCaveBorder;
         private Checkbox _holdShiftForContext, _holdShiftToSplitStack, _reduceFPSWhenInactive, _sallosEasyGrab, _partyInviteGump, _objectsFading, _textFading, _holdAltToMoveGumps;
-        private Combobox _hpComboBox, _healtbarType, _fieldsType, _hpComboBoxShowWhen;
+        private Combobox _hpComboBox, _healtbarType, _fieldsType, _hpComboBoxShowWhen, _treeReplaceType;
 
         // infobar
         private List<InfoBarBuilderControl> _infoBarBuilderControls;
@@ -1436,15 +1436,32 @@ namespace ClassicUO.Game.UI.Gumps
                 )
             );
 
-            section5.Add
+            section5.Add(AddLabel(null, ResGumps.TreesStumps, startX, startY));
+
+            int treeReplaceMode = _currentProfile.TreeReplaceType;
+
+            if (treeReplaceMode < 0 || treeReplaceMode > Constants.TREE_REPLACE_TYPE_MAX)
+            {
+                treeReplaceMode = _currentProfile.TreeToStumps ? 1 : 0;
+            }
+
+            section5.AddRight
             (
-                _treeToStumps = AddCheckBox
+                _treeReplaceType = AddCombobox
                 (
                     null,
-                    ResGumps.TreesStumps,
-                    _currentProfile.TreeToStumps,
+                    new[]
+                    {
+                        ResGumps.TreesNormal,
+                        ResGumps.TreesStump,
+                        ResGumps.TreesBlock,
+                        ResGumps.TreesStumpBrown,
+                        ResGumps.TreesStumpWallWhite
+                    },
+                    treeReplaceMode,
                     startX,
-                    startY
+                    startY,
+                    200
                 )
             );
 
@@ -3959,7 +3976,7 @@ namespace ClassicUO.Game.UI.Gumps
                     _invulnerableColorPickerBox.Hue = 0x0030;
                     _drawRoofs.IsChecked = false;
                     _enableCaveBorder.IsChecked = false;
-                    _treeToStumps.IsChecked = false;
+                    _treeReplaceType.SelectedIndex = 0;
                     _hideVegetation.IsChecked = false;
                     _noColorOutOfRangeObjects.IsChecked = false;
                     _circleOfTranspRadius.Value = Constants.MIN_CIRCLE_OF_TRANSPARENCY_RADIUS;
@@ -4060,7 +4077,7 @@ namespace ClassicUO.Game.UI.Gumps
 
                 case 5: // tooltip
                     _use_tooltip.IsChecked = true;
-                    _lite_container_tooltips.IsChecked = true;
+                    _lite_container_tooltips.IsChecked = false;
                     _tooltip_font_hue.Hue = 0xFFFF;
                     _delay_before_display_tooltip.Value = 200;
                     _tooltip_background_opacity.Value = 70;
@@ -4237,10 +4254,11 @@ namespace ClassicUO.Game.UI.Gumps
                 _currentProfile.EnableCaveBorder = _enableCaveBorder.IsChecked;
             }
 
-            if (_currentProfile.TreeToStumps != _treeToStumps.IsChecked)
+            if (_currentProfile.TreeReplaceType != _treeReplaceType.SelectedIndex)
             {
                 StaticFilters.CleanTreeTextures();
-                _currentProfile.TreeToStumps = _treeToStumps.IsChecked;
+                _currentProfile.TreeReplaceType = _treeReplaceType.SelectedIndex;
+                _currentProfile.TreeToStumps = _treeReplaceType.SelectedIndex != 0;
             }
 
             _currentProfile.FieldsType = _fieldsType.SelectedIndex;
@@ -4286,7 +4304,10 @@ namespace ClassicUO.Game.UI.Gumps
             if (_currentProfile.ShowHouseContent != _showHouseContent.IsChecked)
             {
                 _currentProfile.ShowHouseContent = _showHouseContent.IsChecked;
-                NetClient.Socket.Send_ShowPublicHouseContent(_currentProfile.ShowHouseContent);
+                HouseContentVisibilityHelper.SendShowHouseContentPreference(
+                    World,
+                    _currentProfile
+                );
             }
 
 
@@ -4408,6 +4429,10 @@ namespace ClassicUO.Game.UI.Gumps
 
                     _gameWindowWidth.SetText(n.X.ToString());
                     _gameWindowHeight.SetText(n.Y.ToString());
+                    _currentProfile.GameWindowSize = new Point(
+                        Client.Game.Scene.Camera.Bounds.Width,
+                        Client.Game.Scene.Camera.Bounds.Height
+                    );
                 }
             }
 
@@ -4418,8 +4443,16 @@ namespace ClassicUO.Game.UI.Gumps
             {
                 if (vp != null)
                 {
-                    vp.SetGameWindowPosition(new Point(gameWindowPositionX, gameWindowPositionY));
-                    _currentProfile.GameWindowPosition = vp.Location;
+                    vp.SetGameWindowPosition(
+                        new Point(
+                            gameWindowPositionX - WorldViewportGump.BORDER_WIDTH,
+                            gameWindowPositionY - WorldViewportGump.BORDER_WIDTH
+                        )
+                    );
+                    _currentProfile.GameWindowPosition = new Point(
+                        Client.Game.Scene.Camera.Bounds.X,
+                        Client.Game.Scene.Camera.Bounds.Y
+                    );
                 }
             }
 
@@ -4435,7 +4468,7 @@ namespace ClassicUO.Game.UI.Gumps
 
             if (_currentProfile.GameWindowFullSize != _gameWindowFullsize.IsChecked)
             {
-                Point n = Point.Zero, loc = Point.Zero;
+                Point n = Point.Zero;
 
                 if (_gameWindowFullsize.IsChecked)
                 {
@@ -4443,8 +4476,7 @@ namespace ClassicUO.Game.UI.Gumps
                     {
                         var size = new Point(Client.Game.Window.ClientBounds.Width, Client.Game.Window.ClientBounds.Height);
                         n = vp.ResizeGameWindow(size);
-                        vp.SetGameWindowPosition(new Point(-5, -5));
-                        _currentProfile.GameWindowPosition = vp.Location;
+                        vp.SetGameWindowPosition(new Point(-WorldViewportGump.BORDER_WIDTH, -WorldViewportGump.BORDER_WIDTH));
                     }
                 }
                 else
@@ -4452,15 +4484,17 @@ namespace ClassicUO.Game.UI.Gumps
                     if (vp != null)
                     {
                         n = vp.ResizeGameWindow(new Point(600, 480));
-                        vp.SetGameWindowPosition(new Point(20, 20));
-                        _currentProfile.GameWindowPosition = vp.Location;
+                        vp.SetGameWindowPosition(new Point(20 - WorldViewportGump.BORDER_WIDTH, 20 - WorldViewportGump.BORDER_WIDTH));
                     }
                 }
 
-                _gameWindowPositionX.SetText(loc.X.ToString());
-                _gameWindowPositionY.SetText(loc.Y.ToString());
+                var bounds = Client.Game.Scene.Camera.Bounds;
+                _gameWindowPositionX.SetText(bounds.X.ToString());
+                _gameWindowPositionY.SetText(bounds.Y.ToString());
                 _gameWindowWidth.SetText(n.X.ToString());
                 _gameWindowHeight.SetText(n.Y.ToString());
+                _currentProfile.GameWindowPosition = new Point(bounds.X, bounds.Y);
+                _currentProfile.GameWindowSize = new Point(bounds.Width, bounds.Height);
 
                 _currentProfile.GameWindowFullSize = _gameWindowFullsize.IsChecked;
             }

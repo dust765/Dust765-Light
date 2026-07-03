@@ -1,7 +1,9 @@
-﻿// SPDX-License-Identifier: BSD-2-Clause
+// SPDX-License-Identifier: BSD-2-Clause
 
 using System;
 using System.IO;
+using ClassicUO.Dust765;
+using ClassicUO.Game;
 using ClassicUO.Utility;
 using Microsoft.Xna.Framework;
 
@@ -92,6 +94,32 @@ namespace ClassicUO.Configuration
             {
                 profile.WindowClientBounds = new Point(profile.WindowClientBounds.X, 480);
             }
+
+            if (profile.TreeReplaceType == 5)
+            {
+                profile.TreeReplaceType = 4;
+            }
+
+            if (profile.TreeReplaceType < 0 || profile.TreeReplaceType > Constants.TREE_REPLACE_TYPE_MAX)
+            {
+                profile.TreeReplaceType = 0;
+            }
+
+            if (profile.TreeReplaceType == 0 && profile.TreeToStumps)
+            {
+                profile.TreeReplaceType = 1;
+            }
+
+            profile.TreeToStumps = profile.TreeReplaceType != 0;
+
+            if (!profile.ShowHouseContentDefaultApplied)
+            {
+                profile.ShowHouseContent = true;
+                profile.ShowHouseContentDefaultApplied = true;
+            }
+
+            EnemyRangeBucketHelper.NormalizeRangeTiles(profile);
+            AllyRangeBucketHelper.NormalizeRangeTiles(profile);
         }
 
         public static void UnLoadProfile()

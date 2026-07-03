@@ -4,7 +4,6 @@ using System;
 using System.Runtime.CompilerServices;
 using ClassicUO.Assets;
 using ClassicUO.Configuration;
-using ClassicUO.Dust765;
 using ClassicUO.Game.Data;
 using ClassicUO.Game.GameObjects;
 using ClassicUO.Game.Managers;
@@ -129,8 +128,6 @@ namespace ClassicUO.Game.Map
             if (profile == null)
                 return;
 
-            HouseVisibilityHelper.BeginFrame(world, profile);
-
             _animatedWaterEffect = profile.AnimatedWaterEffect;
 
             // Pass 1: count sprites per texture
@@ -153,11 +150,11 @@ namespace ClassicUO.Game.Map
                                 break;
 
                             case Static staticObj:
-                                CountStatic(chunk, staticObj);
+                                CountStatic(staticObj);
                                 break;
 
                             case Multi multi:
-                                CountMulti(chunk, multi);
+                                CountMulti(multi);
                                 break;
                         }
                     }
@@ -186,11 +183,11 @@ namespace ClassicUO.Game.Map
                                 break;
 
                             case Static staticObj:
-                                TryAddStatic(chunk, staticObj);
+                                TryAddStatic(staticObj);
                                 break;
 
                             case Multi multi:
-                                TryAddMulti(chunk, multi);
+                                TryAddMulti(multi);
                                 break;
                         }
                     }
@@ -260,15 +257,15 @@ namespace ClassicUO.Game.Map
             _landBuckets.Count(texture);
         }
 
-        private void CountStatic(Chunk chunk, Static staticObj)
+        private void CountStatic(Static staticObj)
         {
             if (!staticObj.AllowedToDraw || staticObj.IsDestroyed)
                 return;
 
-            CountStaticLike(chunk, staticObj, ref staticObj.ItemData, staticObj.Graphic);
+            CountStaticLike(ref staticObj.ItemData, staticObj.Graphic);
         }
 
-        private void CountMulti(Chunk chunk, Multi multi)
+        private void CountMulti(Multi multi)
         {
             if (!multi.AllowedToDraw || multi.IsDestroyed)
                 return;
@@ -276,14 +273,11 @@ namespace ClassicUO.Game.Map
             if (multi.State != 0)
                 return;
 
-            CountStaticLike(chunk, multi, ref multi.ItemData, multi.Graphic);
+            CountStaticLike(ref multi.ItemData, multi.Graphic);
         }
 
-        private void CountStaticLike(Chunk chunk, GameObject obj, ref StaticTiles itemData, ushort graphic)
+        private void CountStaticLike(ref StaticTiles itemData, ushort graphic)
         {
-            if (HouseVisibilityHelper.IsInvisibleHouseTile(obj, chunk))
-                return;
-
             if (IsStaticExcludedFromMesh(graphic, ref itemData))
                 return;
 
@@ -397,21 +391,18 @@ namespace ClassicUO.Game.Map
             if (StaticFilters.IsTree(graphic, out _))
                 return true;
 
-            if (StaticFilters.IsRock(graphic))
-                return true;
-
             return false;
         }
 
-        private void TryAddStatic(Chunk chunk, Static staticObj)
+        private void TryAddStatic(Static staticObj)
         {
             if (!staticObj.AllowedToDraw || staticObj.IsDestroyed)
                 return;
 
-            TryAddStaticLike(chunk, staticObj, ref staticObj.ItemData, staticObj.Graphic, staticObj.Hue);
+            TryAddStaticLike(staticObj, ref staticObj.ItemData, staticObj.Graphic, staticObj.Hue);
         }
 
-        private void TryAddMulti(Chunk chunk, Multi multi)
+        private void TryAddMulti(Multi multi)
         {
             if (!multi.AllowedToDraw || multi.IsDestroyed)
                 return;
@@ -419,14 +410,11 @@ namespace ClassicUO.Game.Map
             if (multi.State != 0)
                 return;
 
-            TryAddStaticLike(chunk, multi, ref multi.ItemData, multi.Graphic, multi.Hue);
+            TryAddStaticLike(multi, ref multi.ItemData, multi.Graphic, multi.Hue);
         }
 
-        private void TryAddStaticLike(Chunk chunk, GameObject obj, ref StaticTiles itemData, ushort graphic, ushort hue)
+        private void TryAddStaticLike(GameObject obj, ref StaticTiles itemData, ushort graphic, ushort hue)
         {
-            if (HouseVisibilityHelper.IsInvisibleHouseTile(obj, chunk))
-                return;
-
             if (IsStaticExcludedFromMesh(graphic, ref itemData))
                 return;
 

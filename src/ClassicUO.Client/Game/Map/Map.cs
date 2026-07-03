@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using ClassicUO.Game.GameObjects;
 using ClassicUO.Assets;
+using Microsoft.Xna.Framework;
 
 namespace ClassicUO.Game.Map
 {
@@ -254,6 +255,69 @@ namespace ClassicUO.Game.Map
             }
         }
 
+
+        public void MarkChunksMeshDirtyInTileRect(int minTileX, int minTileY, int maxTileX, int maxTileY)
+        {
+            int minChunkX = minTileX >> 3;
+            int minChunkY = minTileY >> 3;
+            int maxChunkX = maxTileX >> 3;
+            int maxChunkY = maxTileY >> 3;
+
+            for (int chunkX = minChunkX; chunkX <= maxChunkX; chunkX++)
+            {
+                for (int chunkY = minChunkY; chunkY <= maxChunkY; chunkY++)
+                {
+                    Chunk chunk = GetChunk2(chunkX, chunkY, true);
+
+                    if (chunk != null && !chunk.IsDestroyed)
+                    {
+                        chunk.Mesh.IsDirty = true;
+                    }
+                }
+            }
+        }
+
+        public void EnsureChunksLoadedForHouse(Item foundation)
+        {
+            if (foundation?.MultiInfo == null)
+            {
+                return;
+            }
+
+            Rectangle info = foundation.MultiInfo.Value;
+            int minTileX = foundation.X + info.X - 1;
+            int minTileY = foundation.Y + info.Y - 1;
+            int maxTileX = foundation.X + info.Width + 1;
+            int maxTileY = foundation.Y + info.Height + 1;
+            int minChunkX = minTileX >> 3;
+            int minChunkY = minTileY >> 3;
+            int maxChunkX = maxTileX >> 3;
+            int maxChunkY = maxTileY >> 3;
+
+            for (int chunkX = minChunkX; chunkX <= maxChunkX; chunkX++)
+            {
+                for (int chunkY = minChunkY; chunkY <= maxChunkY; chunkY++)
+                {
+                    GetChunk2(chunkX, chunkY, true);
+                }
+            }
+        }
+
+        public void MarkChunksMeshDirtyForHouse(Item foundation)
+        {
+            if (foundation?.MultiInfo == null)
+            {
+                return;
+            }
+
+            Rectangle info = foundation.MultiInfo.Value;
+            int minTileX = foundation.X + info.X - 1;
+            int minTileY = foundation.Y + info.Y - 1;
+            int maxTileX = foundation.X + info.Width + 1;
+            int maxTileY = foundation.Y + info.Height + 1;
+
+            MarkChunksMeshDirtyInTileRect(minTileX, minTileY, maxTileX, maxTileY);
+        }
 
         public void PreloadChunksAround(int centerX, int centerY, int radius, int maxPerCall = 4)
         {

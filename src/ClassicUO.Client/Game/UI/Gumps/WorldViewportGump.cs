@@ -1,4 +1,4 @@
-﻿// SPDX-License-Identifier: BSD-2-Clause
+// SPDX-License-Identifier: BSD-2-Clause
 
 using ClassicUO.Configuration;
 using ClassicUO.Game.Managers;
@@ -10,12 +10,15 @@ using ClassicUO.Renderer;
 using ClassicUO.Resources;
 using ClassicUO.Utility;
 using Microsoft.Xna.Framework;
+using System;
 
 namespace ClassicUO.Game.UI.Gumps
 {
     internal class WorldViewportGump : Gump
     {
         public const int BORDER_WIDTH = 5;
+        private const int MIN_VIEWPORT_WIDTH = 640;
+        private const int MIN_VIEWPORT_HEIGHT = 480;
         private readonly BorderControl _borderControl;
         private readonly Button _button;
         private bool _clicked;
@@ -228,6 +231,152 @@ namespace ClassicUO.Game.UI.Gumps
             _scene.Camera.Bounds.Y = ScreenCoordinateY + BORDER_WIDTH;
 
             UpdateGameWindowPos();
+        }
+
+        private void ApplyBounds(Rectangle bounds)
+        {
+            _scene.Camera.Bounds = bounds;
+            _lastSize = _savedSize = new Point(bounds.Width, bounds.Height);
+            X = bounds.X - BORDER_WIDTH;
+            Y = bounds.Y - BORDER_WIDTH;
+            Width = bounds.Width + BORDER_WIDTH * 2;
+            Height = bounds.Height + BORDER_WIDTH * 2;
+            Resize();
+        }
+
+        private static bool TryGetViewportContext(
+            out GameScene scene,
+            out WorldViewportGump vp,
+            out Profile profile
+        )
+        {
+            scene = Client.Game?.Scene as GameScene;
+            vp = UIManager.GetGump<WorldViewportGump>();
+            profile = ProfileManager.CurrentProfile;
+
+            return scene != null && vp != null && profile != null;
+        }
+
+        private static void ApplyViewportBounds(
+            WorldViewportGump vp,
+            GameScene scene,
+            Rectangle bounds
+        )
+        {
+            vp.ApplyBounds(bounds);
+            scene.UpdateDrawPosition = true;
+        }
+
+        public static void SyncGameViewportOnResize()
+        {
+            if (!TryGetViewportContext(out GameScene scene, out WorldViewportGump vp, out Profile profile))
+            {
+                return;
+            }
+
+            Rectangle client = Client.Game.ClientBounds;
+
+            if (client.Width < MIN_VIEWPORT_WIDTH || client.Height < MIN_VIEWPORT_HEIGHT)
+            {
+                return;
+            }
+
+            int maxW = Math.Max(MIN_VIEWPORT_WIDTH, client.Width - BORDER_WIDTH);
+            int maxH = Math.Max(MIN_VIEWPORT_HEIGHT, client.Height - BORDER_WIDTH);
+
+            if (profile.GameWindowFullSize)
+            {
+                var size = new Point(
+                    Client.Game.Window.ClientBounds.Width,
+                    Client.Game.Window.ClientBounds.Height
+                );
+                vp.ResizeGameWindow(size);
+                vp.SetGameWindowPosition(new Point(-BORDER_WIDTH, -BORDER_WIDTH));
+                scene.UpdateDrawPosition = true;
+                return;
+            }
+
+            int width = Math.Max(MIN_VIEWPORT_WIDTH, profile.GameWindowSize.X);
+            int height = Math.Max(MIN_VIEWPORT_HEIGHT, profile.GameWindowSize.Y);
+
+            if (width > maxW)
+            {
+                width = maxW;
+            }
+
+            if (height > maxH)
+            {
+                height = maxH;
+            }
+
+            int x = profile.GameWindowPosition.X;
+            int y = profile.GameWindowPosition.Y;
+            x = Math.Clamp(x, 0, Math.Max(0, client.Width - width));
+            y = Math.Clamp(y, 0, Math.Max(0, client.Height - height));
+
+            ApplyViewportBounds(
+                vp,
+                scene,
+                new Rectangle(x, y, width, height)
+            );
+        }
+
+        public static void SyncGameViewportOnLoad()
+        {
+            if (!TryGetViewportContext(out GameScene scene, out WorldViewportGump vp, out Profile profile))
+            {
+                return;
+            }
+
+            Rectangle client = Client.Game.ClientBounds;
+
+            if (client.Width < MIN_VIEWPORT_WIDTH || client.Height < MIN_VIEWPORT_HEIGHT)
+            {
+                return;
+            }
+
+            int maxW = Math.Max(MIN_VIEWPORT_WIDTH, client.Width - BORDER_WIDTH);
+            int maxH = Math.Max(MIN_VIEWPORT_HEIGHT, client.Height - BORDER_WIDTH);
+
+            if (profile.GameWindowFullSize)
+            {
+                var size = new Point(
+                    Client.Game.Window.ClientBounds.Width,
+                    Client.Game.Window.ClientBounds.Height
+                );
+                vp.ResizeGameWindow(size);
+                vp.SetGameWindowPosition(new Point(-BORDER_WIDTH, -BORDER_WIDTH));
+            }
+            else
+            {
+                Rectangle bounds = new Rectangle(
+                    Math.Max(0, profile.GameWindowPosition.X),
+                    Math.Max(0, profile.GameWindowPosition.Y),
+                    Math.Max(MIN_VIEWPORT_WIDTH, profile.GameWindowSize.X),
+                    Math.Max(MIN_VIEWPORT_HEIGHT, profile.GameWindowSize.Y)
+                );
+                bounds.Width = Math.Clamp(bounds.Width, MIN_VIEWPORT_WIDTH, maxW);
+                bounds.Height = Math.Clamp(bounds.Height, MIN_VIEWPORT_HEIGHT, maxH);
+                bounds.X = Math.Clamp(bounds.X, 0, Math.Max(0, client.Width - bounds.Width));
+                bounds.Y = Math.Clamp(bounds.Y, 0, Math.Max(0, client.Height - bounds.Height));
+                vp.ApplyBounds(bounds);
+            }
+
+            profile.GameWindowPosition = new Point(
+                scene.Camera.Bounds.X,
+                scene.Camera.Bounds.Y
+            );
+            profile.GameWindowSize = new Point(
+                scene.Camera.Bounds.Width,
+                scene.Camera.Bounds.Height
+            );
+            scene.UpdateDrawPosition = true;
+            UIManager.ClampAllGumpsToScreen();
+        }
+
+        public static void SyncGameViewport()
+        {
+            SyncGameViewportOnResize();
         }
 
         public Point ResizeGameWindow(Point newSize)

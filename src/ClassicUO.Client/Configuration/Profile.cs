@@ -125,6 +125,19 @@ namespace ClassicUO.Configuration
         public int MobileHPShowWhen { get; set; } // 0 = Always, 1 - <100%
         public bool DrawRoofs { get; set; } = true;
         public bool TreeToStumps { get; set; }
+        public int TreeReplaceType { get; set; }
+
+        public ushort GetTreeReplaceGraphic()
+        {
+            return TreeReplaceType switch
+            {
+                1 => Constants.TREE_REPLACE_GRAPHIC,
+                2 => Constants.TREE_REPLACE_GRAPHIC_TILE,
+                3 => Constants.TREE_REPLACE_STUMP_BROWN,
+                4 => Constants.TREE_REPLACE_STUMP_WALL_WHITE,
+                _ => 0
+            };
+        }
         public bool EnableCaveBorder { get; set; }
         public bool HideVegetation { get; set; }
         public int FieldsType { get; set; } // 0 = normal, 1 = static, 2 = tile
@@ -149,7 +162,7 @@ namespace ClassicUO.Configuration
         public bool? LiteContainerTooltips { get; set; }
 
         [JsonIgnore]
-        public bool LiteContainerTooltipsEnabled => LiteContainerTooltips ?? true;
+        public bool LiteContainerTooltipsEnabled => LiteContainerTooltips ?? false;
 
         public ushort TooltipTextHue { get; set; } = 0xFFFF;
         public int TooltipDelayBeforeDisplay { get; set; } = 250;
@@ -298,7 +311,8 @@ namespace ClassicUO.Configuration
 
         public bool UseNewTargetSystem { get; set; } = true;
         public bool UseKrEquipUnequipPacket { get; set; }
-        public bool ShowHouseContent { get; set; }
+        public bool ShowHouseContent { get; set; } = true;
+        public bool ShowHouseContentDefaultApplied { get; set; }
         public bool SaveHealthbars { get; set; }
         public bool TextFading { get; set; } = true;
 
@@ -402,8 +416,19 @@ namespace ClassicUO.Configuration
         public bool EnemyRangeIndicator_Locked { get; set; } = false;
         public bool EnemyRangeIndicator_LastTargetOnly { get; set; } = false;
         public bool EnemyRangeIndicator_ShowOnLastTarget { get; set; } = false;
+        public int EnemyRangeIndicator_GreenMaxTiles { get; set; }
+        public int EnemyRangeIndicator_YellowMaxTiles { get; set; } = 7;
+        public int EnemyRangeIndicator_RedMaxTiles { get; set; } = 24;
         [JsonConverter(typeof(Point2Converter))]
         public Point EnemyRangeIndicatorLocation { get; set; } = new Point(50, 80);
+
+        public bool AllyRangeIndicator { get; set; } = false;
+        public bool AllyRangeIndicator_Locked { get; set; } = false;
+        public int AllyRangeIndicator_GreenMaxTiles { get; set; } = 5;
+        public int AllyRangeIndicator_YellowMaxTiles { get; set; } = 10;
+        public int AllyRangeIndicator_RedMaxTiles { get; set; } = 18;
+        [JsonConverter(typeof(Point2Converter))]
+        public Point AllyRangeIndicatorLocation { get; set; } = new Point(50, 120);
 
         public bool UseOldHealthBars { get; set; } = false;
         public bool HealthBarShowDebuffTimers { get; set; } = true;

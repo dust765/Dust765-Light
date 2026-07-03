@@ -40,6 +40,7 @@ namespace ClassicUO
         private bool _suppressedDraw;
         private bool _pluginsInitialized = false;
         private float _displayScale;
+        private Point _lastSyncedClientSize = Point.Zero;
 
         public GameController(IPluginHost pluginHost, UltimaOnline uo)
         {
@@ -340,6 +341,28 @@ namespace ClassicUO
             return (flags & SDL_WindowFlags.SDL_WINDOW_MAXIMIZED) != 0;
         }
 
+        public bool IsWindowMinimized()
+        {
+            SDL_WindowFlags flags = (SDL_WindowFlags)SDL_GetWindowFlags(Window.Handle);
+
+            return (flags & SDL_WindowFlags.SDL_WINDOW_MINIMIZED) != 0;
+        }
+
+        private bool ShouldSyncGameViewport(int width, int height)
+        {
+            return Scene is GameScene
+                && !IsWindowMinimized()
+                && width >= 640
+                && height >= 480;
+        }
+
+        private void SyncGameViewportIfNeeded()
+        {
+            WorldViewportGump.SyncGameViewportOnResize();
+            Rectangle clientBounds = ClientBounds;
+            _lastSyncedClientSize = new Point(clientBounds.Width, clientBounds.Height);
+        }
+
         public void RestoreWindow()
         {
             SDL_RestoreWindow(Window.Handle);
@@ -624,13 +647,9 @@ namespace ClassicUO
 
             SetWindowSize(width, height);
 
-            WorldViewportGump viewport = UIManager.GetGump<WorldViewportGump>();
-
-            if (viewport != null && ProfileManager.CurrentProfile != null && ProfileManager.CurrentProfile.GameWindowFullSize)
+            if (ShouldSyncGameViewport(width, height))
             {
-                viewport.ResizeGameWindow(new Point(width, height));
-                viewport.X = -5;
-                viewport.Y = -5;
+                SyncGameViewportIfNeeded();
             }
         }
 
@@ -677,6 +696,28 @@ namespace ClassicUO
 
                 case SDL_EventType.SDL_EVENT_WINDOW_FOCUS_GAINED:
                     Plugin.OnFocusGained();
+
+                    if (Scene is GameScene && !IsWindowMinimized())
+                    {
+                        Rectangle clientBounds = ClientBounds;
+
+                        if (
+                            clientBounds.Width != _lastSyncedClientSize.X
+                            || clientBounds.Height != _lastSyncedClientSize.Y
+                        )
+                        {
+                            SyncGameViewportIfNeeded();
+                        }
+                    }
+
+                    break;
+
+                case SDL_EventType.SDL_EVENT_WINDOW_RESTORED:
+                    if (Scene is GameScene)
+                    {
+                        SyncGameViewportIfNeeded();
+                    }
+
                     break;
 
                 case SDL_EventType.SDL_EVENT_WINDOW_FOCUS_LOST:

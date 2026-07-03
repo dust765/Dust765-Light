@@ -1,10 +1,11 @@
-﻿// SPDX-License-Identifier: BSD-2-Clause
+// SPDX-License-Identifier: BSD-2-Clause
 
 using ClassicUO.Assets;
 using ClassicUO.Game.Data;
 using ClassicUO.Game.Managers;
 using ClassicUO.Game.Scenes;
 using ClassicUO.Game.UI.Gumps;
+using ClassicUO.Network;
 using Microsoft.Xna.Framework;
 using System;
 
@@ -240,6 +241,19 @@ namespace ClassicUO.Game.GameObjects
                 house = new House(World, Serial, 0, false);
                 World.HouseManager.Add(Serial, house);
             }
+            else if (house.IsCustom)
+            {
+                for (int i = house.Components.Count - 1; i >= 0; i--)
+                {
+                    Multi s = house.Components[i];
+
+                    if (!s.IsCustom)
+                    {
+                        s.Destroy();
+                        house.Components.RemoveAt(i);
+                    }
+                }
+            }
             else
             {
                 house.ClearComponents();
@@ -336,6 +350,11 @@ namespace ClassicUO.Game.GameObjects
             }
 
             World.BoatMovingManager.ClearSteps(Serial);
+
+            if (!movable && !house.IsCustom)
+            {
+                PacketHandlers.QueueCustomHouseRequest(Serial);
+            }
         }
 
         public override void CheckGraphicChange(byte animIndex = 0)
