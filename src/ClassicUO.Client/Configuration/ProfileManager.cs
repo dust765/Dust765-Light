@@ -112,6 +112,12 @@ namespace ClassicUO.Configuration
 
             profile.TreeToStumps = profile.TreeReplaceType != 0;
 
+            if (!profile.ShowHouseContentDefaultApplied)
+            {
+                profile.ShowHouseContent = true;
+                profile.ShowHouseContentDefaultApplied = true;
+            }
+
             EnemyRangeBucketHelper.NormalizeRangeTiles(profile);
             AllyRangeBucketHelper.NormalizeRangeTiles(profile);
         }

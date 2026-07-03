@@ -98,11 +98,34 @@ namespace ClassicUO.Game.GameObjects
             posX += (int)Offset.X;
             posY += (int)(Offset.Y + Offset.Z);
 
-            HouseVisibilityHelper.TryApplyTransparentHouseAlpha(ref hueVec, this);
-
-            if (HouseVisibilityHelper.IsInvisibleHouseTile(this))
+            if (currentProfile.TransparentHousesEnabled && World.Player != null)
             {
-                return false;
+                GameObject tile = World.Map?.GetTile(X, Y);
+
+                if (tile != null)
+                {
+                    if (
+                        (Z - World.Player.Z) > currentProfile.TransparentHousesZ
+                        && (Z - tile.Z) > currentProfile.DontRemoveHouseBelowZ
+                    )
+                    {
+                        hueVec.Z = currentProfile.TransparentHousesTransparency / 10f;
+                    }
+                }
+            }
+
+            if (currentProfile.InvisibleHousesEnabled && World.Player != null)
+            {
+                GameObject tile = World.Map?.GetTile(X, Y);
+
+                if (
+                    tile != null
+                    && (Z - World.Player.Z) > currentProfile.InvisibleHousesZ
+                    && (Z - tile.Z) > currentProfile.DontRemoveHouseBelowZ
+                )
+                {
+                    return false;
+                }
             }
 
             DrawStaticAnimated(batcher, graphic, posX, posY, hueVec, false, depth);
@@ -142,9 +165,17 @@ namespace ClassicUO.Game.GameObjects
                     }
                 }
 
-                if (HouseVisibilityHelper.IsInvisibleHouseTile(this))
+                if (ProfileManager.CurrentProfile.InvisibleHousesEnabled && World.Player != null)
                 {
-                    return false;
+                    GameObject tile = World.Map?.GetTile(X, Y);
+                    if (
+                        tile != null
+                        && (Z - World.Player.Z) > ProfileManager.CurrentProfile.InvisibleHousesZ
+                        && (Z - tile.Z) > ProfileManager.CurrentProfile.DontRemoveHouseBelowZ
+                    )
+                    {
+                        return false;
+                    }
                 }
 
                 ref UOFileIndex index = ref Client.Game.UO.FileManager.Arts.File.GetValidRefEntry(Graphic + 0x4000);
