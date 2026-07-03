@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+﻿// SPDX-License-Identifier: BSD-2-Clause
 
 using System;
 using System.Collections.Generic;
@@ -9,13 +9,6 @@ using Microsoft.Xna.Framework;
 
 namespace ClassicUO.Game.GameObjects
 {
-    internal enum HouseComponentClearMode
-    {
-        All,
-        CustomOnly,
-        NonCustomOnly
-    }
-
     internal sealed class House : IEquatable<uint>
     {
         private readonly World _world;
@@ -112,19 +105,6 @@ namespace ClassicUO.Game.GameObjects
             }
         }
 
-        public void RelinkComponentsToTiles()
-        {
-            for (int i = 0; i < Components.Count; i++)
-            {
-                Multi component = Components[i];
-
-                if (!component.IsDestroyed)
-                {
-                    component.SetInWorldTile(component.X, component.Y, component.Z);
-                }
-            }
-        }
-
         public void Generate(bool recalculate = false, bool pushtotile = true, bool removePreview = false)
         {
             Item item = _world.Items.Get(Serial);
@@ -160,7 +140,20 @@ namespace ClassicUO.Game.GameObjects
             _world.CustomHouseManager?.GenerateFloorPlace();
         }
 
-        public void ClearComponents(HouseComponentClearMode mode = HouseComponentClearMode.All)
+        public void RelinkComponentsToTiles()
+        {
+            for (int i = 0; i < Components.Count; i++)
+            {
+                Multi component = Components[i];
+
+                if (!component.IsDestroyed)
+                {
+                    component.SetInWorldTile(component.X, component.Y, component.Z);
+                }
+            }
+        }
+
+        public void ClearComponents(bool removeCustomOnly = false)
         {
             Item item = _world.Items.Get(Serial);
 
@@ -173,12 +166,7 @@ namespace ClassicUO.Game.GameObjects
             {
                 Multi s = Components[i];
 
-                if (mode == HouseComponentClearMode.CustomOnly && !s.IsCustom)
-                {
-                    continue;
-                }
-
-                if (mode == HouseComponentClearMode.NonCustomOnly && s.IsCustom)
+                if (!s.IsCustom && removeCustomOnly)
                 {
                     continue;
                 }
@@ -186,6 +174,8 @@ namespace ClassicUO.Game.GameObjects
                 s.Destroy();
                 Components.RemoveAt(i--);
             }
+
+            //Components.Clear();
         }
     }
 }

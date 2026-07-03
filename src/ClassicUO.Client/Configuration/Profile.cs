@@ -312,6 +312,7 @@ namespace ClassicUO.Configuration
         public bool UseNewTargetSystem { get; set; } = true;
         public bool UseKrEquipUnequipPacket { get; set; }
         public bool ShowHouseContent { get; set; } = true;
+        public bool ShowHouseContentDefaultApplied { get; set; }
         public bool SaveHealthbars { get; set; }
         public bool TextFading { get; set; } = true;
 
