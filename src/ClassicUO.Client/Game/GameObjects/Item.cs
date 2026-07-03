@@ -5,7 +5,6 @@ using ClassicUO.Game.Data;
 using ClassicUO.Game.Managers;
 using ClassicUO.Game.Scenes;
 using ClassicUO.Game.UI.Gumps;
-using ClassicUO.Network;
 using Microsoft.Xna.Framework;
 using System;
 
@@ -243,7 +242,11 @@ namespace ClassicUO.Game.GameObjects
             }
             else
             {
-                house.ClearComponents(removeCustomOnly: house.IsCustom);
+                house.ClearComponents(
+                    house.IsCustom
+                        ? HouseComponentClearMode.NonCustomOnly
+                        : HouseComponentClearMode.All
+                );
             }
 
             var movable = false;
@@ -337,11 +340,6 @@ namespace ClassicUO.Game.GameObjects
             }
 
             World.BoatMovingManager.ClearSteps(Serial);
-
-            if (!movable)
-            {
-                PacketHandlers.RequestCustomHouseData(World, Serial);
-            }
         }
 
         public override void CheckGraphicChange(byte animIndex = 0)

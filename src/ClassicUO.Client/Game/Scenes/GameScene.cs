@@ -115,7 +115,11 @@ namespace ClassicUO.Game.Scenes
                     continue;
                 }
 
-                if (!_world.HouseManager.EntityIntoHouse(foundation.Serial, _world.Player))
+                bool playerInside = _world.HouseManager.EntityIntoHouse(foundation.Serial, _world.Player);
+                bool inViewRange =
+                    foundation.Distance <= _world.ClientViewRange + foundation.MultiDistanceBonus;
+
+                if (!playerInside && !inViewRange)
                 {
                     continue;
                 }

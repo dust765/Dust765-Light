@@ -492,6 +492,8 @@ namespace ClassicUO.Network
                 && Time.Ticks < nextAllowed
             )
             {
+                QueueCustomHouseRequest(serial);
+
                 return;
             }
 
@@ -5785,7 +5787,7 @@ namespace ClassicUO.Network
             }
             else
             {
-                house.ClearComponents(true);
+                house.ClearComponents(HouseComponentClearMode.CustomOnly);
                 house.Revision = revision;
                 house.IsCustom = true;
             }
@@ -5843,6 +5845,7 @@ namespace ClassicUO.Network
 
             Handler._houseRequestSentAt.Remove(serial);
             house.IsCustom = true;
+            foundation.WantUpdateMulti = false;
 
             house.RelinkComponentsToTiles();
             world.Map?.EnsureChunksLoadedForHouse(foundation);
