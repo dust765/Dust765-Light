@@ -47,6 +47,7 @@ namespace ClassicUO.Game.Scenes
 
         private const float MAX_LAYER_DEPTH = 0x8000;
         private uint _time_cleanup = Time.Ticks + 5000;
+        private uint _houseLoginRefreshDeadline;
         private ushort _lastPreloadX, _lastPreloadY;
 
         private bool _alphaChanged;
@@ -62,7 +63,6 @@ namespace ClassicUO.Game.Scenes
         private Item _multi;
         private Rectangle _rectangleObj = Rectangle.Empty,
             _rectanglePlayer;
-        private uint _houseFilterState;
 
         private uint _timeToPlaceMultiInHouseCustomization;
         private readonly UseItemQueue _useItemQueue;
@@ -106,20 +106,34 @@ namespace ClassicUO.Game.Scenes
                 return;
             }
 
-            _world.Map.PreloadChunksAround(_world.Player.X, _world.Player.Y, 8, 64);
+            _houseLoginRefreshDeadline = Time.Ticks + 8000;
+            _world.Map.PreloadChunksAround(_world.Player.X, _world.Player.Y, 10, 64);
+            RefreshNearbyHouseWalls(forceRequest: true);
+        }
+
+        private void RefreshNearbyHouseWalls(bool forceRequest = false)
+        {
+            if (_world.Player == null || _world.Map == null)
+            {
+                return;
+            }
+
+            int viewRange = _world.ClientViewRange;
+            bool changed = false;
 
             foreach (Item foundation in _world.Items.Values)
             {
-                if (foundation == null || foundation.IsDestroyed || !foundation.IsMulti || !foundation.OnGround)
+                if (
+                    foundation == null
+                    || foundation.IsDestroyed
+                    || !foundation.IsMulti
+                    || !foundation.OnGround
+                )
                 {
                     continue;
                 }
 
-                bool playerInside = _world.HouseManager.EntityIntoHouse(foundation.Serial, _world.Player);
-                bool inViewRange =
-                    foundation.Distance <= _world.ClientViewRange + foundation.MultiDistanceBonus;
-
-                if (!playerInside && !inViewRange)
+                if (!_world.HouseManager.IsHouseInRange(foundation.Serial, viewRange))
                 {
                     continue;
                 }
@@ -132,24 +146,42 @@ namespace ClassicUO.Game.Scenes
 
                 _world.HouseManager.TryGetHouse(foundation.Serial, out House house);
 
-                if (house != null && house.IsCustom)
+                int customCount = 0;
+
+                if (house != null)
+                {
+                    for (int i = 0; i < house.Components.Count; i++)
+                    {
+                        Multi component = house.Components[i];
+
+                        if (component.IsCustom && !component.IsDestroyed)
+                        {
+                            customCount++;
+                        }
+                    }
+                }
+
+                if (house == null || !house.IsCustom || customCount == 0)
+                {
+                    if (forceRequest || Time.Ticks < _houseLoginRefreshDeadline)
+                    {
+                        PacketHandlers.QueueCustomHouseRequest(foundation.Serial);
+                    }
+                }
+                else
                 {
                     _world.Map.EnsureChunksLoadedForHouse(foundation);
                     house.RelinkComponentsToTiles();
                     _world.Map.MarkChunksMeshDirtyForHouse(foundation);
-                    _world.HouseManager.ScheduleRelink(foundation.Serial);
-                }
-                else
-                {
-                    PacketHandlers.RequestCustomHouseData(_world, foundation.Serial);
+                    changed = true;
                 }
             }
 
-            PacketHandlers.SendMegaClilocRequests(_world);
-            _world.HouseManager.EnsurePlayerHouseWalls();
-            _world.HouseManager.ProcessPendingRelinks();
-            UpdateMaxDrawZ(true);
-            UpdateDrawPosition = true;
+            if (changed || forceRequest)
+            {
+                UpdateMaxDrawZ(true);
+                UpdateDrawPosition = true;
+            }
         }
 
         public override void Load()
@@ -691,17 +723,6 @@ namespace ClassicUO.Game.Scenes
 
             GetViewPort();
 
-            HouseVisibilityHelper.BeginFrame(_world, profile);
-            HouseContentVisibilityHelper.BeginFrame(
-                _world,
-                profile,
-                _minTile.X,
-                _minTile.Y,
-                _maxTile.X,
-                _maxTile.Y
-            );
-            SyncHouseFilterState(profile);
-
             var ctrlShiftHeld = Keyboard.Ctrl && Keyboard.Shift;
             var useObjectHandles = _world.NameOverHeadManager.IsShowing;
             if (useObjectHandles != _useObjectHandles)
@@ -768,11 +789,6 @@ namespace ClassicUO.Game.Scenes
 
             for (int ci = 0; ci < _visibleChunks.Count; ci++)
             {
-                if (HouseVisibilityHelper.IsFilterActive && (ci & 31) == 0)
-                {
-                    Client.Game.DrainIncomingPackets();
-                }
-
                 var chunk = _visibleChunks[ci];
 
                 chunk.Mesh.Land.ResetVisibility();
@@ -823,19 +839,6 @@ namespace ClassicUO.Game.Scenes
             Client.Game.DrainIncomingPackets();
         }
 
-        private void SyncHouseFilterState(Profile profile)
-        {
-            uint state = HouseVisibilityHelper.PackFilterState(profile);
-
-            if (state == _houseFilterState)
-            {
-                return;
-            }
-
-            _houseFilterState = state;
-            _world.Map?.MarkAllLoadedChunksMeshDirty();
-        }
-
         private void UpdateTextServerEntities<T>(IEnumerable<T> entities, bool force)
             where T : Entity
         {
@@ -878,10 +881,6 @@ namespace ClassicUO.Game.Scenes
                 }
             }
 
-            PacketHandlers.SendMegaClilocRequests(_world);
-            _world.HouseManager.EnsurePlayerHouseWalls();
-            _world.HouseManager.ProcessPendingRelinks();
-
             if (_forceStopScene)
             {
                 LoginScene loginScene = new LoginScene(_world);
@@ -899,6 +898,14 @@ namespace ClassicUO.Game.Scenes
             HouseContentVisibilityHelper.PrepareFrame(_world, currentProfile);
 
             _world.Update();
+
+            if (Time.Ticks < _houseLoginRefreshDeadline)
+            {
+                RefreshNearbyHouseWalls();
+            }
+
+            PacketHandlers.SendMegaClilocRequests(_world);
+
             _animatedStaticsManager.Process();
             _world.BoatMovingManager.Update();
             _world.Player.Pathfinder.ProcessAutoWalk();
