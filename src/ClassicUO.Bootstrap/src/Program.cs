@@ -58,6 +58,7 @@ static class Global
 sealed class ClassicUOHost : IPluginHandler
 {
     private readonly List<Plugin> _plugins = new List<Plugin>();
+    private readonly HashSet<string> _loggedPluginErrors = new HashSet<string>();
 
     // Plugin -> Client
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
@@ -358,7 +359,7 @@ sealed class ClassicUOHost : IPluginHandler
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[Plugin] '{plugin.AssetsPath}' threw an exception in ProcessRecvPacket: {ex}");
+                LogPluginException(plugin.AssetsPath, "ProcessRecvPacket", ex);
             }
             finally
             {
@@ -389,7 +390,7 @@ sealed class ClassicUOHost : IPluginHandler
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[Plugin] '{plugin.AssetsPath}' threw an exception in ProcessSendPacket: {ex}");
+                LogPluginException(plugin.AssetsPath, "ProcessSendPacket", ex);
             }
             finally
             {
@@ -506,13 +507,24 @@ sealed class ClassicUOHost : IPluginHandler
         ptr[count] = 0;
 
         fixed (char* titlePtr = title)
-        //fixed (byte* ptr = &buf[0])
         {
             Encoding.UTF8.GetBytes(titlePtr, title.Length, ptr, count);
 
             ptr[count] = 0;
             _setWindowTitle.Delegate((IntPtr)ptr);
         }
+    }
+
+    void LogPluginException(string assetsPath, string handler, Exception ex)
+    {
+        string key = $"{assetsPath}|{handler}|{ex.GetType().FullName}|{ex.StackTrace}";
+
+        if (!_loggedPluginErrors.Add(key))
+        {
+            return;
+        }
+
+        Console.WriteLine($"[Plugin] '{assetsPath}' threw an exception in {handler}: {ex}");
     }
 
     sealed class FuncPointer<T> where T : Delegate

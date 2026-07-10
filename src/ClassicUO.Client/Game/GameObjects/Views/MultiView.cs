@@ -56,7 +56,6 @@ namespace ClassicUO.Game.GameObjects
                 if ((State & CUSTOM_HOUSE_MULTI_OBJECT_FLAGS.CHMOF_TRANSPARENT) != 0)
                 {
                     AlphaHue = 192;
-                    depth -= 0.01f;
                 }
             }
 
@@ -87,8 +86,7 @@ namespace ClassicUO.Game.GameObjects
                 partial = false;
             }
 
-            bool cot = TransparentTest(World.Player.Z + 5);
-            Vector3 hueVec = ShaderHueTranslator.GetHueVector(hue, partial, AlphaHue / 255f, circletrans: cot);
+            Vector3 hueVec = ShaderHueTranslator.GetHueVector(hue, partial, AlphaHue / 255f);
 
             if (IsHousePreview)
             {
@@ -114,23 +112,9 @@ namespace ClassicUO.Game.GameObjects
                 }
             }
 
-            if (currentProfile.InvisibleHousesEnabled && World.Player != null)
-            {
-                GameObject tile = World.Map?.GetTile(X, Y);
-
-                if (
-                    tile != null
-                    && (Z - World.Player.Z) > currentProfile.InvisibleHousesZ
-                    && (Z - tile.Z) > currentProfile.DontRemoveHouseBelowZ
-                )
-                {
-                    return false;
-                }
-            }
-
             DrawStaticAnimated(batcher, graphic, posX, posY, hueVec, false, depth);
 
-            if (ItemData.IsLight && !InChunkMesh)
+            if (ItemData.IsLight)
             {
                 Client.Game.GetScene<GameScene>().AddLight(this, this, posX + 22, posY + 22);
             }
@@ -159,19 +143,6 @@ namespace ClassicUO.Game.GameObjects
                                 | CUSTOM_HOUSE_MULTI_OBJECT_FLAGS.CHMOF_PREVIEW
                             )
                         ) != 0
-                    )
-                    {
-                        return false;
-                    }
-                }
-
-                if (ProfileManager.CurrentProfile.InvisibleHousesEnabled && World.Player != null)
-                {
-                    GameObject tile = World.Map?.GetTile(X, Y);
-                    if (
-                        tile != null
-                        && (Z - World.Player.Z) > ProfileManager.CurrentProfile.InvisibleHousesZ
-                        && (Z - tile.Z) > ProfileManager.CurrentProfile.DontRemoveHouseBelowZ
                     )
                     {
                         return false;

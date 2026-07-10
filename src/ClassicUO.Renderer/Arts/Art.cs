@@ -17,14 +17,18 @@ namespace ClassicUO.Renderer.Arts
         private readonly Rectangle[] _realArtBounds;
         private readonly ArtLoader _artLoader;
         private readonly HuesLoader _huesLoader;
+        private readonly GumpsLoader _gumpsLoader;
+        private readonly bool[] _loggedMissing;
 
-        public Art(ArtLoader artLoader, HuesLoader huesLoader, GraphicsDevice device)
+        public Art(ArtLoader artLoader, HuesLoader huesLoader, GumpsLoader gumpsLoader, GraphicsDevice device)
         {
             _artLoader = artLoader;
             _huesLoader = huesLoader;
+            _gumpsLoader = gumpsLoader;
             _atlas = new TextureAtlas(device, 4096, 4096, SurfaceFormat.Color);
             _spriteInfos = new SpriteInfo[_artLoader.File.Entries.Length];
             _realArtBounds = new Rectangle[_spriteInfos.Length];
+            _loggedMissing = new bool[_spriteInfos.Length];
         }
 
         public ref readonly SpriteInfo GetLand(uint idx)
@@ -44,14 +48,38 @@ namespace ClassicUO.Renderer.Arts
             {
                 var artInfo = _artLoader.GetArt(idx);
 
+                if (artInfo.Pixels.IsEmpty && idx > 0x4000)
+                {
+                    var gumpInfo = _gumpsLoader.GetGump((ushort)(idx - 0x4000));
+
+                    if (!gumpInfo.Pixels.IsEmpty)
+                    {
+                        artInfo = new ArtInfo
+                        {
+                            Pixels = gumpInfo.Pixels,
+                            Width = gumpInfo.Width,
+                            Height = gumpInfo.Height
+                        };
+                    }
+                }
+
                 if (artInfo.Pixels.IsEmpty && idx > 0)
                 {
-                    // Trying to load a texture that does not exist in the client MULs
-                    // Degrading gracefully and only crash if not even the fallback ItemID exists
-                    Log.Error(
-                        $"Texture not found for sprite: idx: {idx}; itemid: {(idx > 0x4000 ? idx - 0x4000 : '-')}"
-                    );
-                    return ref Get(0); // ItemID of "UNUSED" placeholder
+                    if (idx < _loggedMissing.Length && !_loggedMissing[idx])
+                    {
+                        _loggedMissing[idx] = true;
+                        Log.Warn(
+                            $"Art texture not found (idx: {idx}, itemid: {(idx > 0x4000 ? idx - 0x4000 : "-")}); using placeholder"
+                        );
+                    }
+
+                    if (idx != 0)
+                    {
+                        _spriteInfos[idx] = Get(0);
+                        return ref _spriteInfos[idx];
+                    }
+
+                    return ref SpriteInfo.Empty;
                 }
 
                 spriteInfo.Texture = _atlas.AddSprite(

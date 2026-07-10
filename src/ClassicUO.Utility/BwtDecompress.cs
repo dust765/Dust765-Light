@@ -1,11 +1,6 @@
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Runtime.InteropServices;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace ClassicUO.Utility
 {
@@ -68,24 +63,35 @@ namespace ClassicUO.Utility
                 }
             }
 
-            table.Sort();
+            ushort[] array = table.ToArray();
+            Array.Sort(array);
+            array.AsSpan().CopyTo(table);
         }
 
         static byte[] InternalDecompress(Span<byte> input, uint len)
         {
+            if (input.Length < 1024)
+            {
+                return Array.Empty<byte>();
+            }
+
             Span<char> symbolTable = stackalloc char[256];
             Span<char> frequency = stackalloc char[256];
             Span<int> partialInput = stackalloc int[256 * 3];
             partialInput.Clear();
 
             for (var i = 0; i < 256; i++)
+            {
                 symbolTable[i] = (char)i;
+            }
 
             input.Slice(0, 1024).CopyTo(MemoryMarshal.AsBytes(partialInput));
 
             var sum = 0;
             for (var i = 0; i < 256; i++)
+            {
                 sum += partialInput[i];
+            }
 
             if (len == 0)
             {
@@ -93,7 +99,9 @@ namespace ClassicUO.Utility
             }
 
             if (sum != len)
+            {
                 return Array.Empty<byte>();
+            }
 
             var output = new byte[len];
 
@@ -103,7 +111,9 @@ namespace ClassicUO.Utility
             for (var i = 0; i < 256; i++)
             {
                 if (partialInput[i] != 0)
+                {
                     nonZeroCount++;
+                }
             }
 
             Frequency(partialInput, frequency);
@@ -111,6 +121,11 @@ namespace ClassicUO.Utility
             for (int i = 0, m = 0; i < nonZeroCount; ++i)
             {
                 var freq = (byte)frequency[i];
+                if (m + 1024 >= input.Length)
+                {
+                    break;
+                }
+
                 symbolTable[input[m + 1024]] = (char)freq;
                 partialInput[freq + 256] = m + 1;
                 m += partialInput[freq];
@@ -136,6 +151,11 @@ namespace ClassicUO.Utility
                     }
                     else
                     {
+                        if (firstValRef + 1024 >= input.Length)
+                        {
+                            break;
+                        }
+
                         var idx = (char)input[firstValRef + 1024];
                         firstValRef++;
 
@@ -174,7 +194,9 @@ namespace ClassicUO.Utility
                 }
 
                 if (value == 0)
+                {
                     break;
+                }
 
                 output[i] = (char)index;
                 tmp[index] = 0;
@@ -184,7 +206,9 @@ namespace ClassicUO.Utility
         static void ShiftLeft(Span<char> input, int max)
         {
             for (var i = 0; i < max; ++i)
+            {
                 input[i] = input[i + 1];
+            }
         }
     }
 }

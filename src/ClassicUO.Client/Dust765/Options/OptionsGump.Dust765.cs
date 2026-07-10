@@ -47,6 +47,10 @@ namespace ClassicUO.Game.UI.Gumps
         private HSliderBar _dust765TransparentHousesTransparency;
         private HSliderBar _dust765InvisibleHousesZ;
         private HSliderBar _dust765DontRemoveHouseBelowZ;
+        private Checkbox _dust765DrawMobilesWithSurfaceOverhead;
+        private Checkbox _dust765IgnoreCoTEnabled;
+        private HSliderBar _dust765PlayerOffsetX;
+        private HSliderBar _dust765PlayerOffsetY;
         private Checkbox _dust765ColorStealth;
         private Combobox _dust765StealthNeonType;
         private ClickableColorBox _dust765StealthHueBox;
@@ -790,6 +794,61 @@ namespace ClassicUO.Game.UI.Gumps
 
             sectionHouse.Add
             (
+                _dust765DrawMobilesWithSurfaceOverhead = AddCheckBox
+                (
+                    null,
+                    "Draw mobiles under roofs",
+                    _currentProfile.DrawMobilesWithSurfaceOverhead,
+                    startX,
+                    startY
+                )
+            );
+
+            sectionHouse.Add
+            (
+                _dust765IgnoreCoTEnabled = AddCheckBox
+                (
+                    null,
+                    "Ignore CoT list (ignoreCoT.txt)",
+                    _currentProfile.IgnoreCoTEnabled,
+                    startX,
+                    startY
+                )
+            );
+
+            sectionHouse.PushIndent();
+            sectionHouse.Add(AddLabel(null, "Camera offset X (tiles)", startX, startY));
+            sectionHouse.AddRight
+            (
+                _dust765PlayerOffsetX = AddHSlider
+                (
+                    null,
+                    -10,
+                    10,
+                    Math.Clamp(_currentProfile.PlayerOffset.X, -10, 10),
+                    startX,
+                    startY,
+                    200
+                )
+            );
+            sectionHouse.Add(AddLabel(null, "Camera offset Y (tiles)", startX, startY));
+            sectionHouse.AddRight
+            (
+                _dust765PlayerOffsetY = AddHSlider
+                (
+                    null,
+                    -10,
+                    10,
+                    Math.Clamp(_currentProfile.PlayerOffset.Y, -10, 10),
+                    startX,
+                    startY,
+                    200
+                )
+            );
+            sectionHouse.PopIndent();
+
+            sectionHouse.Add
+            (
                 _dust765ShowDeathOnWorldmap = AddCheckBox
                 (
                     null,
@@ -1370,6 +1429,13 @@ namespace ClassicUO.Game.UI.Gumps
             _currentProfile.InvisibleHousesEnabled = _dust765InvisibleHouses.IsChecked;
             _currentProfile.InvisibleHousesZ = Math.Clamp(_dust765InvisibleHousesZ.Value, 1, 100);
             _currentProfile.DontRemoveHouseBelowZ = Math.Clamp(_dust765DontRemoveHouseBelowZ.Value, 1, 100);
+            _currentProfile.DrawMobilesWithSurfaceOverhead = _dust765DrawMobilesWithSurfaceOverhead.IsChecked;
+            _currentProfile.IgnoreCoTEnabled = _dust765IgnoreCoTEnabled.IsChecked;
+            _currentProfile.PlayerOffset = new Microsoft.Xna.Framework.Point
+            (
+                _dust765PlayerOffsetX.Value,
+                _dust765PlayerOffsetY.Value
+            );
             _currentProfile.ShowDeathOnWorldmap = _dust765ShowDeathOnWorldmap.IsChecked;
             _currentProfile.GridContainerEnabled = _dust765GridContainer.IsChecked;
             _currentProfile.ShowAllLayersPaperdoll = _dust765ShowAllLayersPaperdoll.IsChecked;

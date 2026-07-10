@@ -31,8 +31,8 @@ namespace ClassicUO.Game.UI.Controls
 
                 if (gumpInfo.Texture == null)
                 {
-                    Dispose();
-
+                    Width = 0;
+                    Height = 0;
                     return;
                 }
 
@@ -136,6 +136,12 @@ namespace ClassicUO.Game.UI.Controls
 
             if (gumpInfo.Texture != null)
             {
+                if (Width <= 0 || Height <= 0)
+                {
+                    Width = gumpInfo.UV.Width;
+                    Height = gumpInfo.UV.Height;
+                }
+
                 var texture = gumpInfo.Texture;
                 var sourceRectangle = gumpInfo.UV;
                 renderLists.AddGumpWithAtlas(
