@@ -145,10 +145,10 @@ namespace ClassicUO.Game.UI.Controls
             }
 
             bool isOwnPaperdoll = _paperDollGump.World.Player != null && LocalSerial == _paperDollGump.World.Player.Serial;
-            bool showAllLayersPaperdoll = isOwnPaperdoll && (ProfileManager.CurrentProfile?.ShowAllLayersPaperdoll ?? false);
-            Item wornRobe = mobile.FindItemByLayer(Layer.Robe);
+            bool showAllLayersPaperdoll = isOwnPaperdoll && (ProfileManager.CurrentProfile?.ShowAllLayersPaperdoll ?? true);
+            Item wornOuterTorso = mobile.FindItemByLayer(Layer.Robe);
             bool useParrotPaperdollRules = IsParrotOriginalPaperdollView(mobile)
-                && IsParrotRobe(wornRobe, mobile);
+                && IsParrotEpauletsEast(wornOuterTorso);
 
             Span<Layer> layers = stackalloc Layer[PaperdollOrder.N];
             int layerCount;
@@ -186,14 +186,16 @@ namespace ClassicUO.Game.UI.Controls
                         continue;
                     }
 
-                    if (useParrotPaperdollRules && IsLayerHiddenByParrotRobe(layer))
-                    {
-                        continue;
-                    }
-
                     bool respectCoveredLayers = !showAllLayersPaperdoll;
 
-                    if (respectCoveredLayers && Mobile.IsCovered(mobile, layer) && !equipItem.IsSpellbookEquipment())
+                    if (
+                        respectCoveredLayers
+                        && layer != Layer.Shirt
+                        && layer != Layer.Tunic
+                        && layer != Layer.Pants
+                        && Mobile.IsCovered(mobile, layer)
+                        && !equipItem.IsSpellbookEquipment()
+                    )
                     {
                         continue;
                     }
@@ -354,39 +356,30 @@ namespace ClassicUO.Game.UI.Controls
                 && (ProfileManager.CurrentProfile?.PaperdollParrotOriginalView ?? true);
         }
 
-        private static bool IsParrotRobe(Item robe, Mobile mobile)
+        private const ushort ParrotEpauletsEastGraphic = 0xA2CB;
+        private const string ParrotEpauletsEastName = "Parrot_Epaulets_East";
+
+        private bool IsParrotEpauletsEast(Item item)
         {
-            if (robe == null)
+            // Caller already resolved OuterTorso (Layer.Robe).
+            if (item == null || item.Graphic != ParrotEpauletsEastGraphic)
             {
                 return false;
             }
 
-            if (mobile != null && HasTileArtBodyAppearance(robe, mobile))
+            if (NameEqualsParrotEpauletsEast(item.Name) || NameEqualsParrotEpauletsEast(item.ItemData.Name))
             {
                 return true;
             }
 
-            ushort graphic = robe.Graphic;
-            ushort anim = robe.ItemData.AnimID;
-
-            return graphic == 0xA2CA || graphic == 0xA2CB
-                || graphic == 0x9985 || graphic == 0x9986
-                || graphic == 0xA412 || graphic == 0xB1DE
-                || anim == 0xA2CA || anim == 0xA2CB;
+            return _paperDollGump.World.OPL.TryGetNameAndData(item.Serial, out string oplName, out _)
+                && NameEqualsParrotEpauletsEast(oplName);
         }
 
-        private static bool HasTileArtBodyAppearance(Item item, Mobile mobile)
+        private static bool NameEqualsParrotEpauletsEast(string name)
         {
-            ushort mobileGraphic = mobile.Graphic;
-            Client.Game.UO.Animations.ConvertBodyIfNeeded(ref mobileGraphic);
-
-            if (!Client.Game.UO.FileManager.TileArt.TryGetTileArtInfo(item.Graphic, out var tileArtInfo))
-            {
-                return false;
-            }
-
-            return TryResolveTileArtAppearance(tileArtInfo, mobileGraphic, out uint appearanceId)
-                && appearanceId != 0;
+            return !string.IsNullOrEmpty(name)
+                && name.Contains(ParrotEpauletsEastName, StringComparison.OrdinalIgnoreCase);
         }
 
         private static bool TryResolveTileArtAppearance(TileArtInfo tileArtInfo, ushort mobileGraphic, out uint appearanceId)
@@ -407,11 +400,6 @@ namespace ClassicUO.Game.UI.Controls
             }
 
             return false;
-        }
-
-        private static bool IsLayerHiddenByParrotRobe(Layer layer)
-        {
-            return layer == Layer.Tunic || layer == Layer.Torso || layer == Layer.Arms;
         }
 
         private static bool IsHelmetOrHairLayer(Layer layer)
@@ -470,20 +458,43 @@ namespace ClassicUO.Game.UI.Controls
 
             if (Client.Game.UO.FileManager.TileArt.TryGetTileArtInfo(itemGraphic, out var tileArtInfo))
             {
-                if (tileArtInfo.TryGetAppearance(mobileGraphic, out var appareanceId))
+                if (TryResolveTileArtAppearance(tileArtInfo, mobileGraphic, out uint appearanceId) && appearanceId != 0)
                 {
-                    var gumpId = (ushort)(Constants.MALE_GUMP_OFFSET + appareanceId);
-                    if (Client.Game.UO.Gumps.GetGump(gumpId).Texture != null)
+                    int primaryOffset = isfemale ? Constants.FEMALE_GUMP_OFFSET : Constants.MALE_GUMP_OFFSET;
+                    int fallbackOffset = isfemale ? Constants.MALE_GUMP_OFFSET : Constants.FEMALE_GUMP_OFFSET;
+
+                    foreach (int tileArtOffset in new[] { primaryOffset, fallbackOffset })
                     {
-                        _tileArtGumpCache[(mobileGraphic, itemGraphic)] = gumpId;
-                        return gumpId;
+                        var gumpId = (ushort)(tileArtOffset + appearanceId);
+
+                        if (
+                            gumpId <= GumpsLoader.MAX_GUMP_DATA_INDEX_COUNT
+                            && Client.Game.UO.Gumps.GetGump(gumpId).Texture != null
+                        )
+                        {
+                            _tileArtGumpCache[(mobileGraphic, itemGraphic)] = gumpId;
+                            return gumpId;
+                        }
                     }
                 }
             }
 
             _ = IsAnimExistsInGump(animID, ref offset, isfemale);
 
-            return (ushort)(animID + offset);
+            ushort resultGumpId = (ushort)(animID + offset);
+
+            if (Client.Game.UO.Gumps.GetGump(resultGumpId).Texture == null && itemGraphic != 0 && itemGraphic != animID)
+            {
+                int altOffset = isfemale ? Constants.FEMALE_GUMP_OFFSET : Constants.MALE_GUMP_OFFSET;
+                ushort altAnim = itemGraphic;
+
+                if (IsAnimExistsInGump(altAnim, ref altOffset, isfemale))
+                {
+                    resultGumpId = (ushort)(altAnim + altOffset);
+                }
+            }
+
+            return resultGumpId;
         }
 
         private static bool IsAnimExistsInGump(ushort animID, ref int offset, bool isFemale)

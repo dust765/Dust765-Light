@@ -27,7 +27,6 @@ namespace ClassicUO.Game.Map
         public bool IsDestroyed;
         public long LastAccessTime;
         public LinkedListNode<int> Node;
-        public readonly ChunkMesh Mesh = new ChunkMesh();
 
         public int X;
         public int Y;
@@ -55,11 +54,7 @@ namespace ClassicUO.Game.Map
 
         public static void ClearPool()
         {
-            while (_pool.Count > 0)
-            {
-                var chunk = _pool.Dequeue();
-                chunk.Mesh.Clear();
-            }
+            _pool.Clear();
         }
 
 
@@ -163,7 +158,6 @@ namespace ClassicUO.Game.Map
 
         public void AddGameObject(GameObject obj, int x, int y)
         {
-            Mesh.MarkDirtyIfNeeded(obj);
             obj.RemoveFromTile();
 
             short priorityZ = obj.Z;
@@ -342,7 +336,6 @@ namespace ClassicUO.Game.Map
 
         public void RemoveGameObject(GameObject obj, int x, int y)
         {
-            Mesh.MarkDirtyIfNeeded(obj);
             ref GameObject firstNode = ref Tiles[x, y];
 
             if (firstNode == null || obj == null)
@@ -417,12 +410,7 @@ namespace ClassicUO.Game.Map
 
             if (_pool.Count < Constants.PREDICTABLE_CHUNKS)
             {
-                Mesh.SoftClear();
                 _pool.Enqueue(this);
-            }
-            else
-            {
-                Mesh.Clear();
             }
         }
 
@@ -433,14 +421,7 @@ namespace ClassicUO.Game.Map
 
         /// <summary>
         /// Clears the chunk's tile objects for an in-place reload (UltimaLive block
-        /// update) and marks the mesh dirty so it rebuilds — WITHOUT destroying or
-        /// pooling the chunk itself. The chunk stays owned by the map: its
-        /// <see cref="_terrainChunks"/> slot and <see cref="Node"/> are left intact.
-        /// Using <see cref="Destroy"/>/<see cref="Clear"/> here would enqueue this
-        /// chunk to the shared pool while it is still referenced by the map, so it
-        /// would later be handed out by <see cref="Create"/> for a different block
-        /// (double ownership) — the original block then renders a stale/empty mesh
-        /// (black, world-locked, permanent).
+        /// update) WITHOUT destroying or pooling the chunk itself.
         /// </summary>
         public void ClearForReload()
         {
@@ -467,8 +448,6 @@ namespace ClassicUO.Game.Map
                     Tiles[i, j] = null;
                 }
             }
-
-            Mesh.SoftClear();
         }
 
         public bool HasNoExternalData()

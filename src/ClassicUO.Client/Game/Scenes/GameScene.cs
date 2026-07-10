@@ -47,8 +47,10 @@ namespace ClassicUO.Game.Scenes
 
         private const float MAX_LAYER_DEPTH = 0x8000;
         private uint _time_cleanup = Time.Ticks + 5000;
-        private uint _houseLoginRefreshDeadline;
+
         private ushort _lastPreloadX, _lastPreloadY;
+        private uint _houseLoginRefreshDeadline;
+        private uint _timeTextServerEntities;
 
         private bool _alphaChanged;
         private long _alphaTimer;
@@ -70,9 +72,6 @@ namespace ClassicUO.Game.Scenes
         private AnimatedStaticsManager _animatedStaticsManager;
 
         private readonly World _world;
-
-        // Track the previously highlighted mesh sprite so we can restore its hue
-        private GameObject _prevMeshHighlight;
 
         public GameScene(World world)
         {
@@ -97,91 +96,6 @@ namespace ClassicUO.Game.Scenes
         public void DoubleClickDelayed(uint serial)
         {
             _useItemQueue.Add(serial);
-        }
-
-        internal void RefreshHousesOnLogin()
-        {
-            if (_world.Player == null || _world.Map == null)
-            {
-                return;
-            }
-
-            _houseLoginRefreshDeadline = Time.Ticks + 8000;
-            _world.Map.PreloadChunksAround(_world.Player.X, _world.Player.Y, 10, 64);
-            RefreshNearbyHouseWalls(forceRequest: true);
-        }
-
-        private void RefreshNearbyHouseWalls(bool forceRequest = false)
-        {
-            if (_world.Player == null || _world.Map == null)
-            {
-                return;
-            }
-
-            int viewRange = _world.ClientViewRange;
-            bool changed = false;
-
-            foreach (Item foundation in _world.Items.Values)
-            {
-                if (
-                    foundation == null
-                    || foundation.IsDestroyed
-                    || !foundation.IsMulti
-                    || !foundation.OnGround
-                )
-                {
-                    continue;
-                }
-
-                if (!_world.HouseManager.IsHouseInRange(foundation.Serial, viewRange))
-                {
-                    continue;
-                }
-
-                if (foundation.MultiInfo == null)
-                {
-                    foundation.WantUpdateMulti = true;
-                    foundation.CheckGraphicChange();
-                }
-
-                _world.HouseManager.TryGetHouse(foundation.Serial, out House house);
-
-                int customCount = 0;
-
-                if (house != null)
-                {
-                    for (int i = 0; i < house.Components.Count; i++)
-                    {
-                        Multi component = house.Components[i];
-
-                        if (component.IsCustom && !component.IsDestroyed)
-                        {
-                            customCount++;
-                        }
-                    }
-                }
-
-                if (house == null || !house.IsCustom || customCount == 0)
-                {
-                    if (forceRequest || Time.Ticks < _houseLoginRefreshDeadline)
-                    {
-                        PacketHandlers.QueueCustomHouseRequest(foundation.Serial);
-                    }
-                }
-                else
-                {
-                    _world.Map.EnsureChunksLoadedForHouse(foundation);
-                    house.RelinkComponentsToTiles();
-                    _world.Map.MarkChunksMeshDirtyForHouse(foundation);
-                    changed = true;
-                }
-            }
-
-            if (changed || forceRequest)
-            {
-                UpdateMaxDrawZ(true);
-                UpdateDrawPosition = true;
-            }
         }
 
         public override void Load()
@@ -683,7 +597,6 @@ namespace ClassicUO.Game.Scenes
         private void FillGameObjectList()
         {
             _renderLists.Clear();
-            _visibleChunks.Clear();
 
             _foliageCount = 0;
 
@@ -713,6 +626,9 @@ namespace ClassicUO.Game.Scenes
                 _cotRadiusSq = 0;
                 _cotGradientMode = false;
             }
+
+            _sortCotZ = _world.Player.Z + 5;
+            _sortPlayerPos = _world.Player.GetScreenPosition();
 
             FoliageIndex++;
 
@@ -778,38 +694,27 @@ namespace ClassicUO.Game.Scenes
                     if (chunk == null || chunk.IsDestroyed)
                         continue;
 
-                    if (chunk.Mesh.IsDirty)
+                    int chunkBaseX = chunkX << 3;
+                    int chunkBaseY = chunkY << 3;
+                    int tileStartX = Math.Max(0, minX - chunkBaseX);
+                    int tileEndX = Math.Min(7, maxX - chunkBaseX);
+                    int tileStartY = Math.Max(0, minY - chunkBaseY);
+                    int tileEndY = Math.Min(7, maxY - chunkBaseY);
+
+                    for (var x = tileStartX; x <= tileEndX; x++)
                     {
-                        chunk.Mesh.Build(chunk, _world, Client.Game.GraphicsDevice);
-                    }
+                        for (var y = tileStartY; y <= tileEndY; y++)
+                        {
+                            var firstObj = chunk.GetHeadObject(x, y);
+                            if (firstObj == null || firstObj.IsDestroyed)
+                                continue;
 
-                    _visibleChunks.Add(chunk);
-                }
-            }
-
-            for (int ci = 0; ci < _visibleChunks.Count; ci++)
-            {
-                var chunk = _visibleChunks[ci];
-
-                chunk.Mesh.Land.ResetVisibility();
-                chunk.Mesh.Land.ResetAlpha();
-                chunk.Mesh.Statics.ResetVisibility();
-                chunk.Mesh.Statics.ResetAlpha();
-
-                for (var x = 0; x < 8; x++)
-                {
-                    for (var y = 0; y < 8; y++)
-                    {
-                        var firstObj = chunk.GetHeadObject(x, y);
-                        if (firstObj == null || firstObj.IsDestroyed)
-                            continue;
-
-                        AddTileToRenderList(
-                            firstObj,
-                            use_handles,
-                            150,
-                            chunk
-                        );
+                            AddTileToRenderList(
+                                firstObj,
+                                use_handles,
+                                150
+                            );
+                        }
                     }
                 }
             }
@@ -831,12 +736,14 @@ namespace ClassicUO.Game.Scenes
                 }
             }
 
-            UpdateTextServerEntities(_world.Mobiles.Values, true);
-            UpdateTextServerEntities(_world.Items.Values, false);
+            if (UpdateDrawPosition || Time.Ticks >= _timeTextServerEntities)
+            {
+                _timeTextServerEntities = Time.Ticks + 100;
+                UpdateTextServerEntities(_world.Mobiles.Values, true);
+                UpdateTextServerEntities(_world.Items.Values, false);
+            }
 
             UpdateDrawPosition = false;
-
-            Client.Game.DrainIncomingPackets();
         }
 
         private void UpdateTextServerEntities<T>(IEnumerable<T> entities, bool force)
@@ -852,6 +759,94 @@ namespace ClassicUO.Game.Scenes
                 {
                     e.UpdateRealScreenPosition(_offset.X, _offset.Y);
                 }
+            }
+        }
+
+        internal void RefreshHousesOnLogin()
+        {
+            if (_world.Player == null || _world.Map == null)
+            {
+                return;
+            }
+
+            _houseLoginRefreshDeadline = Time.Ticks + 8000;
+            _world.Map.PreloadChunksAround(_world.Player.X, _world.Player.Y, 10, 64);
+            RefreshNearbyHouseWalls(forceRequest: true);
+        }
+
+        private void RefreshNearbyHouseWalls(bool forceRequest = false)
+        {
+            if (_world.Player == null || _world.Map == null)
+            {
+                return;
+            }
+
+            int viewRange = _world.ClientViewRange;
+            int currX = _world.Player.X;
+            int currY = _world.Player.Y;
+            bool changed = false;
+
+            foreach (Item foundation in _world.Items.Values)
+            {
+                if (
+                    foundation == null
+                    || foundation.IsDestroyed
+                    || !foundation.IsMulti
+                    || !foundation.OnGround
+                )
+                {
+                    continue;
+                }
+
+                int distance = viewRange + foundation.MultiDistanceBonus;
+
+                if (Math.Abs(foundation.X - currX) > distance || Math.Abs(foundation.Y - currY) > distance)
+                {
+                    continue;
+                }
+
+                if (foundation.MultiInfo == null)
+                {
+                    foundation.WantUpdateMulti = true;
+                    foundation.CheckGraphicChange();
+                }
+
+                _world.HouseManager.TryGetHouse(foundation.Serial, out House house);
+
+                int customCount = 0;
+
+                if (house != null)
+                {
+                    for (int i = 0; i < house.Components.Count; i++)
+                    {
+                        Multi component = house.Components[i];
+
+                        if (component.IsCustom && !component.IsDestroyed)
+                        {
+                            customCount++;
+                        }
+                    }
+                }
+
+                if (house == null || !house.IsCustom || customCount == 0)
+                {
+                    if (forceRequest || Time.Ticks < _houseLoginRefreshDeadline)
+                    {
+                        PacketHandlers.QueueCustomHouseRequest(foundation.Serial);
+                    }
+                }
+                else
+                {
+                    _world.Map.EnsureChunksLoadedForHouse(foundation);
+                    house.RelinkComponentsToTiles();
+                    changed = true;
+                }
+            }
+
+            if (changed || forceRequest)
+            {
+                UpdateMaxDrawZ(true);
+                UpdateDrawPosition = true;
             }
         }
 
@@ -877,9 +872,17 @@ namespace ClassicUO.Game.Scenes
                 {
                     _lastPreloadX = _world.Player.X;
                     _lastPreloadY = _world.Player.Y;
-                    _world.Map.PreloadChunksAround(_world.Player.X, _world.Player.Y, 3, 2);
+                    _world.Map.PreloadChunksAround(_world.Player.X, _world.Player.Y, 3, 8);
                 }
             }
+
+            if (Time.Ticks < _houseLoginRefreshDeadline)
+            {
+                RefreshNearbyHouseWalls();
+            }
+
+            PacketHandlers.SendMegaClilocRequests(_world);
+            _world.HouseManager.UpdateHouseMaintenance();
 
             if (_forceStopScene)
             {
@@ -898,13 +901,6 @@ namespace ClassicUO.Game.Scenes
             HouseContentVisibilityHelper.PrepareFrame(_world, currentProfile);
 
             _world.Update();
-
-            if (Time.Ticks < _houseLoginRefreshDeadline)
-            {
-                RefreshNearbyHouseWalls();
-            }
-
-            PacketHandlers.SendMegaClilocRequests(_world);
 
             _animatedStaticsManager.Process();
             _world.BoatMovingManager.Update();
@@ -1112,72 +1108,20 @@ namespace ClassicUO.Game.Scenes
             Profiler.EnterContext(Profiler.ProfilerContext.RENDER_FRAME_WORLD_PREPARE);
             FillGameObjectList();
 
-            // Restore previous highlight's original hue before applying new one
-            if (_prevMeshHighlight != null
-                && !_prevMeshHighlight.IsDestroyed
-                && _prevMeshHighlight.InChunkMesh
-                && _prevMeshHighlight.MeshSpriteIndex >= 0)
-            {
-                var prevChunk = _world.Map.GetChunk(_prevMeshHighlight.X, _prevMeshHighlight.Y);
-                if (prevChunk?.Mesh != null)
-                {
-                    var prevLayer = _prevMeshHighlight is Land ? prevChunk.Mesh.Land : prevChunk.Mesh.Statics;
-                    ApplyMeshHue(_prevMeshHighlight, prevLayer);
-                }
-            }
-            _prevMeshHighlight = null;
-
-            // Apply highlight hue to mesh vertex for selected meshed object
-            // (instead of redrawing it on top, which breaks z-order for overlapping objects)
-            if (ProfileManager.CurrentProfile.HighlightGameObjects
-                && SelectedObject.Object is GameObject selObj
-                && selObj.InChunkMesh && selObj.MeshSpriteIndex >= 0)
-            {
-                var chunk = _world.Map.GetChunk(selObj.X, selObj.Y);
-                if (chunk?.Mesh != null)
-                {
-                    var layer = selObj is Land ? chunk.Mesh.Land : chunk.Mesh.Statics;
-                    float shaderType = selObj is Land land && land.IsStretched
-                        ? ShaderHueTranslator.SHADER_LAND_HUED
-                        : ShaderHueTranslator.SHADER_HUED;
-                    layer.SetHue(
-                        selObj.MeshSpriteIndex,
-                        Constants.HIGHLIGHT_CURRENT_OBJECT_HUE - 1,
-                        shaderType
-                    );
-                    _prevMeshHighlight = selObj;
-                }
-            }
-
             Profiler.ExitContext(Profiler.ProfilerContext.RENDER_FRAME_WORLD_PREPARE);
             Profiler.EnterContext(Profiler.ProfilerContext.RENDER_FRAME_WORLD);
             batcher.SetSampler(SamplerState.PointClamp);
 
             batcher.Begin(null, matrix);
             batcher.SetBrightlight(ProfileManager.CurrentProfile.TerrainShadowsLevel * 0.1f);
-
-            if (ProfileManager.CurrentProfile.UseCircleOfTransparency
-                && ProfileManager.CurrentProfile.CircleOfTransparencyType != 1) // gradient mode uses CPU alpha, not shader
-            {
-                batcher.SetCircleOfTransparencyRadius(
-                    (float)ProfileManager.CurrentProfile.CircleOfTransparencyRadius / Camera.Zoom
-                );
-            }
-            else
-            {
-                batcher.SetCircleOfTransparencyRadius(0f);
-            }
+            batcher.SetCircleOfTransparencyRadius(0f);
 
             // https://shawnhargreaves.com/blog/depth-sorting-alpha-blended-objects.html
             batcher.SetStencil(DepthStencilState.Default);
 
             RenderedObjectsCount = _renderLists.DrawRenderLists(
                 batcher,
-                _maxGroundZ,
-                _visibleChunks,
-                _offset.X,
-                _offset.Y,
-                ProfileManager.CurrentProfile.MaxScreenEffectSprites
+                _maxGroundZ
             );
 
 

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 using ClassicUO.Configuration;
-using ClassicUO.Game;
 using ClassicUO.Dust765;
+using ClassicUO.Game;
 using ClassicUO.Game.Data;
 using ClassicUO.Game.Scenes;
 using ClassicUO.IO;
@@ -100,7 +100,7 @@ namespace ClassicUO.Game.GameObjects
                 heightScale
             );
 
-            if (ItemData.IsLight && !InChunkMesh)
+            if (ItemData.IsLight)
             {
                 Client.Game.GetScene<GameScene>().AddLight(this, this, posX + 22, posY + 22);
             }
@@ -118,11 +118,6 @@ namespace ClassicUO.Game.GameObjects
                 )
             )
             {
-                if (HouseVisibilityHelper.IsInvisibleHouseTile(this))
-                {
-                    return false;
-                }
-
                 ushort graphic = Graphic;
 
                 bool isTree = StaticFilters.IsTree(graphic, out _);

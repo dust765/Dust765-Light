@@ -43,15 +43,11 @@ namespace ClassicUO.Game.UI.Controls
 
                 ref readonly var artInfo = ref Client.Game.UO.Arts.GetArt(value);
 
-                if (artInfo.Texture == null)
+                if (artInfo.Texture != null)
                 {
-                    Dispose();
-
-                    return;
+                    Width = artInfo.UV.Width;
+                    Height = artInfo.UV.Height;
                 }
-
-                Width = artInfo.UV.Width;
-                Height = artInfo.UV.Height;
 
                 IsPartialHue = Client.Game.UO.FileManager.TileData.StaticData[value].IsPartialHue;
             }

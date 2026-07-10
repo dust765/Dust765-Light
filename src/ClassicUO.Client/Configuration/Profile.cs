@@ -144,7 +144,7 @@ namespace ClassicUO.Configuration
         public bool NoColorObjectsOutOfRange { get; set; }
         public bool UseCircleOfTransparency { get; set; }
         public int CircleOfTransparencyRadius { get; set; } = Constants.MAX_CIRCLE_OF_TRANSPARENCY_RADIUS / 2;
-        public int CircleOfTransparencyType { get; set; } // 0 = normal, 1 = like original client
+        public int CircleOfTransparencyType { get; set; } // 0 = full, 1 = gradient, 2 = selective
         public int VendorGumpHeight { get; set; } = 60;   //original vendor gump size
         public float DefaultScale { get; set; } = 1.0f;
         public bool EnableMousewheelScaleZoom { get; set; }
@@ -458,6 +458,9 @@ namespace ClassicUO.Configuration
         public bool HideInvulnerableMannequinNameplates { get; set; } = false;
         public bool HideInvulnerableMannequinsOnInvisibleHouses { get; set; } = false;
         public int DontRemoveHouseBelowZ { get; set; } = 6;
+        public bool DrawMobilesWithSurfaceOverhead { get; set; } = false;
+        public bool IgnoreCoTEnabled { get; set; } = false;
+        [JsonConverter(typeof(Point2Converter))] public Point PlayerOffset { get; set; } = new Point(0, 0);
 
         public bool ShowDeathOnWorldmap { get; set; } = false;
 
