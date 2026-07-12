@@ -102,7 +102,6 @@ namespace ClassicUO.Game.UI.Controls
         public override bool AddToRenderLists(RenderLists renderLists, int x, int y, ref float layerDepthRef)
         {
             ScrollBarBase scrollbar = (ScrollBarBase)Children[0];
-            scrollbar.AddToRenderLists(renderLists, x + scrollbar.X, y + scrollbar.Y, ref layerDepthRef);
             float layerDepth = layerDepthRef;
 
             renderLists.AddGumpNoAtlas(
@@ -131,6 +130,8 @@ namespace ClassicUO.Game.UI.Controls
                     return true;
                 }
             );
+
+            scrollbar.AddToRenderLists(renderLists, x + scrollbar.X, y + scrollbar.Y, ref layerDepthRef);
 
             return true;
         }

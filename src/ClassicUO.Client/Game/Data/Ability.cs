@@ -161,6 +161,7 @@ namespace ClassicUO.Game.Data
             { 0x13E3, new (0x13E3, Ability.CrushingBlow, Ability.ShadowStrike) },    // Smith's Hammers
             { 0x13F6, new (0x13F6, Ability.InfectiousStrike, Ability.Disarm) },      // Butcher Knives
             { 0x13F8, new (0x13F8, Ability.ConcussionBlow, Ability.ForceOfNature) }, // Gnarled Staves
+            { 0x13F9, new (0x13F9, Ability.ConcussionBlow, Ability.ForceOfNature) },
             { 0x13FB, new (0x13FB, Ability.WhirlwindAttack, Ability.BleedAttack) },  // Large Battle Axes
             { 0x13FF, new (0x13FF, Ability.DoubleStrike, Ability.ArmorIgnore) },     // Katana
             { 0x1401, new (0x1401, Ability.ArmorIgnore, Ability.InfectiousStrike) }, // Kryss
@@ -278,8 +279,8 @@ namespace ClassicUO.Game.Data
             { 0x48B4, new (0x48B4, Ability.ParalyzingBlow, Ability.Dismount) }, // Gargish Bardiche
             { 0x48B7, new (0x48B7, Ability.InfectiousStrike, Ability.Disarm) },
             { 0x48B6, new (0x48B6, Ability.InfectiousStrike, Ability.Disarm) }, // Gargish Butcher Knife
-            { 0x48B9, new (0x48B9, Ability.ConcussionBlow, Ability.ParalyzingBlow) },
-            { 0x48B8, new (0x48B8, Ability.ConcussionBlow, Ability.ParalyzingBlow) }, // Gargish Gnarled Staff
+            { 0x48B9, new (0x48B9, Ability.ConcussionBlow, Ability.ForceOfNature) },
+            { 0x48B8, new (0x48B8, Ability.ConcussionBlow, Ability.ForceOfNature) }, // Gargish Gnarled Staff
             { 0x48BB, new (0x48BB, Ability.DoubleStrike, Ability.ArmorIgnore) },
             { 0x48BA, new (0x48BA, Ability.DoubleStrike, Ability.ArmorIgnore) }, // Gargish Katana
             { 0x48BD, new (0x48BD, Ability.ArmorIgnore, Ability.InfectiousStrike) },
@@ -322,5 +323,22 @@ namespace ClassicUO.Game.Data
             { 0xAEC2, new (0xAEC2, Ability.DoubleStrike, Ability.WhirlwindAttack) },
             { 0xAED1, new (0xAED1, Ability.DoubleStrike, Ability.WhirlwindAttack) }, // Publish 119 Paladin War Hammers
         };
+
+        public static ItemAbilities ResolveAbilities(ItemAbilities abilities, LockedFeatureFlags lockedFeatures)
+        {
+            if (abilities.Graphic is not (0x13F8 or 0x13F9 or 0x48B8 or 0x48B9))
+            {
+                return abilities;
+            }
+
+            // UODreams: SA without TOL → Force of Nature
+            // UODemise: SA + TOL → Paralyzing Blow (ML-style secondary)
+            Ability secondary = lockedFeatures.HasFlag(LockedFeatureFlags.SA)
+                && !lockedFeatures.HasFlag(LockedFeatureFlags.TOL)
+                    ? Ability.ForceOfNature
+                    : Ability.ParalyzingBlow;
+
+            return new ItemAbilities(abilities.Graphic, Ability.ConcussionBlow, secondary);
+        }
     }
 }

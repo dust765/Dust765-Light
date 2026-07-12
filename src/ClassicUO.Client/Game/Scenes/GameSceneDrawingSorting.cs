@@ -3,7 +3,6 @@
 using System.Collections.Generic;
 using ClassicUO.Assets;
 using ClassicUO.Configuration;
-using ClassicUO.Dust765;
 using ClassicUO.Game.Data;
 using ClassicUO.Game.GameObjects;
 using ClassicUO.Game.Managers;
@@ -50,9 +49,10 @@ namespace ClassicUO.Game.Scenes
         private float _cotRadiusSq;
         private Vector2 _cotPlayerScreenPos;
         private bool _cotGradientMode;
+        private Vector2 _sortPlayerPos;
+        private int _sortCotZ;
 
         private readonly RenderLists _renderLists = new();
-        private readonly List<Map.Chunk> _visibleChunks = new();
 
         public sbyte FoliageIndex { get; private set; }
 
@@ -330,11 +330,64 @@ namespace ClassicUO.Game.Scenes
 
         private bool ProcessAlpha(
             GameObject obj,
-            ref readonly StaticTiles itemData,
+            ref StaticTiles itemData,
+            bool useCoT,
+            ref Vector2 playerPos,
+            int cotZ,
             out bool allowSelection
         )
         {
             allowSelection = true;
+            Profile profile = ProfileManager.CurrentProfile;
+
+            if (profile.UseCircleOfTransparency && profile.CircleOfTransparencyType == 2)
+            {
+                float cotDx = obj.RealScreenPosition.X - playerPos.X;
+                float cotDy = obj.RealScreenPosition.Y - playerPos.Y;
+                float cotR = profile.CircleOfTransparencyRadius;
+
+                if (cotDx * cotDx + cotDy * cotDy < cotR * cotR)
+                {
+                    if (obj.Z >= _maxZ)
+                    {
+                        obj.AlphaHue = 0;
+                    }
+                    else
+                    {
+                        if (itemData.IsWall || itemData.IsWindow)
+                        {
+                            obj.AlphaHue = 65;
+                            allowSelection = false;
+                            return true;
+                        }
+
+                        if (itemData.IsRoof && _noDrawRoofs)
+                        {
+                            return false;
+                        }
+
+                        if (itemData.IsDoor || itemData.IsRoof)
+                        {
+                            obj.AlphaHue = 65;
+                            allowSelection = itemData.IsDoor;
+                            return true;
+                        }
+
+                        if (
+                            itemData.IsFoliage
+                            || obj.Graphic == Constants.TREE_REPLACE_GRAPHIC
+                            || StaticFilters.IsTree(obj.Graphic, out _)
+                            || (!itemData.IsMultiMovable && obj is Static stat && stat.IsVegetation)
+                            || (!itemData.IsMultiMovable && obj is Multi multi && multi.IsVegetation)
+                        )
+                        {
+                            obj.AlphaHue = 65;
+                            allowSelection = true;
+                            return true;
+                        }
+                    }
+                }
+            }
 
             if (obj.Z >= _maxZ)
             {
@@ -373,12 +426,81 @@ namespace ClassicUO.Game.Scenes
                     CalculateAlpha(ref obj.AlphaHue, 178);
                 }
             }
-            else if (_alphaChanged && obj.AlphaHue != 0xFF && !itemData.IsFoliage)
+            else if (!itemData.IsFoliage)
             {
-                CalculateAlpha(ref obj.AlphaHue, 0xFF);
+                if (useCoT && CheckCircleOfTransparencyRadius(obj, cotZ, ref playerPos, ref allowSelection)) { }
+                else if (_alphaChanged && obj.AlphaHue != 0xFF)
+                {
+                    CalculateAlpha(ref obj.AlphaHue, 0xFF);
+                }
+            }
+
+            if (profile.InvisibleHousesEnabled)
+            {
+                GameObject tile = _world.Map?.GetTile(obj.X, obj.Y);
+
+                if (tile != null && obj is not Mobile)
+                {
+                    if (
+                        (obj.Z - _world.Player.Z) > profile.InvisibleHousesZ
+                        && (obj.Z - tile.Z) > profile.DontRemoveHouseBelowZ
+                    )
+                    {
+                        return false;
+                    }
+                }
             }
 
             return true;
+        }
+
+        private bool CheckCircleOfTransparencyRadius(
+            GameObject obj,
+            int maxZ,
+            ref Vector2 playerPos,
+            ref bool allowSelection
+        )
+        {
+            Profile profile = ProfileManager.CurrentProfile;
+
+            if (!profile.UseCircleOfTransparency || !obj.TransparentTest(maxZ))
+            {
+                return false;
+            }
+
+            if (profile.IgnoreCoTEnabled)
+            {
+                if (
+                    StaticFilters.IsIgnoreCoT(obj.Graphic)
+                    || (profile.TreeReplaceType == 1 && obj.Graphic == Constants.TREE_REPLACE_GRAPHIC)
+                    || (profile.TreeReplaceType == 2 && obj.Graphic == Constants.TREE_REPLACE_GRAPHIC_TILE)
+                )
+                {
+                    return false;
+                }
+            }
+
+            int maxDist = profile.CircleOfTransparencyRadius;
+            float dx = obj.RealScreenPosition.X - playerPos.X;
+            float dy = (obj.RealScreenPosition.Y - 44) - playerPos.Y;
+            float dist = (float)Math.Sqrt(dx * dx + dy * dy);
+
+            if (dist <= maxDist)
+            {
+                float delta = (maxDist - 44) * 0.5f;
+                float fraction = (dist - delta) / (maxDist - delta);
+
+                obj.AlphaHue = (byte)Microsoft.Xna.Framework.MathHelper.Clamp(
+                    fraction * 255f,
+                    byte.MinValue,
+                    byte.MaxValue
+                );
+                allowSelection = obj.AlphaHue >= 127;
+
+                return true;
+            }
+
+            return false;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -483,6 +605,11 @@ namespace ClassicUO.Game.Scenes
                 return false;
             }
 
+            if (ProfileManager.CurrentProfile?.DrawMobilesWithSurfaceOverhead == true)
+            {
+                return false;
+            }
+
             // Dust765: skip cache when InvisibleHouses is active — the result depends on
             // InvisibleHousesEnabled state which is not part of the cache key.
             if (!ProfileManager.CurrentProfile.InvisibleHousesEnabled
@@ -581,23 +708,10 @@ namespace ClassicUO.Game.Scenes
             int screenY,
             ref int maxObjectZ,
             int maxZ,
-            out bool retValue,
-            ChunkMesh mesh
+            out bool retValue
         )
         {
             retValue = false;
-
-            // Dust765: Invisible Houses filter for static tiles
-            if (ProfileManager.CurrentProfile.InvisibleHousesEnabled && !(obj is Mobile) && _world.Player != null)
-            {
-                var groundTile = _world.Map?.GetTile(obj.X, obj.Y);
-                if (groundTile != null &&
-                    (obj.Z - _world.Player.Z) > ProfileManager.CurrentProfile.InvisibleHousesZ &&
-                    (obj.Z - groundTile.Z) > ProfileManager.CurrentProfile.DontRemoveHouseBelowZ)
-                {
-                    return 1; // skip this tile only, continue with next object in list
-                }
-            }
 
             byte height = 0;
 
@@ -615,41 +729,6 @@ namespace ClassicUO.Game.Scenes
             if (screenY < _minPixel.Y || screenY > _maxPixel.Y)
             {
                 return 1;
-            }
-
-            // If in chunk mesh, mark visible instead of adding to render list
-            if (obj.InChunkMesh && obj.MeshSpriteIndex >= 0)
-            {
-                bool cot = ProfileManager.CurrentProfile.UseCircleOfTransparency
-                    && obj.TransparentTest(_world.Player.Z + 5);
-
-                if (cot && _cotGradientMode)
-                {
-                    obj.AlphaHue = GetGradientCotAlpha(obj);
-                    if (obj.AlphaHue > 0)
-                        PushToRenderQueue(obj, true, allowSelection);
-                    return 0;
-                }
-
-                mesh.Statics.SetVisible(obj.MeshSpriteIndex, obj.AlphaHue, cot);
-                ApplyMeshHue(obj, mesh.Statics);
-
-                if (itemData.IsLight)
-                {
-                    AddLight(obj, obj, obj.RealScreenPosition.X + 22, obj.RealScreenPosition.Y + 22);
-                }
-
-                if (allowSelection && !(cot && IsMouseInsideCotCircle()) && obj.AllowedToDraw && obj.CheckMouseSelection())
-                {
-                    if (SelectedObject.Object is GameObject prev)
-                    {
-                        if (obj.CalculateDepthZ() >= prev.CalculateDepthZ())
-                            SelectedObject.Object = obj;
-                    }
-                    else
-                        SelectedObject.Object = obj;
-                }
-                return 0;
             }
 
             CheckIfBehindATree(obj, ref itemData);
@@ -676,66 +755,6 @@ namespace ClassicUO.Game.Scenes
 
             PushToRenderQueue(obj, isShadow, allowSelection);
             return 0;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void ApplyMeshHue(GameObject obj, MeshLayer layer)
-        {
-            var profile = ProfileManager.CurrentProfile;
-            int hue = obj.Hue;
-            bool partial = false;
-
-            if (profile.NoColorObjectsOutOfRange && obj.Distance > _world.ClientViewRange)
-            {
-                hue = Constants.OUT_RANGE_COLOR;
-            }
-            else if (_world.Player.IsDead && profile.EnableBlackWhiteEffect)
-            {
-                hue = Constants.DEAD_RANGE_COLOR;
-            }
-            else if (
-                profile != null
-                && profile.PreviewFields
-                && CombatCollection.ObjectFieldPreview(_world, obj)
-            )
-            {
-                hue = 0x0040;
-            }
-            else if (
-                obj is Land
-                && LTHighlightRangeHelper.TryGetLandHighlightHue(_world, obj.X, obj.Y, out ushort ltLandHue)
-            )
-            {
-                hue = ltLandHue;
-            }
-            else if (obj is Static s)
-            {
-                partial = s.ItemData.IsPartialHue;
-            }
-            else if (obj is Multi m)
-            {
-                partial = m.ItemData.IsPartialHue;
-            }
-
-            float hueX, hueY;
-            if (hue != 0)
-            {
-                hueX = hue - 1;
-                if (obj is Land land && land.IsStretched)
-                    hueY = ShaderHueTranslator.SHADER_LAND_HUED;
-                else
-                    hueY = partial ? ShaderHueTranslator.SHADER_PARTIAL_HUED : ShaderHueTranslator.SHADER_HUED;
-            }
-            else
-            {
-                hueX = 0;
-                if (obj is Land land && land.IsStretched)
-                    hueY = ShaderHueTranslator.SHADER_LAND;
-                else
-                    hueY = ShaderHueTranslator.SHADER_NONE;
-            }
-
-            layer.SetHue(obj.MeshSpriteIndex, hueX, hueY);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -803,12 +822,10 @@ namespace ClassicUO.Game.Scenes
         private unsafe bool AddTileToRenderList(
             GameObject obj,
             bool useObjectHandles,
-            int maxZ,
-            Chunk chunk
+            int maxZ
         )
         {
             var profile = ProfileManager.CurrentProfile;
-            var mesh = chunk.Mesh;
 
             for (; obj != null; obj = obj.TNext)
             {
@@ -826,158 +843,6 @@ namespace ClassicUO.Game.Scenes
 
                 int screenY = obj.RealScreenPosition.Y;
                 int maxObjectZ = obj.PriorityZ;
-
-                // Fast path: meshed objects (statics, multis, land) skip type-switch entirely
-                if (obj.InChunkMesh)
-                {
-                    if (obj is Land meshLand)
-                    {
-                        // For stretched tiles, the visible area extends below screenY
-                        // based on MinZ, so use adjustedY for the top-of-screen cull.
-                        if (meshLand.IsStretched)
-                        {
-                            int adjustedY = screenY + (meshLand.Z << 2) - (meshLand.MinZ << 2);
-                            if (adjustedY < _minPixel.Y || screenY > _maxPixel.Y)
-                                continue;
-                        }
-                        else if (screenY < _minPixel.Y || screenY > _maxPixel.Y)
-                        {
-                            continue;
-                        }
-
-                        if (maxObjectZ > maxZ)
-                            return false;
-
-                        // Simplified alpha for land (no itemData needed)
-                        if (obj.Z > _maxGroundZ)
-                        {
-                            bool changed = _alphaChanged
-                                ? CalculateAlpha(ref obj.AlphaHue, 0)
-                                : obj.AlphaHue != 0;
-
-                            if (!changed)
-                                break;
-                        }
-                        else if (_alphaChanged && obj.AlphaHue != 0xFF)
-                        {
-                            CalculateAlpha(ref obj.AlphaHue, 0xFF);
-                        }
-
-                        if (obj.AlphaHue != 0)
-                        {
-                            mesh.Land.SetVisible(obj.MeshSpriteIndex, obj.AlphaHue);
-                            ApplyMeshHue(obj, mesh.Land);
-                            TrySelectObject(obj, true);
-                        }
-                        continue;
-                    }
-
-                    if (screenY < _minPixel.Y || screenY > _maxPixel.Y)
-                        continue;
-
-                    // Dust765: Invisible Houses filter for meshed statics/multis
-                    if (ProfileManager.CurrentProfile.InvisibleHousesEnabled && _world.Player != null)
-                    {
-                        var groundTile = _world.Map?.GetTile(obj.X, obj.Y);
-                        if (groundTile != null
-                            && (obj.Z - _world.Player.Z) > ProfileManager.CurrentProfile.InvisibleHousesZ
-                            && (obj.Z - groundTile.Z) > ProfileManager.CurrentProfile.DontRemoveHouseBelowZ)
-                        {
-                            continue;
-                        }
-                    }
-
-                    // Static or Multi — meshed objects are never foliage/trees/internal/animated
-                    ref StaticTiles meshItemData = ref (obj is Static meshStatic
-                        ? ref meshStatic.ItemData
-                        : ref Unsafe.As<Multi>(obj).ItemData);
-
-                    // Dust765: HideVegetation filter for meshed statics/multis
-                    if (profile.HideVegetation && !meshItemData.IsMultiMovable)
-                    {
-                        bool isVeg = obj is Static sv ? sv.IsVegetation : (obj is Multi mv && mv.IsVegetation);
-                        if (isVeg)
-                            continue;
-                    }
-
-                    // Simplified ProcessAlpha for meshed statics: skip IsFoliage branch (never true)
-                    bool meshAllowSelection = true;
-                    bool meshFadingOut = false;
-                    if (obj.Z >= _maxZ)
-                    {
-                        bool changed = _alphaChanged
-                            ? CalculateAlpha(ref obj.AlphaHue, 0)
-                            : obj.AlphaHue != 0;
-
-                        if (!changed)
-                            continue;
-
-                        meshFadingOut = true;
-                        meshAllowSelection = false;
-                    }
-                    else if (_noDrawRoofs && meshItemData.IsRoof)
-                    {
-                        if (_alphaChanged && !CalculateAlpha(ref obj.AlphaHue, 0))
-                            continue;
-                        if (obj.AlphaHue == 0)
-                            continue;
-
-                        meshFadingOut = true;
-                        meshAllowSelection = false;
-                    }
-                    else if (meshItemData.IsTranslucent)
-                    {
-                        if (_alphaChanged)
-                            CalculateAlpha(ref obj.AlphaHue, 178);
-                    }
-                    else if (_alphaChanged && obj.AlphaHue != 0xFF)
-                    {
-                        CalculateAlpha(ref obj.AlphaHue, 0xFF);
-                    }
-
-                    if (obj.AlphaHue == 0)
-                        continue;
-
-                    // Z-height culling
-                    if (obj.AllowedToDraw)
-                        CalculateObjectHeight(ref maxObjectZ, ref meshItemData);
-
-                    if (maxObjectZ > maxZ)
-                        continue;
-
-                    // Fading statics must not be drawn from the mesh GPU buffer because
-                    // they write to the depth buffer and block objects underneath (mobiles, items).
-                    // Instead, draw them via the CPU transparent list (rendered after mobiles).
-                    if (meshFadingOut)
-                    {
-                        PushToRenderQueue(obj, true, false);
-                        continue;
-                    }
-
-                    bool meshCot = ProfileManager.CurrentProfile.UseCircleOfTransparency
-                        && obj.TransparentTest(_world.Player.Z + 5);
-
-                    // Gradient CoT: set alpha on CPU and route to transparent list
-                    // so depth buffer doesn't block mobiles underneath.
-                    if (meshCot && _cotGradientMode)
-                    {
-                        obj.AlphaHue = GetGradientCotAlpha(obj);
-                        if (obj.AlphaHue > 0)
-                            PushToRenderQueue(obj, true, meshAllowSelection);
-                        continue;
-                    }
-
-                    mesh.Statics.SetVisible(obj.MeshSpriteIndex, obj.AlphaHue, meshCot);
-                    ApplyMeshHue(obj, mesh.Statics);
-
-                    if (meshItemData.IsLight)
-                    {
-                        AddLight(obj, obj, obj.RealScreenPosition.X + 22, obj.RealScreenPosition.Y + 22);
-                    }
-
-                    TrySelectObject(obj, meshAllowSelection && !(meshCot && IsMouseInsideCotCircle()));
-                    continue;
-                }
 
                 switch (obj)
                 {
@@ -1027,6 +892,9 @@ namespace ClassicUO.Game.Scenes
                                 !ProcessAlpha(
                                     obj,
                                     ref itemData,
+                                    true,
+                                    ref _sortPlayerPos,
+                                    _sortCotZ,
                                     out bool allowSelection
                                 )
                             )
@@ -1048,7 +916,7 @@ namespace ClassicUO.Game.Scenes
                                 continue;
                             }
 
-                            int cf = ProcessStaticLikeTail(obj, ref itemData, allowSelection, screenY, ref maxObjectZ, maxZ, out bool retVal, mesh);
+                            int cf = ProcessStaticLikeTail(obj, ref itemData, allowSelection, screenY, ref maxObjectZ, maxZ, out bool retVal);
                             if (cf == 1) continue;
                             if (cf == 2) return retVal;
                             break;
@@ -1067,6 +935,9 @@ namespace ClassicUO.Game.Scenes
                                 !ProcessAlpha(
                                     obj,
                                     ref itemData,
+                                    true,
+                                    ref _sortPlayerPos,
+                                    _sortCotZ,
                                     out bool allowSelection
                                 )
                             )
@@ -1087,7 +958,7 @@ namespace ClassicUO.Game.Scenes
                                 }
                             }
 
-                            int cf = ProcessStaticLikeTail(obj, ref itemData, allowSelection, screenY, ref maxObjectZ, maxZ, out bool retVal, mesh);
+                            int cf = ProcessStaticLikeTail(obj, ref itemData, allowSelection, screenY, ref maxObjectZ, maxZ, out bool retVal);
                             if (cf == 1) continue;
                             if (cf == 2) return retVal;
                             break;
@@ -1120,6 +991,9 @@ namespace ClassicUO.Game.Scenes
                                 !ProcessAlpha(
                                     obj,
                                     ref empty,
+                                    false,
+                                    ref _sortPlayerPos,
+                                    _sortCotZ,
                                     out bool allowSelection
                                 )
                             )
@@ -1175,6 +1049,9 @@ namespace ClassicUO.Game.Scenes
                                 !ProcessAlpha(
                                     obj,
                                     ref itemData,
+                                    false,
+                                    ref _sortPlayerPos,
+                                    _sortCotZ,
                                     out bool allowSelection
                                 )
                             )
@@ -1234,10 +1111,14 @@ namespace ClassicUO.Game.Scenes
                         }
 
                     case GameEffect effect:
-                        if (effect is not LightningEffect &&
+                            ref StaticTiles effectData = ref Client.Game.UO.FileManager.TileData.StaticData[effect.Graphic];
+                            if (effect is not LightningEffect &&
                             !ProcessAlpha(
                                 obj,
-                                ref Client.Game.UO.FileManager.TileData.StaticData[effect.Graphic],
+                                ref effectData,
+                                false,
+                                ref _sortPlayerPos,
+                                _sortCotZ,
                                 out _
                             ))
                         {
@@ -1280,11 +1161,13 @@ namespace ClassicUO.Game.Scenes
             int winGameHeight = Camera.Bounds.Height;
             int winGameCenterX = winGamePosX + (winGameWidth >> 1);
             int winGameCenterY = winGamePosY + (winGameHeight >> 1) + (_world.Player.Z << 2);
-            winGameCenterX -= (int)_world.Player.Offset.X;
-            winGameCenterY -= (int)(_world.Player.Offset.Y - _world.Player.Offset.Z);
+            winGameCenterX -= (int)_world.Player.Offset.X - ProfileManager.CurrentProfile.PlayerOffset.X;
+            winGameCenterY -= (int)(
+                _world.Player.Offset.Y - _world.Player.Offset.Z - ProfileManager.CurrentProfile.PlayerOffset.Y
+            );
 
-            int tileOffX = _world.Player.X;
-            int tileOffY = _world.Player.Y;
+            int tileOffX = _world.Player.X - ProfileManager.CurrentProfile.PlayerOffset.X;
+            int tileOffY = _world.Player.Y - ProfileManager.CurrentProfile.PlayerOffset.Y;
 
             int winDrawOffsetX = (tileOffX - tileOffY) * 22 - winGameCenterX;
             int winDrawOffsetY = (tileOffX + tileOffY) * 22 - winGameCenterY;

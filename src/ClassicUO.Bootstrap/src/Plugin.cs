@@ -53,6 +53,15 @@ sealed class Plugin
             return;
 
         AssetsPath = assetsPath;
+        uint originalVersion = clientVersion;
+        clientVersion = PluginClientVersionHelper.GetPluginClientVersion(assetsPath, clientVersion);
+
+        if (clientVersion != originalVersion)
+        {
+            Console.WriteLine(
+                $"[Plugin] Cliloc legacy format detected; reporting client version 0x{clientVersion:X8} to plugin (real: 0x{originalVersion:X8})"
+            );
+        }
 
         if (
             Environment.OSVersion.Platform != PlatformID.Unix
@@ -388,47 +397,71 @@ sealed class Plugin
     public bool ProcessRecvPacket(ref byte[] data, ref int length)
     {
         var result = true;
-        if (_onRecv_new != null)
-        {
-            result = _onRecv_new(data, ref length);
-        }
-        else if (_onRecv != null)
-        {
-            var tmp = data;
-            result = _onRecv(ref data, ref length);
 
-            if (!ReferenceEquals(tmp, data))
+        try
+        {
+            if (_onRecv_new != null)
             {
-                Array.Copy(data, tmp, length);
-                data = tmp;
+                result = _onRecv_new(data, ref length);
+            }
+            else if (_onRecv != null)
+            {
+                var tmp = data;
+                result = _onRecv(ref data, ref length);
+
+                if (!ReferenceEquals(tmp, data))
+                {
+                    Array.Copy(data, tmp, length);
+                    data = tmp;
+                }
             }
         }
-        
-        // get from cuo
-        
+        catch (Exception ex)
+        {
+            string key = ex.GetType().FullName + "|" + ex.Message;
+            if (_loggedRecvErrors.Add(key))
+            {
+                Console.WriteLine($"[Plugin] ProcessRecvPacket: {ex}");
+            }
+
+            result = true;
+        }
+
         return result;
     }
 
     public bool ProcessSendPacket(ref byte[] data, ref int length)
     {
         var result = true;
-        if (_onSend_new != null)
-        {
-            result = _onSend_new(data, ref length);
-        }
-        else if (_onSend != null)
-        {
-            var tmp = data;
-            result = _onSend(ref data, ref length);
 
-            if (!ReferenceEquals(tmp, data))
+        try
+        {
+            if (_onSend_new != null)
             {
-                Array.Copy(data, tmp, length);
-                data = tmp;
+                result = _onSend_new(data, ref length);
+            }
+            else if (_onSend != null)
+            {
+                var tmp = data;
+                result = _onSend(ref data, ref length);
+
+                if (!ReferenceEquals(tmp, data))
+                {
+                    Array.Copy(data, tmp, length);
+                    data = tmp;
+                }
             }
         }
+        catch (Exception ex)
+        {
+            string key = ex.GetType().FullName + "|" + ex.Message;
+            if (_loggedRecvErrors.Add(key))
+            {
+                Console.WriteLine($"[Plugin] ProcessSendPacket: {ex}");
+            }
 
-        // get from cuo
+            result = true;
+        }
 
         return result;
     }
@@ -572,6 +605,7 @@ sealed class Plugin
     private RequestMove _requestMove;
     private readonly Dictionary<IntPtr, object> _resources =
         new Dictionary<IntPtr, object>();
+    private static readonly HashSet<string> _loggedRecvErrors = new HashSet<string>();
 
     [MarshalAs(UnmanagedType.FunctionPtr)]
     private OnSetTitle _setTitle;

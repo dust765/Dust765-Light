@@ -1184,9 +1184,14 @@ namespace ClassicUO.Game.UI.Gumps
             section4.PushIndent();
             section4.Add(AddLabel(null, ResGumps.CircleTransType, startX, startY));
             int cottypeindex = _currentProfile.CircleOfTransparencyType;
-            string[] cotTypes = { ResGumps.CircleTransType_Full, ResGumps.CircleTransType_Gradient };
+            string[] cotTypes =
+            {
+                ResGumps.CircleTransType_Full,
+                ResGumps.CircleTransType_Gradient,
+                "Selective"
+            };
 
-            if (cottypeindex < 0 || cottypeindex > cotTypes.Length)
+            if (cottypeindex < 0 || cottypeindex >= cotTypes.Length)
             {
                 cottypeindex = 0;
             }

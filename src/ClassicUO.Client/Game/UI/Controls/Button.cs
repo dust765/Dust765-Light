@@ -44,15 +44,11 @@ namespace ClassicUO.Game.UI.Controls
             _over = over;
 
             ref readonly var gumpInfo = ref Client.Game.UO.Gumps.GetGump(normal);
-            if (gumpInfo.Texture == null)
+            if (gumpInfo.Texture != null)
             {
-                Dispose();
-
-                return;
+                Width = gumpInfo.UV.Width;
+                Height = gumpInfo.UV.Height;
             }
-
-            Width = gumpInfo.UV.Width;
-            Height = gumpInfo.UV.Height;
             FontHue = normalHue == ushort.MaxValue ? (ushort)0 : normalHue;
             HueHover = hoverHue == ushort.MaxValue ? normalHue : hoverHue;
 
@@ -203,6 +199,12 @@ namespace ClassicUO.Game.UI.Controls
             if (texture == null)
             {
                 return false;
+            }
+
+            if (Width <= 0 || Height <= 0)
+            {
+                Width = bounds.Width;
+                Height = bounds.Height;
             }
 
             var hue = ShaderHueTranslator.GetHueVector(Hue, false, Alpha, true);
