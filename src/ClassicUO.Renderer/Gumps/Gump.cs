@@ -25,7 +25,17 @@ namespace ClassicUO.Renderer.Gumps
                 return ref SpriteInfo.Empty;
 
             if (_failedSprites[idx])
-                return ref SpriteInfo.Empty;
+            {
+                var retry = _gumpsLoader.GetGump(idx);
+                if (!retry.Pixels.IsEmpty)
+                {
+                    _failedSprites[idx] = false;
+                }
+                else
+                {
+                    return ref SpriteInfo.Empty;
+                }
+            }
 
             ref var spriteInfo = ref _spriteInfos[idx];
 

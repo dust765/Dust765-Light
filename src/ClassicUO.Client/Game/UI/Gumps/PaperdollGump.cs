@@ -366,7 +366,7 @@ namespace ClassicUO.Game.UI.Gumps
         {
             bool isOwnPaperdoll = World.Player != null && LocalSerial == World.Player.Serial;
             bool showAll =
-                isOwnPaperdoll && (ProfileManager.CurrentProfile?.ShowAllLayersPaperdoll ?? false);
+                isOwnPaperdoll && (ProfileManager.CurrentProfile?.ShowAllLayersPaperdoll ?? true);
 
             for (int i = 0; i < _slots.Count; i++)
             {

@@ -23,8 +23,6 @@ namespace ClassicUO.Game.GameObjects
     {
         public byte AlphaHue;
         public bool AllowedToDraw = true;
-        public bool InChunkMesh;
-        public int MeshSpriteIndex = -1;
         public ObjectHandlesStatus ObjectHandlesStatus;
         public Rectangle FrameInfo;
         protected bool IsFlipped;

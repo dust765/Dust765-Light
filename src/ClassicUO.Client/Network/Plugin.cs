@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using ClassicUO;
 using ClassicUO.Configuration;
 using ClassicUO.Game;
 using ClassicUO.Game.Data;
@@ -180,7 +181,7 @@ namespace ClassicUO.Network
 
             PluginHeader header = new PluginHeader
             {
-                ClientVersion = (int)Client.Game.UO.Version,
+                ClientVersion = (int)PluginCompatibility.GetClientVersionForPlugins(Client.Game.UO.Version),
                 Recv = Marshal.GetFunctionPointerForDelegate(_recv),
                 Send = Marshal.GetFunctionPointerForDelegate(_send),
                 GetPacketLength = Marshal.GetFunctionPointerForDelegate(_getPacketLength),
@@ -515,29 +516,36 @@ namespace ClassicUO.Network
 
             foreach (Plugin plugin in Plugins)
             {
-                if (plugin._onRecv_new != null)
+                try
                 {
-                    byte[] tmp = new byte[length];
-                    Array.Copy(data, tmp, length);
-
-                    if (!plugin._onRecv_new(tmp, ref length))
+                    if (plugin._onRecv_new != null)
                     {
-                        result = false;
-                    }
+                        byte[] tmp = new byte[length];
+                        Array.Copy(data, tmp, length);
 
-                    Array.Copy(tmp, data, length);
+                        if (!plugin._onRecv_new(tmp, ref length))
+                        {
+                            result = false;
+                        }
+
+                        Array.Copy(tmp, data, length);
+                    }
+                    else if (plugin._onRecv != null)
+                    {
+                        byte[] tmp = new byte[length];
+                        Array.Copy(data, tmp, length);
+
+                        if (!plugin._onRecv(ref tmp, ref length))
+                        {
+                            result = false;
+                        }
+
+                        Array.Copy(tmp, data, length);
+                    }
                 }
-                else if (plugin._onRecv != null)
+                catch (Exception ex)
                 {
-                    byte[] tmp = new byte[length];
-                    Array.Copy(data, tmp, length);
-
-                    if (!plugin._onRecv(ref tmp, ref length))
-                    {
-                        result = false;
-                    }
-
-                    Array.Copy(tmp, data, length);
+                    Log.Warn($"[Plugin] ProcessRecvPacket: {ex.Message}");
                 }
             }
 
