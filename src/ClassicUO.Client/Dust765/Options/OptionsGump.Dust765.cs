@@ -882,7 +882,7 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765ShowAllLayersPaperdoll = AddCheckBox
                 (
                     null,
-                    "Show all layers (ignore covered)",
+                    "Show all layers on all paperdolls (ignore covered)",
                     _currentProfile.ShowAllLayersPaperdoll,
                     startX,
                     startY
@@ -1443,7 +1443,14 @@ namespace ClassicUO.Game.UI.Gumps
             _currentProfile.PaperdollParrotOriginalView = _dust765ParrotOriginalView.IsChecked;
             _currentProfile.MobileHideHeadUnderCoveringRobe = _dust765MobileHideHeadUnderCoveringRobe.IsChecked;
             _currentProfile.MobileParrotOriginalView = _dust765MobileParrotOriginalView.IsChecked;
-            UIManager.GetGump<PaperDollGump>(World.Player?.Serial)?.RequestUpdateContents();
+
+            foreach (Gump gump in UIManager.Gumps)
+            {
+                if (gump is PaperDollGump paperDoll)
+                {
+                    paperDoll.RequestUpdateContents();
+                }
+            }
 
             // Art / Hue Changes
             _currentProfile.ColorStealth = _dust765ColorStealth.IsChecked;

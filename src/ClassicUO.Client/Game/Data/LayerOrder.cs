@@ -31,6 +31,33 @@ namespace ClassicUO.Game.Data
             Layer.Waist
         };
 
+        public static readonly Layer[] QuiverLayers =
+        {
+            Layer.Shirt,
+            Layer.Pants,
+            Layer.Shoes,
+            Layer.Legs,
+            Layer.Arms,
+            Layer.Torso,
+            Layer.Tunic,
+            Layer.Ring,
+            Layer.Bracelet,
+            Layer.Face,
+            Layer.Gloves,
+            Layer.Skirt,
+            Layer.Robe,
+            Layer.Cloak,
+            Layer.Necklace,
+            Layer.Hair,
+            Layer.Beard,
+            Layer.Earrings,
+            Layer.Helmet,
+            Layer.OneHanded,
+            Layer.TwoHanded,
+            Layer.Talisman,
+            Layer.Waist
+        };
+
         public static Layer[,] UsedLayers { get; } = new Layer[8, Constants.USED_LAYER_COUNT]
         {
             {
