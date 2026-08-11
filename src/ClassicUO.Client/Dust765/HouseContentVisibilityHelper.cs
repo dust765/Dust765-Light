@@ -22,7 +22,6 @@ namespace ClassicUO.Dust765
         }
 
         private static readonly List<HouseBounds> _nearbyHouses = new List<HouseBounds>(16);
-        private static World _world;
         private static bool _showHouseContentEnabled;
         private static uint _playerHouseSerial;
         private static bool? _lastPacketState;
@@ -33,7 +32,6 @@ namespace ClassicUO.Dust765
 
         public static void PrepareFrame(World world, Profile profile)
         {
-            _world = world;
             _showHouseContentEnabled = profile != null && profile.ShowHouseContent;
             _playerHouseSerial = 0;
 
@@ -63,11 +61,11 @@ namespace ClassicUO.Dust765
             int viewMaxY
         )
         {
-            _world = world;
             _nearbyHouses.Clear();
             _showHouseContentEnabled = profile != null && profile.ShowHouseContent;
 
-            if (world?.Player == null)
+            // Nothing can be hidden in these states, so the bounds cache is never consulted.
+            if (world?.Player == null || _showHouseContentEnabled || _playerHouseSerial != 0)
             {
                 return;
             }
@@ -90,14 +88,7 @@ namespace ClassicUO.Dust765
                 int minY = foundation.Y + foundation.MultiInfo.Value.Y;
                 int maxY = foundation.Y + foundation.MultiInfo.Value.Height;
 
-                bool playerInside = house.Serial == _playerHouseSerial;
-                bool intersectsView =
-                    maxX >= viewMinX
-                    && minX <= viewMaxX
-                    && maxY >= viewMinY
-                    && minY <= viewMaxY;
-
-                if (!playerInside && !intersectsView)
+                if (maxX < viewMinX || minX > viewMaxX || maxY < viewMinY || minY > viewMaxY)
                 {
                     continue;
                 }
@@ -117,29 +108,17 @@ namespace ClassicUO.Dust765
 
         public static bool ShouldDrawItem(Item item)
         {
-            if (item == null || item.IsDestroyed)
+            if (_showHouseContentEnabled || _playerHouseSerial != 0)
             {
                 return true;
             }
 
-            if (!item.OnGround || item.IsMulti)
+            if (item == null || item.IsDestroyed || !item.OnGround || item.IsMulti)
             {
                 return true;
             }
 
-            uint houseSerial = ResolveHouseSerial(item);
-
-            if (houseSerial == 0)
-            {
-                return true;
-            }
-
-            if (_playerHouseSerial != 0)
-            {
-                return true;
-            }
-
-            return _showHouseContentEnabled;
+            return GetContainingHouseSerial(item.X, item.Y) == 0;
         }
 
         public static void SendShowHouseContentPreference(World world, Profile profile)
@@ -205,29 +184,6 @@ namespace ClassicUO.Dust765
             {
                 scene.UpdateMaxDrawZ(true);
             }
-        }
-
-        private static uint ResolveHouseSerial(Item item)
-        {
-            uint cached = GetContainingHouseSerial(item.X, item.Y);
-
-            if (cached != 0)
-            {
-                return cached;
-            }
-
-            if (_world != null)
-            {
-                foreach (House house in _world.HouseManager.Houses)
-                {
-                    if (_world.HouseManager.EntityIntoHouse(house.Serial, item))
-                    {
-                        return house.Serial;
-                    }
-                }
-            }
-
-            return 0;
         }
 
         private static uint GetContainingHouseSerial(int x, int y)

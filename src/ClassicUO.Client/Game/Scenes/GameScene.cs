@@ -49,6 +49,8 @@ namespace ClassicUO.Game.Scenes
         private uint _time_cleanup = Time.Ticks + 5000;
 
         private ushort _lastPreloadX, _lastPreloadY;
+        private uint _nextPreloadAt;
+        private const uint PreloadIntervalMs = 200;
         private uint _houseLoginRefreshDeadline;
         private uint _timeTextServerEntities;
 
@@ -639,6 +641,15 @@ namespace ClassicUO.Game.Scenes
 
             GetViewPort();
 
+            HouseContentVisibilityHelper.BeginFrame(
+                _world,
+                profile,
+                _minTile.X,
+                _minTile.Y,
+                _maxTile.X,
+                _maxTile.Y
+            );
+
             var ctrlShiftHeld = Keyboard.Ctrl && Keyboard.Shift;
             var useObjectHandles = _world.NameOverHeadManager.IsShowing;
             if (useObjectHandles != _useObjectHandles)
@@ -866,12 +877,13 @@ namespace ClassicUO.Game.Scenes
                 _time_cleanup = Time.Ticks + 500;
             }
 
-            if (_world.InGame && _world.Map != null && _world.Player != null)
+            if (_world.InGame && _world.Map != null && _world.Player != null && Time.Ticks >= _nextPreloadAt)
             {
                 if (_world.Player.X != _lastPreloadX || _world.Player.Y != _lastPreloadY)
                 {
                     _lastPreloadX = _world.Player.X;
                     _lastPreloadY = _world.Player.Y;
+                    _nextPreloadAt = Time.Ticks + PreloadIntervalMs;
                     _world.Map.PreloadChunksAround(_world.Player.X, _world.Player.Y, 3, 8);
                 }
             }
