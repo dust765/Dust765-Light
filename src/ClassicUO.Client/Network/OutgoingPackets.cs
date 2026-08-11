@@ -229,7 +229,7 @@ namespace ClassicUO.Network
                 writer.WriteZero(length - writer.BytesWritten);
             }
 
-            socket.Send(writer.BufferWritten);
+            socket.Send(writer.BufferWritten, true, true);
 
             writer.Dispose();
         }
@@ -261,7 +261,7 @@ namespace ClassicUO.Network
                 writer.WriteZero(length - writer.BytesWritten);
             }
 
-            socket.Send(writer.BufferWritten);
+            socket.Send(writer.BufferWritten, true, true);
 
             writer.Dispose();
         }
@@ -294,7 +294,7 @@ namespace ClassicUO.Network
                 writer.WriteZero(length - writer.BytesWritten);
             }
 
-            socket.Send(writer.BufferWritten);
+            socket.Send(writer.BufferWritten, true, true);
 
             writer.Dispose();
         }
