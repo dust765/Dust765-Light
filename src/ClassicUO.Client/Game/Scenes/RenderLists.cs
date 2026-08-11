@@ -30,6 +30,8 @@ namespace ClassicUO.Game.Scenes
         private readonly List<GameObject> _animations = [];
         private readonly List<GameObject> _effects = [];
         private readonly List<GameObject> _transparentObjects = [];
+        // Atlas and non-atlas gump elements share one queue so they keep insertion order:
+        // splitting them draws every text element on top of every sprite, hiding controls.
         private readonly List<Func<UltimaBatcher2D, bool>> _gumpLayers = [];
         private GameObject[] _effectCapScratch = [];
 
@@ -121,13 +123,24 @@ namespace ClassicUO.Game.Scenes
                    DrawRenderList(batcher, _animations, maxGroundZ) +
                    DrawRenderList(batcher, _effects, maxGroundZ);
 
-            if (_transparentObjects.Count > 0 || _gumpLayers.Count > 0)
+            result += DrawOverlays(batcher, maxGroundZ);
+
+            return result;
+        }
+
+        private int DrawOverlays(UltimaBatcher2D batcher, sbyte maxGroundZ)
+        {
+            if (_transparentObjects.Count == 0 && _gumpLayers.Count == 0)
             {
-                batcher.SetStencil(DepthStencilState.DepthRead);
-                result += DrawRenderList(batcher, _transparentObjects, maxGroundZ);
-                result += DrawGumpLayers(batcher, _gumpLayers);
-                batcher.SetStencil(null);
+                return 0;
             }
+
+            batcher.SetStencil(DepthStencilState.DepthRead);
+
+            int result = DrawRenderList(batcher, _transparentObjects, maxGroundZ)
+                + DrawGumpLayers(batcher, _gumpLayers);
+
+            batcher.SetStencil(null);
 
             return result;
         }
@@ -195,36 +208,6 @@ namespace ClassicUO.Game.Scenes
         }
 
         private static int DrawGumpLayers(UltimaBatcher2D batcher, List<Func<UltimaBatcher2D, bool>> renderList)
-        {
-            int done = 0;
-
-            foreach (var obj in renderList)
-            {
-                if (obj.Invoke(batcher))
-                {
-                    done++;
-                }
-            }
-
-            return done;
-        }
-
-        private static int DrawRenderListWithAtlas(UltimaBatcher2D batcher, List<Func<UltimaBatcher2D, bool>> renderList)
-        {
-            int done = 0;
-
-            foreach (var obj in renderList)
-            {
-                if (obj.Invoke(batcher))
-                {
-                    done++;
-                }
-            }
-
-            return done;
-        }
-
-        private static int DrawRenderListNoAtlas(UltimaBatcher2D batcher, List<Func<UltimaBatcher2D, bool>> renderList)
         {
             int done = 0;
 
