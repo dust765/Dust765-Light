@@ -148,8 +148,8 @@ namespace ClassicUO.Game.UI.Controls
             bool showAllLayersPaperdoll = ProfileManager.CurrentProfile?.ShowAllLayersPaperdoll ?? true;
             Item wornOuterTorso = mobile.FindItemByLayer(Layer.Robe);
             Item wornCloak = mobile.FindItemByLayer(Layer.Cloak);
-            bool useParrotPaperdollRules = IsParrotOriginalPaperdollView(mobile)
-                && IsParrotEpauletsItem(wornOuterTorso);
+            bool useParrotPaperdollRules = (ProfileManager.CurrentProfile?.PaperdollParrotOriginalView ?? true)
+                && IsParrotEpauletsGraphic(wornOuterTorso);
             bool useQuiverPaperdollRules = wornCloak != null && wornCloak.ItemData.IsContainer;
 
             Span<Layer> layers = stackalloc Layer[PaperdollOrder.N];
@@ -362,45 +362,17 @@ namespace ClassicUO.Game.UI.Controls
                 || graphic == 0x02B6 || graphic == 0x02B7;
         }
 
-        private bool IsParrotOriginalPaperdollView(Mobile mobile)
-        {
-            return _paperDollGump.World.Player != null
-                && mobile.Serial == _paperDollGump.World.Player.Serial
-                && (ProfileManager.CurrentProfile?.PaperdollParrotOriginalView ?? true);
-        }
+        private const ushort ParrotEpauletsGraphic = 0xA2CB;
 
-        private const ushort ParrotEpauletsEastGraphic = 0xA2CB;
-        private const ushort ParrotEpauletsWestGraphic = 0xA2CA;
-        private const string ParrotEpauletsEastName = "Parrot_Epaulets_East";
-
-        private bool IsParrotEpauletsItem(Item item)
+        private static bool IsParrotEpauletsGraphic(Item item)
         {
             if (item == null)
             {
                 return false;
             }
 
-            if (item.Graphic == ParrotEpauletsEastGraphic || item.Graphic == ParrotEpauletsWestGraphic)
-            {
-                return true;
-            }
-
-            if (NameEqualsParrotEpauletsEast(item.Name) || NameEqualsParrotEpauletsEast(item.ItemData.Name))
-            {
-                return true;
-            }
-
-            return _paperDollGump.World.OPL.TryGetNameAndData(item.Serial, out string oplName, out _)
-                && NameEqualsParrotEpauletsEast(oplName);
-        }
-
-        private static bool NameEqualsParrotEpauletsEast(string name)
-        {
-            return !string.IsNullOrEmpty(name)
-                && (
-                    name.Contains(ParrotEpauletsEastName, StringComparison.OrdinalIgnoreCase)
-                    || name.Contains("parrot", StringComparison.OrdinalIgnoreCase)
-                );
+            return (ushort)(item.Graphic & 0xFFFF) == ParrotEpauletsGraphic
+                || (ushort)(item.DisplayedGraphic & 0xFFFF) == ParrotEpauletsGraphic;
         }
 
         private static bool TryResolveTileArtAppearance(TileArtInfo tileArtInfo, ushort mobileGraphic, out uint appearanceId)

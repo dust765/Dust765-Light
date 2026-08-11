@@ -206,7 +206,6 @@ namespace ClassicUO
         private void OptimizeSDLForHighFPS()
         {
             SDL_SetHint("SDL_RENDER_VSYNC", "0");
-            SDL_SetHint("SDL_VIDEO_MINIMIZE_ON_FOCUS_LOSS", "0");
             SDL_SetHint("SDL_TIMER_RESOLUTION", "1");
             SDL_SetHint("SDL_HINT_TIMER_RESOLUTION", "1");
 
@@ -500,7 +499,17 @@ namespace ClassicUO
 
                 if (!gameTime.IsRunningSlowly)
                 {
-                    Thread.Sleep(0);
+                    // Sleep(0) only yields to same-priority threads on the same core, which
+                    // busy-spins a full core and thermally throttles laptops. The 1ms SDL timer
+                    // resolution hint makes Sleep(1) accurate enough to hit the frame budget.
+                    if (x - _totalElapsed > 1.5)
+                    {
+                        Thread.Sleep(1);
+                    }
+                    else
+                    {
+                        Thread.Yield();
+                    }
                 }
             }
 
@@ -549,16 +558,12 @@ namespace ClassicUO
 
             _totalFrames++;
 
-            DrainIncomingPackets();
-
             GraphicsDevice.Clear(Color.Black);
 
             if (Scene != null && Scene.IsLoaded && !Scene.IsDestroyed)
             {
                 Scene.Draw(_uoSpriteBatch, _renderTargets);
             }
-
-            DrainIncomingPackets();
 
             _uoSpriteBatch.GraphicsDevice.SetRenderTarget(_renderTargets.UiRenderTarget);
             GraphicsDevice.Clear(Color.Transparent);

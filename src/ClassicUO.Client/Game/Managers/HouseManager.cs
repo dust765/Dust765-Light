@@ -13,9 +13,13 @@ namespace ClassicUO.Game.Managers
     {
         private readonly Dictionary<uint, House> _houses = new Dictionary<uint, House>();
         private readonly HashSet<uint> _housesNeedingRelink = new HashSet<uint>();
+        private readonly Dictionary<uint, int> _relinkAttempts = new Dictionary<uint, int>();
         private readonly World _world;
         private uint _nextHouseWallsCheckAt;
+        private uint _nextRelinkAt;
         private const uint HouseWallsCheckIntervalMs = 500;
+        private const uint RelinkIntervalMs = 250;
+        private const int MaxRelinkAttempts = 12;
 
         public HouseManager(World world)
         {
@@ -77,7 +81,11 @@ namespace ClassicUO.Game.Managers
         {
             if (_housesNeedingRelink.Count > 0)
             {
-                ProcessPendingRelinks();
+                if (Time.Ticks >= _nextRelinkAt)
+                {
+                    _nextRelinkAt = Time.Ticks + RelinkIntervalMs;
+                    ProcessPendingRelinks();
+                }
             }
             else if (Time.Ticks >= _nextHouseWallsCheckAt)
             {
@@ -141,9 +149,9 @@ namespace ClassicUO.Game.Managers
 
         public void ScheduleRelink(uint serial)
         {
-            if (serial != 0)
+            if (serial != 0 && _housesNeedingRelink.Add(serial))
             {
-                _housesNeedingRelink.Add(serial);
+                _relinkAttempts[serial] = 0;
             }
         }
 
@@ -153,6 +161,8 @@ namespace ClassicUO.Game.Managers
             {
                 return;
             }
+
+            bool relinked = false;
 
             foreach (House house in _houses.Values)
             {
@@ -183,14 +193,23 @@ namespace ClassicUO.Game.Managers
 
                 _world.Map.EnsureChunksLoadedForHouse(foundation, maxPerCall: 12);
                 house.RelinkComponentsToTiles();
+                relinked = true;
+            }
 
-                GameScene scene = Client.Game.GetScene<GameScene>();
+            if (relinked)
+            {
+                InvalidateSceneDrawState();
+            }
+        }
 
-                if (scene != null)
-                {
-                    scene.UpdateMaxDrawZ(true);
-                    scene.UpdateDrawPosition = true;
-                }
+        private static void InvalidateSceneDrawState()
+        {
+            GameScene scene = Client.Game.GetScene<GameScene>();
+
+            if (scene != null)
+            {
+                scene.UpdateMaxDrawZ(true);
+                scene.UpdateDrawPosition = true;
             }
         }
 
@@ -210,6 +229,7 @@ namespace ClassicUO.Game.Managers
 
             uint[] pending = new uint[_housesNeedingRelink.Count];
             _housesNeedingRelink.CopyTo(pending);
+            bool relinked = false;
 
             for (int i = 0; i < pending.Length; i++)
             {
@@ -217,7 +237,7 @@ namespace ClassicUO.Game.Managers
 
                 if (!TryGetHouse(serial, out House house) || !house.IsCustom)
                 {
-                    _housesNeedingRelink.Remove(serial);
+                    ClearPendingRelink(serial);
 
                     continue;
                 }
@@ -226,31 +246,42 @@ namespace ClassicUO.Game.Managers
 
                 if (foundation == null)
                 {
-                    _housesNeedingRelink.Remove(serial);
+                    ClearPendingRelink(serial);
 
                     continue;
                 }
 
                 _world.Map.EnsureChunksLoadedForHouse(foundation, maxPerCall: 12);
                 house.RelinkComponentsToTiles();
+                relinked = true;
 
-                if (HouseNeedsRelink(house))
+                _relinkAttempts.TryGetValue(serial, out int attempts);
+                attempts++;
+
+                // A house whose components never land on a loaded chunk would otherwise stay
+                // pending forever, re-linking every tick.
+                if (HouseNeedsRelink(house) && attempts < MaxRelinkAttempts)
                 {
+                    _relinkAttempts[serial] = attempts;
+
                     continue;
                 }
 
-                _housesNeedingRelink.Remove(serial);
+                ClearPendingRelink(serial);
+            }
 
-                GameScene scene = Client.Game.GetScene<GameScene>();
-
-                if (scene != null)
-                {
-                    scene.UpdateMaxDrawZ(true);
-                    scene.UpdateDrawPosition = true;
-                }
+            if (relinked)
+            {
+                InvalidateSceneDrawState();
             }
 
             RelinkCustomHousesNearPlayer();
+        }
+
+        private void ClearPendingRelink(uint serial)
+        {
+            _housesNeedingRelink.Remove(serial);
+            _relinkAttempts.Remove(serial);
         }
 
         private bool HouseNeedsRelink(House house)

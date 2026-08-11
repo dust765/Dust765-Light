@@ -906,7 +906,7 @@ namespace ClassicUO.Game.UI.Gumps
                 _dust765ParrotOriginalView = AddCheckBox
                 (
                     null,
-                    "Parrot robe original view (paperdoll)",
+                    "Parrot 0xA2CB original view (all paperdolls)",
                     _currentProfile.PaperdollParrotOriginalView,
                     startX,
                     startY
