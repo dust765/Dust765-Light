@@ -1,3 +1,4 @@
+using System;
 using ClassicUO.Assets;
 using Microsoft.Xna.Framework.Graphics;
 
@@ -5,11 +6,14 @@ namespace ClassicUO.Renderer.Gumps
 {
     public sealed class Gump
     {
+        private const long FailedRetryIntervalMs = 5000;
+
         private readonly TextureAtlas _atlas;
         private readonly SpriteInfo[] _spriteInfos;
         private readonly bool[] _failedSprites;
         private readonly PixelPicker _picker = new PixelPicker();
         private readonly GumpsLoader _gumpsLoader;
+        private long _nextFailedRetryAt;
 
         public Gump(GumpsLoader gumpsLoader, GraphicsDevice device)
         {
@@ -25,7 +29,23 @@ namespace ClassicUO.Renderer.Gumps
                 return ref SpriteInfo.Empty;
 
             if (_failedSprites[idx])
-                return ref SpriteInfo.Empty;
+            {
+                // Sprites can become available later (patched MULs), but re-reading and
+                // decompressing them on every call turns a missing gump into a per-frame cost.
+                if (Environment.TickCount64 < _nextFailedRetryAt)
+                {
+                    return ref SpriteInfo.Empty;
+                }
+
+                _nextFailedRetryAt = Environment.TickCount64 + FailedRetryIntervalMs;
+
+                if (_gumpsLoader.GetGump(idx).Pixels.IsEmpty)
+                {
+                    return ref SpriteInfo.Empty;
+                }
+
+                _failedSprites[idx] = false;
+            }
 
             ref var spriteInfo = ref _spriteInfos[idx];
 

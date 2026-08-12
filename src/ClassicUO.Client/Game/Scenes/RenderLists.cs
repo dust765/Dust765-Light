@@ -3,6 +3,8 @@ using ClassicUO.Game;
 using ClassicUO.Game.GameObjects;
 using ClassicUO.Game.Map;
 using ClassicUO.Renderer;
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
 
@@ -28,8 +30,9 @@ namespace ClassicUO.Game.Scenes
         private readonly List<GameObject> _animations = [];
         private readonly List<GameObject> _effects = [];
         private readonly List<GameObject> _transparentObjects = [];
-        private readonly List<Func<UltimaBatcher2D, bool>> _gumpSprites = [];
-        private readonly List<Func<UltimaBatcher2D, bool>> _gumpTexts = [];
+        // Atlas and non-atlas gump elements share one queue so they keep insertion order:
+        // splitting them draws every text element on top of every sprite, hiding controls.
+        private readonly List<Func<UltimaBatcher2D, bool>> _gumpLayers = [];
         private GameObject[] _effectCapScratch = [];
 
         public void Clear()
@@ -40,8 +43,7 @@ namespace ClassicUO.Game.Scenes
             _animations.Clear();
             _effects.Clear();
             _transparentObjects.Clear();
-            _gumpSprites.Clear();
-            _gumpTexts.Clear();
+            _gumpLayers.Clear();
         }
 
         public void Add(GameObject toRender, bool isTransparent = false)
@@ -101,17 +103,16 @@ namespace ClassicUO.Game.Scenes
         /// <param name="toRender"></param>
         public void AddGumpWithAtlas(Func<UltimaBatcher2D, bool> toRender)
         {
-            _gumpSprites.Add(toRender);
+            _gumpLayers.Add(toRender);
         }
 
         /// <summary>
-        /// This is an intermediate, crappy solution. Rewriting gump rendering would be way too much at this point.
         /// Adding gump elements that do not use atlas textures and will be rendered separately.
         /// </summary>
         /// <param name="toRender"></param>
         public void AddGumpNoAtlas(Func<UltimaBatcher2D, bool> toRender)
         {
-            _gumpTexts.Add(toRender);
+            _gumpLayers.Add(toRender);
         }
 
         public int DrawRenderLists(UltimaBatcher2D batcher, sbyte maxGroundZ)
@@ -122,90 +123,26 @@ namespace ClassicUO.Game.Scenes
                    DrawRenderList(batcher, _animations, maxGroundZ) +
                    DrawRenderList(batcher, _effects, maxGroundZ);
 
-            if (_transparentObjects.Count > 0 || _gumpSprites.Count > 0 || _gumpTexts.Count > 0)
-            {
-                result += DrawRenderList(batcher, _transparentObjects, maxGroundZ);
-                result += DrawRenderListWithAtlas(batcher, _gumpSprites);
-                result += DrawRenderListNoAtlas(batcher, _gumpTexts);
-            }
+            result += DrawOverlays(batcher, maxGroundZ);
 
             return result;
         }
 
-        public int DrawRenderLists(
-            UltimaBatcher2D batcher,
-            sbyte maxGroundZ,
-            List<Chunk> visibleChunks,
-            int offsetX,
-            int offsetY,
-            int maxScreenEffectSprites = 0
-        )
+        private int DrawOverlays(UltimaBatcher2D batcher, sbyte maxGroundZ)
         {
-            int result = 0;
-
-            // Build visible indices for all chunks (skip rebuild if visibility unchanged)
-            foreach (var chunk in visibleChunks)
+            if (_transparentObjects.Count == 0 && _gumpLayers.Count == 0)
             {
-                var mesh = chunk.Mesh;
-                if (mesh.Land.Count > 0)
-                    mesh.Land.BuildVisibleIndices();
-                if (mesh.Statics.Count > 0)
-                    mesh.Statics.BuildVisibleIndices();
-            }
-
-            // Draw chunk mesh land tiles from GPU buffers with per-frame visibility
-            batcher.SetWorldOffset(offsetX, offsetY);
-            foreach (var chunk in visibleChunks)
-                result += DrawMeshLayer(batcher, chunk.Mesh.Land);
-            batcher.ResetWorldOffset();
-
-            // Draw excluded land tiles (animated water, etc.)
-            result += DrawRenderList(batcher, _tiles, maxGroundZ);
-            result += DrawRenderList(batcher, _stretchedTiles, maxGroundZ);
-
-            // Draw chunk mesh statics from GPU buffers with per-frame visibility
-            batcher.SetWorldOffset(offsetX, offsetY);
-            foreach (var chunk in visibleChunks)
-                result += DrawMeshLayer(batcher, chunk.Mesh.Statics);
-            batcher.ResetWorldOffset();
-
-            // Draw excluded statics + animations + effects
-            result += DrawRenderList(batcher, _statics, maxGroundZ)
-                + DrawRenderList(batcher, _animations, maxGroundZ)
-                + DrawEffectsCapped(batcher, maxGroundZ, maxScreenEffectSprites);
-
-            if (_transparentObjects.Count > 0 || _gumpSprites.Count > 0 || _gumpTexts.Count > 0)
-            {
-                //batcher.SetStencil(DepthStencilState.DepthRead);
-                result += DrawRenderList(batcher, _transparentObjects, maxGroundZ);
-                result += DrawRenderListWithAtlas(batcher, _gumpSprites);
-                result += DrawRenderListNoAtlas(batcher, _gumpTexts);
-                //batcher.SetStencil(null);
-            }
-
-            return result;
-        }
-
-        private static int DrawMeshLayer(UltimaBatcher2D batcher, MeshLayer layer)
-        {
-            if (layer.VisibleSpriteCount == 0 || layer.VertexBuffer == null || layer.VertexBuffer.IsDisposed)
                 return 0;
-
-            layer.FlushAlphaChanges();
-
-            var indexBuffer = batcher.GetDynamicIndexBuffer(layer.VisibleSpriteCount * 6);
-            layer.UploadVisibleIndices(indexBuffer);
-
-            batcher.GraphicsDevice.SetVertexBuffer(layer.VertexBuffer);
-            batcher.GraphicsDevice.Indices = indexBuffer;
-
-            for (int i = 0; i < layer.VisibleRunCount; i++)
-            {
-                ref var run = ref layer.VisibleRuns[i];
-                batcher.DrawDirectIndexed(run.Texture, run.Start * 6, run.Count * 2, layer.Count * 4);
             }
 
-            return layer.VisibleSpriteCount;
+            batcher.SetStencil(DepthStencilState.DepthRead);
+
+            int result = DrawRenderList(batcher, _transparentObjects, maxGroundZ)
+                + DrawGumpLayers(batcher, _gumpLayers);
+
+            batcher.SetStencil(null);
+
+            return result;
         }
 
         private static int DrawRenderList(UltimaBatcher2D batcher, List<GameObject> renderList, sbyte maxGroundZ)
@@ -270,22 +207,7 @@ namespace ClassicUO.Game.Scenes
             return done;
         }
 
-        private static int DrawRenderListWithAtlas(UltimaBatcher2D batcher, List<Func<UltimaBatcher2D, bool>> renderList)
-        {
-            int done = 0;
-
-            foreach (var obj in renderList)
-            {
-                if (obj.Invoke(batcher))
-                {
-                    done++;
-                }
-            }
-
-            return done;
-        }
-
-        private static int DrawRenderListNoAtlas(UltimaBatcher2D batcher, List<Func<UltimaBatcher2D, bool>> renderList)
+        private static int DrawGumpLayers(UltimaBatcher2D batcher, List<Func<UltimaBatcher2D, bool>> renderList)
         {
             int done = 0;
 

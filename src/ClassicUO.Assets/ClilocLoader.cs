@@ -64,6 +64,9 @@ namespace ClassicUO.Assets
             ReadCliloc(path);
         }
 
+        static bool ClilocDataLooksBwtCompressed(ReadOnlySpan<byte> buf) =>
+            buf.Length > 3 && buf[3] == 0x8E;
+
         void ReadCliloc(string path)
         {
             using var fileStream = new FileStream(path, FileMode.Open, FileAccess.Read);
@@ -74,7 +77,20 @@ namespace ClassicUO.Assets
             while ((bytesRead = fileStream.Read(buf, totalRead, Math.Min(4096, buf.Length - totalRead))) > 0)
                 totalRead += bytesRead;
 
-            var output = buf[3] == 0x8E /*|| FileManager.Version >= ClientVersion.CV_7010400*/ ? BwtDecompress.Decompress(buf) : buf;
+            byte[] output;
+            if (ClilocDataLooksBwtCompressed(buf))
+            {
+                output = BwtDecompress.Decompress(buf);
+                if (output == null || output.Length == 0)
+                {
+                    Log.Warn($"BWT cliloc decompress failed for '{path}', using raw file");
+                    output = buf;
+                }
+            }
+            else
+            {
+                output = buf;
+            }
 
             var reader = new StackDataReader(output);
             reader.ReadInt32LE();

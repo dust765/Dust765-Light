@@ -188,16 +188,36 @@ namespace ClassicUO.Game.GameObjects
                 hueVec.Z = 0.5f;
             }
 
-            HouseVisibilityHelper.TryApplyTransparentHouseAlpha(ref hueVec, this);
-
-            if (HouseVisibilityHelper.IsInvisibleHouseTile(this))
+            if (ProfileManager.CurrentProfile.TransparentHousesEnabled)
             {
-                return false;
+                GameObject tile = World.Map?.GetTile(X, Y);
+
+                if (tile != null)
+                {
+                    if (
+                        (Z - World.Player.Z) > ProfileManager.CurrentProfile.TransparentHousesZ
+                        && (Z - tile.Z) > ProfileManager.CurrentProfile.DontRemoveHouseBelowZ
+                    )
+                    {
+                        hueVec.Z = ProfileManager.CurrentProfile.TransparentHousesTransparency / 10f;
+                    }
+                }
             }
 
-            if (!HouseContentVisibilityHelper.ShouldDrawItem(this))
+            if (ProfileManager.CurrentProfile.InvisibleHousesEnabled)
             {
-                return false;
+                GameObject tile = World.Map?.GetTile(X, Y);
+
+                if (tile != null)
+                {
+                    if (
+                        (Z - World.Player.Z) > ProfileManager.CurrentProfile.InvisibleHousesZ
+                        && (Z - tile.Z) > ProfileManager.CurrentProfile.DontRemoveHouseBelowZ
+                    )
+                    {
+                        return false;
+                    }
+                }
             }
 
             DrawStaticAnimated(batcher, graphic, posX, posY, hueVec, false, depth);
@@ -500,16 +520,6 @@ namespace ClassicUO.Game.GameObjects
                     ReferenceEquals(SelectedObject.Object, this)
                     || World.TargetManager.TargetingState == CursorTarget.MultiPlacement
                 )
-                {
-                    return false;
-                }
-
-                if (HouseVisibilityHelper.IsInvisibleHouseTile(this))
-                {
-                    return false;
-                }
-
-                if (!HouseContentVisibilityHelper.ShouldDrawItem(this))
                 {
                     return false;
                 }

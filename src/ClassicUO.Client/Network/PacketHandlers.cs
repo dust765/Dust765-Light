@@ -44,6 +44,8 @@ namespace ClassicUO.Network
 
         private List<uint> _clilocRequests = new List<uint>();
         private List<uint> _customHouseRequests = new List<uint>();
+        private readonly Dictionary<uint, uint> _houseRequestSentAt = new Dictionary<uint, uint>();
+        private const uint HouseRequestCooldownMs = 750;
         private readonly OnPacketBufferReader[] _handlers = new OnPacketBufferReader[0x100];
 
         public static PacketHandlers Handler { get; } = new PacketHandlers();
@@ -390,6 +392,17 @@ namespace ClassicUO.Network
 
         public static void SendMegaClilocRequests(World world)
         {
+            if (Handler._customHouseRequests.Count > 0)
+            {
+                uint[] pending = Handler._customHouseRequests.ToArray();
+                Handler._customHouseRequests.Clear();
+
+                for (int i = 0; i < pending.Length; i++)
+                {
+                    RequestCustomHouseData(world, pending[i]);
+                }
+            }
+
             if (
                 world.ClientFeatures.TooltipsEnabled
                 && Handler._clilocRequests.Count != 0
@@ -423,16 +436,47 @@ namespace ClassicUO.Network
                     }
                 }
             }
+        }
 
-            if (Handler._customHouseRequests.Count > 0)
+        public static void RequestCustomHouseData(World world, uint serial)
+        {
+            if (world == null || serial == 0)
             {
-                for (int i = 0; i < Handler._customHouseRequests.Count; ++i)
-                {
-                    NetClient.Socket.Send_CustomHouseDataRequest(Handler._customHouseRequests[i]);
-                }
-
-                Handler._customHouseRequests.Clear();
+                return;
             }
+
+            Item foundation = world.Items.Get(serial);
+
+            if (foundation == null)
+            {
+                QueueCustomHouseRequest(serial);
+
+                return;
+            }
+
+            if (foundation.MultiInfo == null)
+            {
+                foundation.WantUpdateMulti = true;
+                foundation.CheckGraphicChange();
+            }
+
+            if (!foundation.IsMulti || foundation.MultiInfo == null)
+            {
+                QueueCustomHouseRequest(serial);
+
+                return;
+            }
+
+            if (
+                Handler._houseRequestSentAt.TryGetValue(serial, out uint nextAllowed)
+                && Time.Ticks < nextAllowed
+            )
+            {
+                return;
+            }
+
+            Handler._houseRequestSentAt[serial] = Time.Ticks + HouseRequestCooldownMs;
+            NetClient.Socket.Send_CustomHouseDataRequest(serial);
         }
 
         public static void QueueCustomHouseRequest(uint serial)
@@ -4368,6 +4412,11 @@ namespace ClassicUO.Network
             }
 
             world.ClientLockedFeatures.SetFlags(flags);
+            world.Player?.UpdateAbilities();
+
+            Log.Warn(
+                $"[0xB9] LockedFeatures = 0x{(uint)flags:X8} ({flags}) | ML={flags.HasFlag(LockedFeatureFlags.ML)} SA={flags.HasFlag(LockedFeatureFlags.SA)} HS={flags.HasFlag(LockedFeatureFlags.HS)} TOL={flags.HasFlag(LockedFeatureFlags.TOL)} EJ={flags.HasFlag(LockedFeatureFlags.EJ)}"
+            );
 
             world.ChatManager.ChatIsEnabled = world.ClientLockedFeatures.Flags.HasFlag(
                 LockedFeatureFlags.T2A
@@ -4918,7 +4967,7 @@ namespace ClassicUO.Network
                         || house.Revision != revision
                     )
                     {
-                        Handler._customHouseRequests.Add(serial);
+                        QueueCustomHouseRequest(serial);
                     }
                     else
                     {
@@ -5761,27 +5810,35 @@ namespace ClassicUO.Network
                     continue;
                 }
 
-                ReadUnsafeCustomHouseData(
-                    p.Buffer,
-                    p.Position,
-                    dlen,
-                    clen,
-                    planeZ,
-                    planeMode,
-                    minX,
-                    minY,
-                    maxY,
-                    foundation,
-                    house
-                );
+                try
+                {
+                    ReadUnsafeCustomHouseData(
+                        p.Buffer,
+                        p.Position,
+                        dlen,
+                        clen,
+                        planeZ,
+                        planeMode,
+                        minX,
+                        minY,
+                        maxY,
+                        foundation,
+                        house
+                    );
+                }
+                catch (Exception e)
+                {
+                    Log.Error($"Failed to read custom house data: {e}");
+                }
 
                 p.Skip(clen);
             }
 
-            house.IsCustom = true;
+            Handler._houseRequestSentAt.Remove(serial);
             foundation.WantUpdateMulti = false;
+            house.IsCustom = true;
             house.RelinkComponentsToTiles();
-            world.Map?.MarkChunksMeshDirtyForHouse(foundation);
+            world.HouseManager.ScheduleRelink(serial);
 
             if (world.CustomHouseManager != null)
             {
@@ -5792,9 +5849,17 @@ namespace ClassicUO.Network
 
             UIManager.GetGump<MiniMapGump>()?.RequestUpdateContents();
 
-            GameScene gameScene = Client.Game.GetScene<GameScene>();
-            gameScene?.UpdateDrawPosition = true;
-            gameScene?.UpdateMaxDrawZ(true);
+            if (world.HouseManager.EntityIntoHouse(serial, world.Player))
+            {
+                GameScene gameScene = Client.Game.GetScene<GameScene>();
+
+                gameScene?.UpdateMaxDrawZ(true);
+
+                if (gameScene != null)
+                {
+                    gameScene.UpdateDrawPosition = true;
+                }
+            }
 
             world.BoatMovingManager.ClearSteps(serial);
         }
@@ -7069,7 +7134,7 @@ namespace ClassicUO.Network
                 world.Player.CloseRangedGumps();
                 world.Player.SetInWorldTile(x, y, z);
 
-                world.Map?.PreloadChunksAround(x, y, 4, int.MaxValue);
+                world.Map?.PreloadChunksAround(x, y, 4, 24);
 
                 world.Player.UpdateAbilities();
             }

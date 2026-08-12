@@ -105,6 +105,19 @@ namespace ClassicUO.Game.GameObjects
             }
         }
 
+        public void RelinkComponentsToTiles()
+        {
+            for (int i = 0; i < Components.Count; i++)
+            {
+                Multi component = Components[i];
+
+                if (!component.IsDestroyed)
+                {
+                    component.SetInWorldTile(component.X, component.Y, component.Z);
+                }
+            }
+        }
+
         public void Generate(bool recalculate = false, bool pushtotile = true, bool removePreview = false)
         {
             Item item = _world.Items.Get(Serial);
@@ -138,19 +151,6 @@ namespace ClassicUO.Game.GameObjects
             }
 
             _world.CustomHouseManager?.GenerateFloorPlace();
-        }
-
-        public void RelinkComponentsToTiles()
-        {
-            for (int i = 0; i < Components.Count; i++)
-            {
-                Multi component = Components[i];
-
-                if (!component.IsDestroyed)
-                {
-                    component.SetInWorldTile(component.X, component.Y, component.Z);
-                }
-            }
         }
 
         public void ClearComponents(bool removeCustomOnly = false)

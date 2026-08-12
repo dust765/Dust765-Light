@@ -180,9 +180,7 @@ namespace ClassicUO
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         delegate IntPtr dGetCliloc(int cliloc, IntPtr args, bool capitalize);
         [MarshalAs(UnmanagedType.FunctionPtr)]
-#pragma warning disable CS0169
-        private readonly dGetCliloc _getCliloc;
-#pragma warning restore CS0169
+        private readonly dGetCliloc _getCliloc = getCliloc;
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         delegate short dGetPacketLength(int id);
@@ -226,6 +224,19 @@ namespace ClassicUO
         {
             var title = SDL2.SDL.UTF8_ToManaged(ptr);
             Client.Game.SetWindowTitle(title);
+        }
+
+        static IntPtr getCliloc(int cliloc, IntPtr args, bool capitalize)
+        {
+            if (Client.Game?.UO?.FileManager?.Clilocs == null)
+            {
+                return IntPtr.Zero;
+            }
+
+            string argsStr = args != IntPtr.Zero ? Marshal.PtrToStringAnsi(args) ?? string.Empty : string.Empty;
+            string result = Client.Game.UO.FileManager.Clilocs.Translate(cliloc, argsStr, capitalize);
+
+            return string.IsNullOrEmpty(result) ? IntPtr.Zero : Marshal.StringToHGlobalAnsi(result);
         }
 
         static IntPtr reflectionCmd(IntPtr cmd)
@@ -281,6 +292,7 @@ namespace ClassicUO
             cuoHost.PluginSendFn = Marshal.GetFunctionPointerForDelegate(_sendToServer);
             cuoHost.RequestMoveFn = Marshal.GetFunctionPointerForDelegate(_requestMove);
             cuoHost.GetPlayerPositionFn = Marshal.GetFunctionPointerForDelegate(_getPlayerPosition);
+            cuoHost.GetClilocFn = Marshal.GetFunctionPointerForDelegate(_getCliloc);
             cuoHost.ReflectionCmdFn = Marshal.GetFunctionPointerForDelegate(_reflectionCmd);
 
             _initialize((IntPtr)mem);
@@ -297,7 +309,7 @@ namespace ClassicUO
             _loadPlugin
             (
                 pluginPathPtr,
-                (uint)Client.Game.UO.Version,
+                PluginCompatibility.GetClientVersionForPlugins(Client.Game.UO.Version),
                 uoAssetsPtr,
                 Client.Game.Window.Handle
             );

@@ -364,9 +364,7 @@ namespace ClassicUO.Game.UI.Gumps
 
         private void UpdateSlotVisibility()
         {
-            bool isOwnPaperdoll = World.Player != null && LocalSerial == World.Player.Serial;
-            bool showAll =
-                isOwnPaperdoll && (ProfileManager.CurrentProfile?.ShowAllLayersPaperdoll ?? false);
+            bool showAll = ProfileManager.CurrentProfile?.ShowAllLayersPaperdoll ?? true;
 
             for (int i = 0; i < _slots.Count; i++)
             {
