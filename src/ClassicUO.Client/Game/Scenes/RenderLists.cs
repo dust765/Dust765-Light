@@ -7,9 +7,52 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 
 namespace ClassicUO.Game.Scenes
 {
+    /// <summary>
+    /// A queued draw into the gump layer. Prefer the typed text path: store a reference to
+    /// the <see cref="RenderedText"/> plus its draw parameters. That avoids allocating a
+    /// closure per text per frame and makes it safe to skip entries whose text was
+    /// destroyed or returned to the <see cref="RenderedText"/> pool between queue and flush.
+    ///
+    /// Callers that need an arbitrary draw (clipping, compound operations, solid color
+    /// rectangles, atlas sprites) use the <see cref="Callback"/> path.
+    /// </summary>
+    internal readonly struct GumpCommand
+    {
+        public readonly RenderedText Text;
+        public readonly int X;
+        public readonly int Y;
+        public readonly float LayerDepth;
+        public readonly float Alpha;
+        public readonly ushort Hue;
+        public readonly Func<UltimaBatcher2D, bool> Callback;
+
+        public GumpCommand(RenderedText text, int x, int y, float layerDepth, float alpha, ushort hue)
+        {
+            Text = text;
+            X = x;
+            Y = y;
+            LayerDepth = layerDepth;
+            Alpha = alpha;
+            Hue = hue;
+            Callback = null;
+        }
+
+        public GumpCommand(Func<UltimaBatcher2D, bool> callback)
+        {
+            Text = null;
+            X = 0;
+            Y = 0;
+            LayerDepth = 0f;
+            Alpha = 0f;
+            Hue = 0;
+            Callback = callback;
+        }
+    }
+
     /// <summary>
     /// Represents an ordered queue of GameObjects to be rendered.
     /// The order is determined by the draw order, not by the insertion order.
@@ -32,7 +75,7 @@ namespace ClassicUO.Game.Scenes
         private readonly List<GameObject> _transparentObjects = [];
         // Atlas and non-atlas gump elements share one queue so they keep insertion order:
         // splitting them draws every text element on top of every sprite, hiding controls.
-        private readonly List<Func<UltimaBatcher2D, bool>> _gumpLayers = [];
+        private readonly List<GumpCommand> _gumpLayers = [];
         private GameObject[] _effectCapScratch = [];
 
         public void Clear()
@@ -103,16 +146,43 @@ namespace ClassicUO.Game.Scenes
         /// <param name="toRender"></param>
         public void AddGumpWithAtlas(Func<UltimaBatcher2D, bool> toRender)
         {
-            _gumpLayers.Add(toRender);
+            if (toRender == null)
+            {
+                return;
+            }
+
+            _gumpLayers.Add(new GumpCommand(toRender));
         }
 
         /// <summary>
-        /// Adding gump elements that do not use atlas textures and will be rendered separately.
+        /// Queue a <see cref="RenderedText"/> draw. This is the preferred path for text:
+        /// allocation-free, insertion order preserved alongside the closure entries, and
+        /// flushed with a guard against destroyed or recycled text references.
         /// </summary>
-        /// <param name="toRender"></param>
+        public void AddGumpNoAtlas(RenderedText text, int x, int y, float layerDepth, float alpha = 1f, ushort hue = 0)
+        {
+            if (text == null)
+            {
+                return;
+            }
+
+            _gumpLayers.Add(new GumpCommand(text, x, y, layerDepth, alpha, hue));
+        }
+
+        /// <summary>
+        /// Fallback: queue an arbitrary draw closure. Use this for compound operations
+        /// (clipping, nested render lists, solid-color rectangles) that do not fit the
+        /// <see cref="RenderedText"/> fast path. New code drawing text should prefer the
+        /// typed overload.
+        /// </summary>
         public void AddGumpNoAtlas(Func<UltimaBatcher2D, bool> toRender)
         {
-            _gumpLayers.Add(toRender);
+            if (toRender == null)
+            {
+                return;
+            }
+
+            _gumpLayers.Add(new GumpCommand(toRender));
         }
 
         public int DrawRenderLists(UltimaBatcher2D batcher, sbyte maxGroundZ)
@@ -126,6 +196,91 @@ namespace ClassicUO.Game.Scenes
             result += DrawOverlays(batcher, maxGroundZ);
 
             return result;
+        }
+
+        /// <summary>
+        /// Chunk-mesh path: land and statics that were batched into per-chunk GPU buffers are
+        /// drawn straight from those buffers, and only the objects excluded from the mesh
+        /// (animated water, foliage, trees, rocks, fading and gradient-CoT objects) still go
+        /// through the per-object CPU lists.
+        /// </summary>
+        public int DrawRenderLists(
+            UltimaBatcher2D batcher,
+            sbyte maxGroundZ,
+            List<Chunk> visibleChunks,
+            int offsetX,
+            int offsetY
+        )
+        {
+            int result = 0;
+
+            foreach (Chunk chunk in visibleChunks)
+            {
+                ChunkMesh mesh = chunk.Mesh;
+
+                if (mesh.Land.Count > 0)
+                {
+                    mesh.Land.BuildVisibleIndices();
+                }
+
+                if (mesh.Statics.Count > 0)
+                {
+                    mesh.Statics.BuildVisibleIndices();
+                }
+            }
+
+            batcher.SetWorldOffset(offsetX, offsetY);
+
+            foreach (Chunk chunk in visibleChunks)
+            {
+                result += DrawMeshLayer(batcher, chunk.Mesh.Land);
+            }
+
+            batcher.ResetWorldOffset();
+
+            result += DrawRenderList(batcher, _tiles, maxGroundZ);
+            result += DrawRenderList(batcher, _stretchedTiles, maxGroundZ);
+
+            batcher.SetWorldOffset(offsetX, offsetY);
+
+            foreach (Chunk chunk in visibleChunks)
+            {
+                result += DrawMeshLayer(batcher, chunk.Mesh.Statics);
+            }
+
+            batcher.ResetWorldOffset();
+
+            result += DrawRenderList(batcher, _statics, maxGroundZ) +
+                   DrawRenderList(batcher, _animations, maxGroundZ) +
+                   DrawRenderList(batcher, _effects, maxGroundZ);
+
+            result += DrawOverlays(batcher, maxGroundZ);
+
+            return result;
+        }
+
+        private static int DrawMeshLayer(UltimaBatcher2D batcher, MeshLayer layer)
+        {
+            if (layer.VisibleSpriteCount == 0 || layer.VertexBuffer == null || layer.VertexBuffer.IsDisposed)
+            {
+                return 0;
+            }
+
+            layer.FlushAlphaChanges();
+
+            DynamicIndexBuffer indexBuffer = batcher.GetDynamicIndexBuffer(layer.VisibleSpriteCount * 6);
+            layer.UploadVisibleIndices(indexBuffer);
+
+            batcher.GraphicsDevice.SetVertexBuffer(layer.VertexBuffer);
+            batcher.GraphicsDevice.Indices = indexBuffer;
+
+            for (int i = 0; i < layer.VisibleRunCount; i++)
+            {
+                ref var run = ref layer.VisibleRuns[i];
+                batcher.DrawDirectIndexed(run.Texture, run.Start * 6, run.Count * 2, layer.Count * 4);
+            }
+
+            return layer.VisibleSpriteCount;
         }
 
         private int DrawOverlays(UltimaBatcher2D batcher, sbyte maxGroundZ)
@@ -207,13 +362,32 @@ namespace ClassicUO.Game.Scenes
             return done;
         }
 
-        private static int DrawGumpLayers(UltimaBatcher2D batcher, List<Func<UltimaBatcher2D, bool>> renderList)
+        private static int DrawGumpLayers(UltimaBatcher2D batcher, List<GumpCommand> renderList)
         {
             int done = 0;
 
-            foreach (var obj in renderList)
+            // AsSpan avoids the List<T> enumerator allocation on the hot path.
+            Span<GumpCommand> span = CollectionsMarshal.AsSpan(renderList);
+
+            for (int i = 0; i < span.Length; i++)
             {
-                if (obj.Invoke(batcher))
+                ref readonly GumpCommand cmd = ref span[i];
+
+                if (cmd.Text != null)
+                {
+                    // HasContent rejects destroyed or empty text, which happens when the
+                    // instance went back to the pool between queue and flush.
+                    if (!cmd.Text.HasContent)
+                    {
+                        continue;
+                    }
+
+                    if (cmd.Text.Draw(batcher, cmd.X, cmd.Y, cmd.LayerDepth, cmd.Alpha, cmd.Hue))
+                    {
+                        done++;
+                    }
+                }
+                else if (cmd.Callback != null && cmd.Callback.Invoke(batcher))
                 {
                     done++;
                 }

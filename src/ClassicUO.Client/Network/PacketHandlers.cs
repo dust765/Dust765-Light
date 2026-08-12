@@ -208,7 +208,23 @@ namespace ClassicUO.Network
             if (data.IsEmpty)
                 return;
 
-            (fromPlugins ? _pluginsBuffer : _buffer).Enqueue(data);
+            // Plugins enqueue from their own thread while the render thread drains the same
+            // buffer in ParsePackets, which locks the CircularBuffer instance. Lock the same
+            // monitor here so the two never touch the ring concurrently.
+            if (fromPlugins)
+            {
+                lock (_pluginsBuffer)
+                {
+                    _pluginsBuffer.Enqueue(data);
+                }
+            }
+            else
+            {
+                lock (_buffer)
+                {
+                    _buffer.Enqueue(data);
+                }
+            }
         }
 
         private void AnalyzePacket(World world, ReadOnlySpan<byte> data, int offset)
@@ -6728,7 +6744,14 @@ namespace ClassicUO.Network
                 Log.Warn("AddItemToContainer function adds mobile as Item");
             }
 
-            if (item != null && (container.Graphic != 0x2006 || item.Layer == Layer.Invalid))
+            // A facet change re-sends the contents of already-open containers. Destroying and
+            // re-creating items that never left their container closes the gump, so only touch
+            // items that are actually moving.
+            if (
+                item != null
+                && item.Container != containerSerial
+                && (container.Graphic != 0x2006 || item.Layer == Layer.Invalid)
+            )
             {
                 world.RemoveItem(item, true);
             }
@@ -6742,8 +6765,12 @@ namespace ClassicUO.Network
             item.Y = y;
             item.Z = 0;
 
-            world.RemoveItemFromContainer(item);
-            item.Container = containerSerial;
+            if (item.Container != containerSerial)
+            {
+                world.RemoveItemFromContainer(item);
+                item.Container = containerSerial;
+            }
+
             container.PushToBack(item);
 
             if (SerialHelper.IsMobile(containerSerial))
