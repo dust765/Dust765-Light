@@ -893,20 +893,17 @@ namespace ClassicUO.Game.Scenes
             obj is Static s ? s.IsVegetation : obj is Multi m && m.IsVegetation;
 
         /// <summary>
-        /// Handles a land, static or multi that was batched into the chunk's GPU mesh.
-        /// Returns true when the object was fully handled here; false means the caller must fall
-        /// through to the regular per-object path.
+        /// Handles a land, static or multi that was batched into the chunk's GPU mesh. Returns
+        /// true when the caller must stop walking the rest of the tile stack.
         /// </summary>
-        private bool TryAddMeshedObject(
+        private bool AddMeshedObject(
             GameObject obj,
             ChunkMesh mesh,
             int screenY,
             int maxObjectZ,
-            int maxZ,
-            out bool breakLoop
+            int maxZ
         )
         {
-            breakLoop = false;
             Profile profile = ProfileManager.CurrentProfile;
 
             if (obj is Land meshLand)
@@ -919,12 +916,12 @@ namespace ClassicUO.Game.Scenes
 
                     if (adjustedY < _minPixel.Y || screenY > _maxPixel.Y)
                     {
-                        return true;
+                        return false;
                     }
                 }
                 else if (screenY < _minPixel.Y || screenY > _maxPixel.Y)
                 {
-                    return true;
+                    return false;
                 }
 
                 if (obj.Z > _maxGroundZ)
@@ -935,7 +932,6 @@ namespace ClassicUO.Game.Scenes
 
                     if (!changed)
                     {
-                        breakLoop = true;
                         return true;
                     }
                 }
@@ -951,12 +947,12 @@ namespace ClassicUO.Game.Scenes
                     TrySelectObject(obj, true);
                 }
 
-                return true;
+                return false;
             }
 
             if (screenY < _minPixel.Y || screenY > _maxPixel.Y)
             {
-                return true;
+                return false;
             }
 
             // Meshed objects are never foliage, trees, rocks, internal or animated, so the only
@@ -969,7 +965,7 @@ namespace ClassicUO.Game.Scenes
 
             if (!itemData.IsMultiMovable && profile.HideVegetation && IsVegetationObject(obj))
             {
-                return true;
+                return false;
             }
 
             // ProcessAlpha owns the roof fade, the _maxZ fade, the CPU circle of transparency
@@ -980,7 +976,7 @@ namespace ClassicUO.Game.Scenes
             if (!ProcessAlpha(obj, ref itemData, true, ref _sortPlayerPos, _sortCotZ, out bool allowSelection)
                 || obj.AlphaHue == 0)
             {
-                return true;
+                return false;
             }
 
             if (obj.AllowedToDraw)
@@ -990,7 +986,7 @@ namespace ClassicUO.Game.Scenes
 
             if (maxObjectZ > maxZ)
             {
-                return true;
+                return false;
             }
 
             // A fading sprite drawn from the mesh still writes depth and would block the mobiles
@@ -998,7 +994,7 @@ namespace ClassicUO.Game.Scenes
             if (fadingOut)
             {
                 PushToRenderQueue(obj, true, allowSelection);
-                return true;
+                return false;
             }
 
             if (_cotGradientMode
@@ -1012,7 +1008,7 @@ namespace ClassicUO.Game.Scenes
                     PushToRenderQueue(obj, true, allowSelection);
                 }
 
-                return true;
+                return false;
             }
 
             byte alphaHue = obj.AlphaHue;
@@ -1052,7 +1048,7 @@ namespace ClassicUO.Game.Scenes
 
             TrySelectObject(obj, allowSelection && !(cot && IsMouseInsideCotCircle()));
 
-            return true;
+            return false;
         }
 
         private unsafe bool AddTileToRenderList(
@@ -1088,15 +1084,12 @@ namespace ClassicUO.Game.Scenes
                         return false;
                     }
 
-                    if (TryAddMeshedObject(obj, mesh, screenY, maxObjectZ, maxZ, out bool breakLoop))
+                    if (AddMeshedObject(obj, mesh, screenY, maxObjectZ, maxZ))
                     {
-                        if (breakLoop)
-                        {
-                            break;
-                        }
-
-                        continue;
+                        break;
                     }
+
+                    continue;
                 }
 
                 switch (obj)
