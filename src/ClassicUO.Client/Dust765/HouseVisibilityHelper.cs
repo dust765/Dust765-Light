@@ -8,6 +8,9 @@ using Microsoft.Xna.Framework;
 
 namespace ClassicUO.Dust765
 {
+    // Currently unused: the live invisible/transparent house logic is inlined in
+    // GameSceneDrawingSorting.ProcessAlpha and in the MultiView/ItemView draw paths.
+    // Kept as the intended single source of truth for a future consolidation.
     internal static class HouseVisibilityHelper
     {
         private static World _world;

@@ -3,6 +3,7 @@
 using System.Collections.Generic;
 using ClassicUO.Assets;
 using ClassicUO.Configuration;
+using ClassicUO.Dust765;
 using ClassicUO.Game.Data;
 using ClassicUO.Game.GameObjects;
 using ClassicUO.Game.Managers;
@@ -1028,6 +1029,11 @@ namespace ClassicUO.Game.Scenes
                             );
 
                             if (!item.IsCorpse && itemData.IsInternal)
+                            {
+                                continue;
+                            }
+
+                            if (!HouseContentVisibilityHelper.ShouldDrawItem(item))
                             {
                                 continue;
                             }
