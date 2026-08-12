@@ -6728,7 +6728,14 @@ namespace ClassicUO.Network
                 Log.Warn("AddItemToContainer function adds mobile as Item");
             }
 
-            if (item != null && (container.Graphic != 0x2006 || item.Layer == Layer.Invalid))
+            // A facet change re-sends the contents of already-open containers. Destroying and
+            // re-creating items that never left their container closes the gump, so only touch
+            // items that are actually moving.
+            if (
+                item != null
+                && item.Container != containerSerial
+                && (container.Graphic != 0x2006 || item.Layer == Layer.Invalid)
+            )
             {
                 world.RemoveItem(item, true);
             }
@@ -6742,8 +6749,12 @@ namespace ClassicUO.Network
             item.Y = y;
             item.Z = 0;
 
-            world.RemoveItemFromContainer(item);
-            item.Container = containerSerial;
+            if (item.Container != containerSerial)
+            {
+                world.RemoveItemFromContainer(item);
+                item.Container = containerSerial;
+            }
+
             container.PushToBack(item);
 
             if (SerialHelper.IsMobile(containerSerial))
