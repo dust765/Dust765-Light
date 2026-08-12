@@ -4,6 +4,11 @@
 * text=auto
 
 ###############################################################################
+# Git hooks are executed by sh, which chokes on a CRLF shebang.
+###############################################################################
+.githooks/* text eol=lf
+
+###############################################################################
 # Set default behavior for command prompt diff.
 #
 # This is need for earlier builds of msysgit that does not have it on by
