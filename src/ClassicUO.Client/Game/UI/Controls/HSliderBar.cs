@@ -199,21 +199,14 @@ namespace ClassicUO.Game.UI.Controls
             );
             if (_text != null)
             {
-                renderLists.AddGumpNoAtlas
-                (
-                    batcher =>
-                    {
-                        if (_drawUp)
-                        {
-                            _text.Draw(batcher, x, y - _text.Height, layerDepth);
-                        }
-                        else
-                        {
-                            _text.Draw(batcher, x + BarWidth + 2, y + (Height >> 1) - (_text.Height >> 1), layerDepth);
-                        }
-                        return true;
-                    }
-                    );
+                if (_drawUp)
+                {
+                    renderLists.AddGumpNoAtlas(_text, x, y - _text.Height, layerDepth);
+                }
+                else
+                {
+                    renderLists.AddGumpNoAtlas(_text, x + BarWidth + 2, y + (Height >> 1) - (_text.Height >> 1), layerDepth);
+                }
             }
             return base.AddToRenderLists(renderLists, x, y, ref layerDepthRef);
         }
