@@ -71,6 +71,12 @@ namespace ClassicUO.Game.Scenes
         private uint _timeToPlaceMultiInHouseCustomization;
         private readonly UseItemQueue _useItemQueue;
         private bool _useObjectHandles;
+        private readonly List<Map.Chunk> _visibleChunks = new List<Map.Chunk>(64);
+
+        // Highlighting a meshed object rewrites its vertex hue in place instead of redrawing it
+        // on top, so we have to remember the sprite to restore once the selection moves away.
+        private GameObject _prevMeshHighlight;
+        private bool _meshAnimatedWater;
         private AnimatedStaticsManager _animatedStaticsManager;
 
         private readonly World _world;
@@ -599,6 +605,7 @@ namespace ClassicUO.Game.Scenes
         private void FillGameObjectList()
         {
             _renderLists.Clear();
+            _visibleChunks.Clear();
 
             _foliageCount = 0;
 
@@ -694,6 +701,15 @@ namespace ClassicUO.Game.Scenes
             int maxY = _maxTile.Y;
             Map.Map map = _world.Map;
             bool use_handles = _useObjectHandles;
+
+            bool animatedWater = ProfileManager.CurrentProfile.AnimatedWaterEffect;
+
+            if (_meshAnimatedWater != animatedWater)
+            {
+                _meshAnimatedWater = animatedWater;
+                Map.ChunkMesh.InvalidationVersion++;
+            }
+
             (var minChunkX, var minChunkY) = (minX >> 3, minY >> 3);
             (var maxChunkX, var maxChunkY) = (maxX >> 3, maxY >> 3);
 
@@ -704,6 +720,18 @@ namespace ClassicUO.Game.Scenes
                     var chunk = map.GetChunk2(chunkX, chunkY, true);
                     if (chunk == null || chunk.IsDestroyed)
                         continue;
+
+                    if (chunk.Mesh.NeedsRebuild)
+                    {
+                        chunk.Mesh.Build(chunk, _world, Client.Game.GraphicsDevice);
+                    }
+
+                    chunk.Mesh.Land.ResetVisibility();
+                    chunk.Mesh.Land.ResetAlpha();
+                    chunk.Mesh.Statics.ResetVisibility();
+                    chunk.Mesh.Statics.ResetAlpha();
+
+                    _visibleChunks.Add(chunk);
 
                     int chunkBaseX = chunkX << 3;
                     int chunkBaseY = chunkY << 3;
@@ -723,7 +751,8 @@ namespace ClassicUO.Game.Scenes
                             AddTileToRenderList(
                                 firstObj,
                                 use_handles,
-                                150
+                                150,
+                                chunk.Mesh
                             );
                         }
                     }
@@ -1120,6 +1149,47 @@ namespace ClassicUO.Game.Scenes
             Profiler.EnterContext(Profiler.ProfilerContext.RENDER_FRAME_WORLD_PREPARE);
             FillGameObjectList();
 
+            if (_prevMeshHighlight != null
+                && !_prevMeshHighlight.IsDestroyed
+                && _prevMeshHighlight.InChunkMesh
+                && _prevMeshHighlight.MeshSpriteIndex >= 0)
+            {
+                Map.Chunk prevChunk = _world.Map?.GetChunk(_prevMeshHighlight.X, _prevMeshHighlight.Y);
+
+                if (prevChunk != null && !prevChunk.IsDestroyed)
+                {
+                    ApplyMeshHue(
+                        _prevMeshHighlight,
+                        _prevMeshHighlight is Land ? prevChunk.Mesh.Land : prevChunk.Mesh.Statics
+                    );
+                }
+            }
+
+            _prevMeshHighlight = null;
+
+            if (ProfileManager.CurrentProfile.HighlightGameObjects
+                && SelectedObject.Object is GameObject selObj
+                && selObj.InChunkMesh
+                && selObj.MeshSpriteIndex >= 0)
+            {
+                Map.Chunk chunk = _world.Map?.GetChunk(selObj.X, selObj.Y);
+
+                if (chunk != null && !chunk.IsDestroyed)
+                {
+                    MeshLayer layer = selObj is Land ? chunk.Mesh.Land : chunk.Mesh.Statics;
+
+                    layer.SetHue(
+                        selObj.MeshSpriteIndex,
+                        Constants.HIGHLIGHT_CURRENT_OBJECT_HUE - 1,
+                        selObj is Land land && land.IsStretched
+                            ? ShaderHueTranslator.SHADER_LAND_HUED
+                            : ShaderHueTranslator.SHADER_HUED
+                    );
+
+                    _prevMeshHighlight = selObj;
+                }
+            }
+
             Profiler.ExitContext(Profiler.ProfilerContext.RENDER_FRAME_WORLD_PREPARE);
             Profiler.EnterContext(Profiler.ProfilerContext.RENDER_FRAME_WORLD);
             batcher.SetSampler(SamplerState.PointClamp);
@@ -1133,7 +1203,10 @@ namespace ClassicUO.Game.Scenes
 
             RenderedObjectsCount = _renderLists.DrawRenderLists(
                 batcher,
-                _maxGroundZ
+                _maxGroundZ,
+                _visibleChunks,
+                _offset.X,
+                _offset.Y
             );
 
 

@@ -198,6 +198,91 @@ namespace ClassicUO.Game.Scenes
             return result;
         }
 
+        /// <summary>
+        /// Chunk-mesh path: land and statics that were batched into per-chunk GPU buffers are
+        /// drawn straight from those buffers, and only the objects excluded from the mesh
+        /// (animated water, foliage, trees, rocks, fading and gradient-CoT objects) still go
+        /// through the per-object CPU lists.
+        /// </summary>
+        public int DrawRenderLists(
+            UltimaBatcher2D batcher,
+            sbyte maxGroundZ,
+            List<Chunk> visibleChunks,
+            int offsetX,
+            int offsetY
+        )
+        {
+            int result = 0;
+
+            foreach (Chunk chunk in visibleChunks)
+            {
+                ChunkMesh mesh = chunk.Mesh;
+
+                if (mesh.Land.Count > 0)
+                {
+                    mesh.Land.BuildVisibleIndices();
+                }
+
+                if (mesh.Statics.Count > 0)
+                {
+                    mesh.Statics.BuildVisibleIndices();
+                }
+            }
+
+            batcher.SetWorldOffset(offsetX, offsetY);
+
+            foreach (Chunk chunk in visibleChunks)
+            {
+                result += DrawMeshLayer(batcher, chunk.Mesh.Land);
+            }
+
+            batcher.ResetWorldOffset();
+
+            result += DrawRenderList(batcher, _tiles, maxGroundZ);
+            result += DrawRenderList(batcher, _stretchedTiles, maxGroundZ);
+
+            batcher.SetWorldOffset(offsetX, offsetY);
+
+            foreach (Chunk chunk in visibleChunks)
+            {
+                result += DrawMeshLayer(batcher, chunk.Mesh.Statics);
+            }
+
+            batcher.ResetWorldOffset();
+
+            result += DrawRenderList(batcher, _statics, maxGroundZ) +
+                   DrawRenderList(batcher, _animations, maxGroundZ) +
+                   DrawRenderList(batcher, _effects, maxGroundZ);
+
+            result += DrawOverlays(batcher, maxGroundZ);
+
+            return result;
+        }
+
+        private static int DrawMeshLayer(UltimaBatcher2D batcher, MeshLayer layer)
+        {
+            if (layer.VisibleSpriteCount == 0 || layer.VertexBuffer == null || layer.VertexBuffer.IsDisposed)
+            {
+                return 0;
+            }
+
+            layer.FlushAlphaChanges();
+
+            DynamicIndexBuffer indexBuffer = batcher.GetDynamicIndexBuffer(layer.VisibleSpriteCount * 6);
+            layer.UploadVisibleIndices(indexBuffer);
+
+            batcher.GraphicsDevice.SetVertexBuffer(layer.VertexBuffer);
+            batcher.GraphicsDevice.Indices = indexBuffer;
+
+            for (int i = 0; i < layer.VisibleRunCount; i++)
+            {
+                ref var run = ref layer.VisibleRuns[i];
+                batcher.DrawDirectIndexed(run.Texture, run.Start * 6, run.Count * 2, layer.Count * 4);
+            }
+
+            return layer.VisibleSpriteCount;
+        }
+
         private int DrawOverlays(UltimaBatcher2D batcher, sbyte maxGroundZ)
         {
             if (_transparentObjects.Count == 0 && _gumpLayers.Count == 0)

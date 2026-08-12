@@ -823,10 +823,243 @@ namespace ClassicUO.Game.Scenes
             _renderLists.Add(obj, isTransparent || obj.AlphaHue != byte.MaxValue);
         }
 
+        /// <summary>
+        /// Rewrites the vertex hue of a meshed sprite so land and statics batched into the GPU
+        /// buffer get the same tint that LandView/StaticView/MultiView would apply at draw time,
+        /// including the Dust765 field preview and last-target tile highlight.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void ApplyMeshHue(GameObject obj, MeshLayer layer)
+        {
+            Profile profile = ProfileManager.CurrentProfile;
+            int hue = obj.Hue;
+            bool partial = false;
+            bool isStretchedLand = obj is Land stretchedLand && stretchedLand.IsStretched;
+
+            if (profile.NoColorObjectsOutOfRange && obj.Distance > _world.ClientViewRange)
+            {
+                hue = Constants.OUT_RANGE_COLOR;
+            }
+            else if (_world.Player.IsDead && profile.EnableBlackWhiteEffect)
+            {
+                hue = Constants.DEAD_RANGE_COLOR;
+            }
+            else if (obj is Static s)
+            {
+                partial = s.ItemData.IsPartialHue;
+            }
+            else if (obj is Multi m)
+            {
+                partial = m.ItemData.IsPartialHue;
+            }
+
+            if (profile.PreviewFields && CombatCollection.ObjectFieldPreview(_world, obj))
+            {
+                hue = 0x0040;
+                partial = false;
+            }
+            else if (obj is Land
+                && LTHighlightRangeHelper.TryGetLandHighlightHue(_world, obj.X, obj.Y, out ushort ltHue))
+            {
+                hue = ltHue;
+                partial = false;
+            }
+
+            float hueX;
+            float hueY;
+
+            if (hue != 0)
+            {
+                hueX = hue - 1;
+                hueY = isStretchedLand
+                    ? ShaderHueTranslator.SHADER_LAND_HUED
+                    : partial
+                        ? ShaderHueTranslator.SHADER_PARTIAL_HUED
+                        : ShaderHueTranslator.SHADER_HUED;
+            }
+            else
+            {
+                hueX = 0;
+                hueY = isStretchedLand
+                    ? ShaderHueTranslator.SHADER_LAND
+                    : ShaderHueTranslator.SHADER_NONE;
+            }
+
+            layer.SetHue(obj.MeshSpriteIndex, hueX, hueY);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static bool IsVegetationObject(GameObject obj) =>
+            obj is Static s ? s.IsVegetation : obj is Multi m && m.IsVegetation;
+
+        /// <summary>
+        /// Handles a land, static or multi that was batched into the chunk's GPU mesh.
+        /// Returns true when the object was fully handled here; false means the caller must fall
+        /// through to the regular per-object path.
+        /// </summary>
+        private bool TryAddMeshedObject(
+            GameObject obj,
+            ChunkMesh mesh,
+            int screenY,
+            int maxObjectZ,
+            int maxZ,
+            out bool breakLoop
+        )
+        {
+            breakLoop = false;
+            Profile profile = ProfileManager.CurrentProfile;
+
+            if (obj is Land meshLand)
+            {
+                if (meshLand.IsStretched)
+                {
+                    // Stretched tiles paint below their screenY down to MinZ, so the top cull
+                    // has to use the adjusted Y or valley tiles pop out at the screen edge.
+                    int adjustedY = screenY + (meshLand.Z << 2) - (meshLand.MinZ << 2);
+
+                    if (adjustedY < _minPixel.Y || screenY > _maxPixel.Y)
+                    {
+                        return true;
+                    }
+                }
+                else if (screenY < _minPixel.Y || screenY > _maxPixel.Y)
+                {
+                    return true;
+                }
+
+                if (obj.Z > _maxGroundZ)
+                {
+                    bool changed = _alphaChanged
+                        ? CalculateAlpha(ref obj.AlphaHue, 0)
+                        : obj.AlphaHue != 0;
+
+                    if (!changed)
+                    {
+                        breakLoop = true;
+                        return true;
+                    }
+                }
+                else if (_alphaChanged && obj.AlphaHue != 0xFF)
+                {
+                    CalculateAlpha(ref obj.AlphaHue, 0xFF);
+                }
+
+                if (obj.AlphaHue != 0)
+                {
+                    mesh.Land.SetVisible(obj.MeshSpriteIndex, obj.AlphaHue);
+                    ApplyMeshHue(obj, mesh.Land);
+                    TrySelectObject(obj, true);
+                }
+
+                return true;
+            }
+
+            if (screenY < _minPixel.Y || screenY > _maxPixel.Y)
+            {
+                return true;
+            }
+
+            // Meshed objects are never foliage, trees, rocks, internal or animated, so the only
+            // remaining cases here are plain statics and settled multis.
+            ref StaticTiles itemData = ref (
+                obj is Static meshStatic
+                    ? ref meshStatic.ItemData
+                    : ref Unsafe.As<Multi>(obj).ItemData
+            );
+
+            if (!itemData.IsMultiMovable && profile.HideVegetation && IsVegetationObject(obj))
+            {
+                return true;
+            }
+
+            // ProcessAlpha owns the roof fade, the _maxZ fade, the CPU circle of transparency
+            // (including IgnoreCoT) and the InvisibleHouses cut-off, so the mesh path reuses it
+            // instead of duplicating those rules.
+            bool fadingOut = obj.Z >= _maxZ || (_noDrawRoofs && itemData.IsRoof);
+
+            if (!ProcessAlpha(obj, ref itemData, true, ref _sortPlayerPos, _sortCotZ, out bool allowSelection)
+                || obj.AlphaHue == 0)
+            {
+                return true;
+            }
+
+            if (obj.AllowedToDraw)
+            {
+                CalculateObjectHeight(ref maxObjectZ, ref itemData);
+            }
+
+            if (maxObjectZ > maxZ)
+            {
+                return true;
+            }
+
+            // A fading sprite drawn from the mesh still writes depth and would block the mobiles
+            // and items underneath it, so hand it to the CPU transparent list instead.
+            if (fadingOut)
+            {
+                PushToRenderQueue(obj, true, allowSelection);
+                return true;
+            }
+
+            if (_cotGradientMode
+                && profile.UseCircleOfTransparency
+                && obj.TransparentTest(_world.Player.Z + 5))
+            {
+                obj.AlphaHue = GetGradientCotAlpha(obj);
+
+                if (obj.AlphaHue > 0)
+                {
+                    PushToRenderQueue(obj, true, allowSelection);
+                }
+
+                return true;
+            }
+
+            byte alphaHue = obj.AlphaHue;
+
+            // TransparentHouses is a draw-time alpha inside MultiView, which meshed multis never
+            // reach, so the same Z threshold has to be resolved here.
+            if (profile.TransparentHousesEnabled && obj is Multi && _world.Player != null)
+            {
+                GameObject tile = _world.Map?.GetTile(obj.X, obj.Y);
+
+                if (tile != null
+                    && (obj.Z - _world.Player.Z) > profile.TransparentHousesZ
+                    && (obj.Z - tile.Z) > profile.DontRemoveHouseBelowZ)
+                {
+                    byte houseAlpha = (byte)Microsoft.Xna.Framework.MathHelper.Clamp(
+                        profile.TransparentHousesTransparency * 25.5f,
+                        byte.MinValue,
+                        byte.MaxValue
+                    );
+
+                    if (houseAlpha < alphaHue)
+                    {
+                        alphaHue = houseAlpha;
+                    }
+                }
+            }
+
+            bool cot = obj is Static && obj.TransparentTest(_world.Player.Z + 5);
+
+            mesh.Statics.SetVisible(obj.MeshSpriteIndex, alphaHue, cot);
+            ApplyMeshHue(obj, mesh.Statics);
+
+            if (itemData.IsLight)
+            {
+                AddLight(obj, obj, obj.RealScreenPosition.X + 22, obj.RealScreenPosition.Y + 22);
+            }
+
+            TrySelectObject(obj, allowSelection && !(cot && IsMouseInsideCotCircle()));
+
+            return true;
+        }
+
         private unsafe bool AddTileToRenderList(
             GameObject obj,
             bool useObjectHandles,
-            int maxZ
+            int maxZ,
+            ChunkMesh mesh
         )
         {
             var profile = ProfileManager.CurrentProfile;
@@ -847,6 +1080,24 @@ namespace ClassicUO.Game.Scenes
 
                 int screenY = obj.RealScreenPosition.Y;
                 int maxObjectZ = obj.PriorityZ;
+
+                if (obj.InChunkMesh && obj.MeshSpriteIndex >= 0 && mesh != null)
+                {
+                    if (maxObjectZ > maxZ && obj is Land)
+                    {
+                        return false;
+                    }
+
+                    if (TryAddMeshedObject(obj, mesh, screenY, maxObjectZ, maxZ, out bool breakLoop))
+                    {
+                        if (breakLoop)
+                        {
+                            break;
+                        }
+
+                        continue;
+                    }
+                }
 
                 switch (obj)
                 {
