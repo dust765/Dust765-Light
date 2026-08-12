@@ -733,8 +733,11 @@ namespace ClassicUO.Game.Scenes
 
             CheckIfBehindATree(obj, ref itemData);
 
-            // Gradient CoT for non-mesh objects (trees, foliage, animated statics)
+            // Gradient CoT for non-mesh objects (trees, foliage, animated statics).
+            // Skip objects fading out via ProcessAlpha (above _maxZ / hidden roofs),
+            // otherwise the gradient alpha overwrites the fade and they never disappear.
             if (_cotGradientMode && ProfileManager.CurrentProfile.UseCircleOfTransparency
+                && obj.Z < _maxZ && !(_noDrawRoofs && itemData.IsRoof)
                 && obj.TransparentTest(_world.Player.Z + 5))
             {
                 obj.AlphaHue = GetGradientCotAlpha(obj);
