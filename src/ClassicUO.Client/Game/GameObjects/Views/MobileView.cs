@@ -395,9 +395,14 @@ namespace ClassicUO.Game.GameObjects
 
             if (!IsEmpty)
             {
-                for (int i = 0; i < Constants.USED_LAYER_COUNT; i++)
+                // Same algorithm the paperdoll uses, so the in-world equipment paint order
+                // matches the gump instead of the fixed legacy table.
+                Span<Layer> layers = stackalloc Layer[PaperdollOrder.N];
+                int layerCount = BuildWorldLayers(this, IsFemale || isGargoyle, layerDir, layers);
+
+                for (int i = 0; i < layerCount; i++)
                 {
-                    Layer layer = LayerOrder.UsedLayers[layerDir, i];
+                    Layer layer = layers[i];
 
                     Item item = FindItemByLayer(layer);
 
@@ -1127,6 +1132,7 @@ namespace ClassicUO.Game.GameObjects
             var animations = Client.Game.UO.Animations;
 
             ProcessSteps(out byte dir);
+            byte layerDir = dir;
             bool isFlipped = IsFlipped;
             animations.GetAnimDirection(ref dir, ref isFlipped);
 
@@ -1228,8 +1234,14 @@ namespace ClassicUO.Game.GameObjects
 
             if (!IsEmpty && isHuman)
             {
-                for (Layer layer = Layer.Invalid + 1; layer < Layer.Mount; ++layer)
+                // Hit-test exactly the layers the draw path paints, otherwise clicks land on
+                // equipment that is not visible and miss equipment that is.
+                Span<Layer> hitLayers = stackalloc Layer[PaperdollOrder.N];
+                int hitLayerCount = BuildWorldLayers(this, IsFemale || isGargoyle, layerDir, hitLayers);
+
+                for (int li = 0; li < hitLayerCount; li++)
                 {
+                    Layer layer = hitLayers[li];
                     Item item = FindItemByLayer(layer);
 
                     if (
@@ -1294,6 +1306,19 @@ namespace ClassicUO.Game.GameObjects
             return false;
         }
 
+        private static int BuildWorldLayers(Mobile mobile, bool altTorsoTable, byte direction, Span<Layer> dest)
+        {
+            if ((ProfileManager.CurrentProfile?.MobileParrotOriginalView ?? true)
+                && LayerOrder.IsParrotEpaulets(mobile.FindItemByLayer(Layer.Robe)))
+            {
+                int parrotCount = PaperdollOrder.Filter(LayerOrder.ParrotLayers, includeBackpack: false, dest);
+
+                return PaperdollOrder.ApplyDirectionCloak(dest, parrotCount, direction);
+            }
+
+            return PaperdollOrder.BuildInWorld(mobile, altTorsoTable, direction, dest);
+        }
+
         internal static bool IsCovered(Mobile mobile, Layer layer)
         {
             if (mobile.IsEmpty)
@@ -1301,147 +1326,186 @@ namespace ClassicUO.Game.GameObjects
                 return false;
             }
 
+            // Explicit per-layer occlusion. The paint order alone is not enough: a layer's
+            // gump can paint outside the bounds of the item meant to cover it (oversized
+            // custom art leaks past the occluder — e.g. chest 0x3DC0 sticking out below
+            // robe 0x3CAC), so layers that an occluder is expected to fully hide are culled
+            // here. Robe graphics are compared raw (item.Graphic); pants/skirt/robe AnimIDs
+            // use the equip AnimID (item.ItemData.AnimID). The exception robe graphics are
+            // open/half robes that leave the chest/arms visible.
+            Item robe = mobile.FindItemByLayer(Layer.Robe);
+            ushort robeGfx = robe?.Graphic ?? 0;
+            ushort robeAnim = robe?.ItemData.AnimID ?? 0;
+
+            bool robeLeavesChestVisible =
+                robeGfx == 0x9985 || robeGfx == 0x9986 || robeGfx == 0xA2CA
+                || robeGfx == 0xA2CB || robeGfx == 0xA412 || robeGfx == 0xB1DE;
+
             switch (layer)
             {
                 case Layer.Shoes:
+                {
                     Item pants = mobile.FindItemByLayer(Layer.Pants);
-                    Item robe;
+                    ushort pantsAnim = pants?.ItemData.AnimID ?? 0;
 
-                    if (
-                        mobile.FindItemByLayer(Layer.Legs) != null
-                        || pants != null
-                            && (
-                                pants.Graphic == 0x1411 /*|| pants.Graphic == 0x141A*/
-                            )
-                    )
+                    if (robeAnim != 0x504 && pantsAnim != 0x513 && pantsAnim != 0x514)
                     {
-                        return true;
-                    }
-                    else
-                    {
-                        robe = mobile.FindItemByLayer(Layer.Robe);
+                        ushort pantsGfx = pants?.Graphic ?? 0;
 
-                        if (
-                            pants != null && (pants.Graphic == 0x0513 || pants.Graphic == 0x0514)
-                            || robe != null && robe.Graphic == 0x0504
-                        )
+                        if (pantsGfx < 0xAEB2)
                         {
-                            return true;
-                        }
-                    }
-
-                    break;
-
-                case Layer.Pants:
-
-                    robe = mobile.FindItemByLayer(Layer.Robe);
-                    pants = mobile.FindItemByLayer(Layer.Pants);
-
-                    if (
-                        mobile.FindItemByLayer(Layer.Legs) != null
-                        || robe != null && robe.Graphic == 0x0504
-                    )
-                    {
-                        return true;
-                    }
-
-                    if (
-                        pants != null
-                        && (
-                            pants.Graphic == 0x01EB
-                            || pants.Graphic == 0x03E5
-                            || pants.Graphic == 0x03eB
-                        )
-                    )
-                    {
-                        Item skirt = mobile.FindItemByLayer(Layer.Skirt);
-
-                        if (skirt != null && skirt.Graphic != 0x01C7 && skirt.Graphic != 0x01E4)
-                        {
-                            return true;
-                        }
-
-                        if (
-                            robe != null
-                            && robe.Graphic != 0x0229
-                            && (robe.Graphic <= 0x04E7 || robe.Graphic > 0x04EB)
-                        )
-                        {
-                            return true;
-                        }
-                    }
-
-                    break;
-
-                case Layer.Tunic:
-                    robe = mobile.FindItemByLayer(Layer.Robe);
-                    Item tunic = mobile.FindItemByLayer(Layer.Tunic);
-
-                    if (tunic != null && tunic.Graphic == 0x0238)
-                    {
-                        return robe != null
-                            && robe.Graphic != 0x9985
-                            && robe.Graphic != 0x9986
-                            && robe.Graphic != 0xA412
-                            && robe.Graphic != 0xA2CB
-                            && robe.Graphic != 0xA2CA;
-                    }
-
-                    break;
-
-                case Layer.Torso:
-                    robe = mobile.FindItemByLayer(Layer.Robe);
-
-                    if (
-                        robe != null
-                        && robe.Graphic != 0
-                        && robe.Graphic != 0x9985
-                        && robe.Graphic != 0x9986
-                        && robe.Graphic != 0xA412
-                        && robe.Graphic != 0xA2CB
-                        && robe.Graphic != 0xA2CA
-                    )
-                    {
-                        return true;
-                    }
-                    else
-                    {
-                        tunic = mobile.FindItemByLayer(Layer.Tunic);
-
-                        if (tunic != null && tunic.Graphic != 0x1541 && tunic.Graphic != 0x1542)
-                        {
-                            Item torso = mobile.FindItemByLayer(Layer.Torso);
-
-                            if (
-                                torso != null
-                                && (torso.Graphic == 0x782A || torso.Graphic == 0x782B)
-                            )
+                            if (pantsGfx == 0xAEB1 || pantsGfx == 0x1411)
                             {
                                 return true;
+                            }
+
+                            if (pantsGfx != 0xAEA2)
+                            {
+                                // plate/studded legs paint under shoes
+                                return mobile.FindItemByLayer(Layer.Legs) != null;
+                            }
+                        }
+                        else
+                        {
+                            if (pantsGfx == 0xAEC0)
+                            {
+                                return true;
+                            }
+
+                            if (pantsGfx != 0xAECF)
+                            {
+                                return mobile.FindItemByLayer(Layer.Legs) != null;
                             }
                         }
                     }
 
-                    break;
+                    return true;
+                }
 
-                case Layer.Arms:
-                    robe = mobile.FindItemByLayer(Layer.Robe);
+                case Layer.Pants:
+                {
+                    if (mobile.FindItemByLayer(Layer.Legs) != null || robeAnim == 0x504)
+                    {
+                        return true;
+                    }
 
-                    return robe != null
-                        && robe.Graphic != 0
-                        && robe.Graphic != 0x9985
-                        && robe.Graphic != 0x9986
-                        && robe.Graphic != 0xA412
-                        && robe.Graphic != 0xA2CB
-                        && robe.Graphic != 0xA2CA;
+                    Item pants = mobile.FindItemByLayer(Layer.Pants);
+                    ushort pantsAnim = pants?.ItemData.AnimID ?? 0;
 
-                case Layer.Hair:
-                    if (!ShouldApplyMobileHeadHide(mobile))
+                    if (pantsAnim != 0x1EB && pantsAnim != 0x1FA && pantsAnim != 0x200)
                     {
                         return false;
                     }
 
+                    Item skirt = mobile.FindItemByLayer(Layer.Skirt);
+
+                    if (skirt != null)
+                    {
+                        ushort skirtAnim = skirt.ItemData.AnimID;
+
+                        if (skirtAnim != 0x1C7 && skirtAnim != 0x1E4)
+                        {
+                            return true;
+                        }
+                    }
+
+                    if (robe == null)
+                    {
+                        return false;
+                    }
+
+                    if (robeAnim < 0x4EC)
+                    {
+                        if (robeAnim > 0x4E7)
+                        {
+                            return false;
+                        }
+
+                        return robeAnim != 0x229;
+                    }
+
+                    return (uint)(robeAnim - 0x5E2) > 3;
+                }
+
+                case Layer.Tunic:
+                {
+                    // tunic AnimID 0x238 is moved on top of the robe (surcoat); hide it
+                    // when a full robe is worn underneath.
+                    Item tunic = mobile.FindItemByLayer(Layer.Tunic);
+
+                    if (tunic != null && tunic.ItemData.AnimID == 0x0238)
+                    {
+                        return robe != null && !robeLeavesChestVisible;
+                    }
+
+                    break;
+                }
+
+                case Layer.Torso:
+                {
+                    if (robeGfx != 0 && !robeLeavesChestVisible)
+                    {
+                        return true;
+                    }
+
+                    Item tunic = mobile.FindItemByLayer(Layer.Tunic);
+
+                    if (tunic != null && tunic.Graphic != 0x1541 && tunic.Graphic != 0x1542)
+                    {
+                        Item torso = mobile.FindItemByLayer(Layer.Torso);
+
+                        if (torso != null && (torso.Graphic == 0x782A || torso.Graphic == 0x782B))
+                        {
+                            return true;
+                        }
+                    }
+
+                    break;
+                }
+
+                case Layer.Arms:
+                    return robeGfx != 0 && !robeLeavesChestVisible;
+
+                case Layer.Necklace:
+                {
+                    if (robe == null)
+                    {
+                        return false;
+                    }
+
+                    // open/half robes that leave a neck item (AnimID 0x5EC) visible
+                    if (robeAnim == 0x5F2 || robeAnim == 0x5F5
+                        || (robeAnim >= 0x4E8 && robeAnim <= 0x4EB)
+                        || (robeAnim >= 0x5E2 && robeAnim <= 0x5E5))
+                    {
+                        return false;
+                    }
+
+                    Item neck = mobile.FindItemByLayer(Layer.Necklace);
+
+                    return neck != null && neck.ItemData.AnimID == 0x5EC;
+                }
+
+                case Layer.Bracelet:
+                {
+                    Item bracelet = mobile.FindItemByLayer(Layer.Bracelet);
+
+                    return bracelet != null
+                        && bracelet.Graphic == 0xB1C0
+                        && mobile.FindItemByLayer(Layer.Arms) != null;
+                }
+
+                case Layer.Hair:
+                {
+                    Item helmet = mobile.FindItemByLayer(Layer.Helmet);
+
+                    if (helmet != null && (uint)(helmet.Graphic - 0xA42B) < 2)
+                    {
+                        return true;
+                    }
+
                     goto case Layer.Helmet;
+                }
 
                 case Layer.Helmet:
                     if (!ShouldApplyMobileHeadHide(mobile))
@@ -1449,37 +1513,67 @@ namespace ClassicUO.Game.GameObjects
                         return false;
                     }
 
-                    robe = mobile.FindItemByLayer(Layer.Robe);
-
-                    if (robe != null)
+                    // hair/helmet hidden under a hood-style robe
+                    if (robeGfx < 0x4B9E)
                     {
-                        if (robe.Graphic > 0x3173)
+                        if (robeGfx != 0x4B9D)
                         {
-                            if (robe.Graphic == 0x4B9D || robe.Graphic == 0x7816)
+                            if (robeGfx < 0x2FBA)
                             {
-                                return true;
-                            }
-                        }
-                        else
-                        {
-                            if (robe.Graphic <= 0x2687)
-                            {
-                                if (robe.Graphic < 0x2683)
+                                if (robeGfx != 0x2FB9)
                                 {
-                                    return robe.Graphic >= 0x204E && robe.Graphic <= 0x204F;
+                                    if (robeGfx > 0x2687)
+                                    {
+                                        return false;
+                                    }
+
+                                    if (robeGfx < 0x2683 && (robeGfx < 0x204E || robeGfx > 0x204F))
+                                    {
+                                        return false;
+                                    }
                                 }
-
-                                return true;
                             }
-
-                            if (robe.Graphic == 0x2FB9 || robe.Graphic == 0x3173)
+                            else if (robeGfx != 0x3173)
                             {
-                                return true;
+                                return false;
                             }
+
+                            return true;
                         }
                     }
+                    else if (robeGfx < 0xA0B0)
+                    {
+                        if (robeGfx < 0xA0AB && robeGfx != 0x7816)
+                        {
+                            return false;
+                        }
+                    }
+                    else if (robeGfx != 0xB2B7)
+                    {
+                        return false;
+                    }
 
-                    break;
+                    // these hoods cover the head on every body except gargoyles
+                    bool isGargoyle = mobile.Graphic == 0x029A || mobile.Graphic == 0x029B
+                        || mobile.Graphic == 0x02B6 || mobile.Graphic == 0x02B7;
+
+                    return !isGargoyle;
+
+                case Layer.Skirt:
+                {
+                    Item skirt = mobile.FindItemByLayer(Layer.Skirt);
+                    ushort skirtAnim = skirt?.ItemData.AnimID ?? 0;
+
+                    if (skirtAnim != 0x1C7 && skirtAnim != 0x1E4)
+                    {
+                        return false;
+                    }
+
+                    Item pants = mobile.FindItemByLayer(Layer.Pants);
+                    ushort pantsAnim = pants?.ItemData.AnimID ?? 0;
+
+                    return pantsAnim == 0x1EB || pantsAnim == 0x1FA || pantsAnim == 0x200;
+                }
             }
 
             return false;

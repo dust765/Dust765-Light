@@ -149,7 +149,7 @@ namespace ClassicUO.Game.UI.Controls
             Item wornOuterTorso = mobile.FindItemByLayer(Layer.Robe);
             Item wornCloak = mobile.FindItemByLayer(Layer.Cloak);
             bool useParrotPaperdollRules = (ProfileManager.CurrentProfile?.PaperdollParrotOriginalView ?? true)
-                && IsParrotEpauletsGraphic(wornOuterTorso);
+                && Game.Data.LayerOrder.IsParrotEpaulets(wornOuterTorso);
             bool useQuiverPaperdollRules = wornCloak != null && wornCloak.ItemData.IsContainer;
 
             Span<Layer> layers = stackalloc Layer[PaperdollOrder.N];
@@ -360,19 +360,6 @@ namespace ClassicUO.Game.UI.Controls
         {
             return graphic == 0x029A || graphic == 0x029B
                 || graphic == 0x02B6 || graphic == 0x02B7;
-        }
-
-        private const ushort ParrotEpauletsGraphic = 0xA2CB;
-
-        private static bool IsParrotEpauletsGraphic(Item item)
-        {
-            if (item == null)
-            {
-                return false;
-            }
-
-            return (ushort)(item.Graphic & 0xFFFF) == ParrotEpauletsGraphic
-                || (ushort)(item.DisplayedGraphic & 0xFFFF) == ParrotEpauletsGraphic;
         }
 
         private static bool TryResolveTileArtAppearance(TileArtInfo tileArtInfo, ushort mobileGraphic, out uint appearanceId)
