@@ -117,11 +117,17 @@ namespace ClassicUO.Game.Managers
                 return;
             }
 
+            Profile currentProfile = ProfileManager.CurrentProfile;
+
+            if (currentProfile.SoundVolume == 0)
+            {
+                return;
+            }
+
             int distX = Math.Abs(x - world.Player.X);
             int distY = Math.Abs(y - world.Player.Y);
             int distance = Math.Max(distX, distY);
 
-            Profile currentProfile = ProfileManager.CurrentProfile;
             float volume = currentProfile.SoundVolume / SOUND_DELTA;
             float distanceFactor = 0.0f;
 
