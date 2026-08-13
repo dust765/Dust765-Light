@@ -1,0 +1,18 @@
+#!/bin/sh
+# Drops Co-authored-by trailers before the commit is created.
+#
+# Agent tooling appends them automatically and this project credits a single
+# author, so strip them here instead of relying on every tool being configured.
+
+msg_file="$1"
+
+if ! grep -qi '^Co-authored-by:' "$msg_file"; then
+    exit 0
+fi
+
+tmp="$msg_file.noco"
+
+grep -v -i '^Co-authored-by:' "$msg_file" > "$tmp"
+mv "$tmp" "$msg_file"
+
+exit 0

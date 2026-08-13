@@ -27,6 +27,7 @@ namespace ClassicUO.Game.Map
         public bool IsDestroyed;
         public long LastAccessTime;
         public LinkedListNode<int> Node;
+        public readonly ChunkMesh Mesh = new ChunkMesh();
 
         public int X;
         public int Y;
@@ -54,7 +55,11 @@ namespace ClassicUO.Game.Map
 
         public static void ClearPool()
         {
-            _pool.Clear();
+            while (_pool.Count > 0)
+            {
+                var chunk = _pool.Dequeue();
+                chunk.Mesh.Clear();
+            }
         }
 
 
@@ -158,6 +163,7 @@ namespace ClassicUO.Game.Map
 
         public void AddGameObject(GameObject obj, int x, int y)
         {
+            Mesh.MarkDirtyIfNeeded(obj);
             obj.RemoveFromTile();
 
             short priorityZ = obj.Z;
@@ -336,6 +342,13 @@ namespace ClassicUO.Game.Map
 
         public void RemoveGameObject(GameObject obj, int x, int y)
         {
+            Mesh.MarkDirtyIfNeeded(obj);
+
+            // The mesh only rebuilds on the next frame, so drop the sprite binding now: until
+            // then the stale index would point at a slot this object no longer owns.
+            obj.InChunkMesh = false;
+            obj.MeshSpriteIndex = -1;
+
             ref GameObject firstNode = ref Tiles[x, y];
 
             if (firstNode == null || obj == null)
@@ -410,7 +423,12 @@ namespace ClassicUO.Game.Map
 
             if (_pool.Count < Constants.PREDICTABLE_CHUNKS)
             {
+                Mesh.SoftClear();
                 _pool.Enqueue(this);
+            }
+            else
+            {
+                Mesh.Clear();
             }
         }
 
@@ -421,7 +439,13 @@ namespace ClassicUO.Game.Map
 
         /// <summary>
         /// Clears the chunk's tile objects for an in-place reload (UltimaLive block
-        /// update) WITHOUT destroying or pooling the chunk itself.
+        /// update) and marks the mesh dirty so it rebuilds — WITHOUT destroying or
+        /// pooling the chunk itself. The chunk stays owned by the map: its
+        /// terrain slot and <see cref="Node"/> are left intact. Using
+        /// <see cref="Destroy"/>/<see cref="Clear"/> here would enqueue this chunk to
+        /// the shared pool while the map still references it, so <see cref="Create"/>
+        /// would later hand it out for a different block (double ownership) and the
+        /// original block would render a stale mesh.
         /// </summary>
         public void ClearForReload()
         {
@@ -448,6 +472,8 @@ namespace ClassicUO.Game.Map
                     Tiles[i, j] = null;
                 }
             }
+
+            Mesh.SoftClear();
         }
 
         public bool HasNoExternalData()

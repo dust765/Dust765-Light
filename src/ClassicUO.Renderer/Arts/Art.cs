@@ -244,6 +244,6 @@ namespace ClassicUO.Renderer.Arts
                 ? Rectangle.Empty
                 : _realArtBounds[idx];
 
-        public bool PixelCheck(uint idx, int x, int y) => _picker.Get(idx, x, y);
+        public bool PixelCheck(uint idx, int x, int y, int extraRange = 0) => _picker.Get(idx, x, y, extraRange);
     }
 }

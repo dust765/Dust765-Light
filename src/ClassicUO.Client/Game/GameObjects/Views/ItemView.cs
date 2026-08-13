@@ -286,16 +286,17 @@ namespace ClassicUO.Game.GameObjects
                 depth
             );
 
-            for (int i = 0; i < Constants.USED_LAYER_COUNT; i++)
-            {
-                Layer layer = LayerOrder.UsedLayers[direction, i];
+            Span<Layer> layers = stackalloc Layer[PaperdollOrder.N];
+            int layerCount = PaperdollOrder.BuildInWorld(this, altTorsoTable: false, direction, layers);
 
+            for (int i = 0; i < layerCount; i++)
+            {
                 DrawLayer(
                     batcher,
                     posX,
                     posY,
                     this,
-                    layer,
+                    layers[i],
                     animIndex,
                     ishuman,
                     0,
@@ -619,10 +620,13 @@ namespace ClassicUO.Game.GameObjects
                     || Amount == 0x02E8
                     || Amount == 0x02E9;
 
-                for (int i = -1; i < Constants.USED_LAYER_COUNT; i++)
+                Span<Layer> hitLayers = stackalloc Layer[PaperdollOrder.N];
+                int hitLayerCount = PaperdollOrder.BuildInWorld(this, altTorsoTable: false, direction, hitLayers);
+
+                for (int i = -1; i < hitLayerCount; i++)
                 {
                     // yes im lazy
-                    Layer layer = i == -1 ? Layer.Invalid : LayerOrder.UsedLayers[direction, i];
+                    Layer layer = i == -1 ? Layer.Invalid : hitLayers[i];
 
                     ushort graphic;
 
