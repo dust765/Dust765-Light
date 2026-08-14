@@ -273,7 +273,7 @@ namespace ClassicUO.Game.GameObjects
         {
             AbilityData.DefaultItemAbilities.Set(Abilities);
 
-            Item weapon = FindItemByLayer(Layer.TwoHanded) ?? FindItemByLayer(Layer.OneHanded);
+            Item weapon = FindEquippedWeapon();
 
             if (weapon is { Graphic: > 0 })
             {
@@ -309,6 +309,24 @@ namespace ClassicUO.Game.GameObjects
                 if (gump.Value is UseAbilityButtonGump or CombatBookGump)
                     gump.Value.RequestUpdateContents();
             }
+        }
+
+        private Item FindEquippedWeapon()
+        {
+            Item oneHanded = FindItemByLayer(Layer.OneHanded);
+            Item twoHanded = FindItemByLayer(Layer.TwoHanded);
+
+            if (oneHanded is { Graphic: > 0 } && oneHanded.ItemData.IsWeapon)
+            {
+                return oneHanded;
+            }
+
+            if (twoHanded is { Graphic: > 0 } && twoHanded.ItemData.IsWeapon)
+            {
+                return twoHanded;
+            }
+
+            return null;
         }
 
         protected override void OnPositionChanged()

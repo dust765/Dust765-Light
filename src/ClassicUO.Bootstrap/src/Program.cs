@@ -59,6 +59,7 @@ sealed class ClassicUOHost : IPluginHandler
 {
     private readonly List<Plugin> _plugins = new List<Plugin>();
     private readonly HashSet<string> _loggedPluginErrors = new HashSet<string>();
+    private byte[] _packetInScratch = new byte[4096];
 
     // Plugin -> Client
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
@@ -343,27 +344,30 @@ sealed class ClassicUOHost : IPluginHandler
     {
         var ok = true;
 
+        if (_packetInScratch.Length < length)
+        {
+            _packetInScratch = new byte[Math.Max(length, _packetInScratch.Length * 2)];
+        }
+
         foreach (var plugin in _plugins)
         {
-            var rentBuf = ArrayPool<byte>.Shared.Rent(length);
-
             try
             {
-                fixed (byte* ptr = rentBuf)
-                    Buffer.MemoryCopy(data.ToPointer(), ptr, sizeof(byte) * length, sizeof(byte) * length);
+                fixed (byte* ptr = _packetInScratch)
+                    Buffer.MemoryCopy(data.ToPointer(), ptr, _packetInScratch.Length, length);
 
-                ok &= plugin.ProcessRecvPacket(ref rentBuf, ref length);
+                byte[] buf = _packetInScratch;
+                int len = length;
+                ok &= plugin.ProcessRecvPacket(ref buf, ref len);
 
-                fixed (byte* ptr = rentBuf)
-                    Buffer.MemoryCopy(ptr, data.ToPointer(), sizeof(byte) * length, sizeof(byte) * length);
+                length = len;
+
+                fixed (byte* ptr = buf)
+                    Buffer.MemoryCopy(ptr, data.ToPointer(), length, length);
             }
             catch (Exception ex)
             {
                 LogPluginException(plugin.AssetsPath, "ProcessRecvPacket", ex);
-            }
-            finally
-            {
-                ArrayPool<byte>.Shared.Return(rentBuf);
             }
         }
 
@@ -381,12 +385,16 @@ sealed class ClassicUOHost : IPluginHandler
             try
             {
                 fixed (byte* ptr = rentBuf)
-                    Buffer.MemoryCopy(data.ToPointer(), ptr, sizeof(byte) * length, sizeof(byte) * length);
+                    Buffer.MemoryCopy(data.ToPointer(), ptr, rentBuf.Length, length);
 
-                ok &= plugin.ProcessSendPacket(ref rentBuf, ref length);
+                byte[] buf = rentBuf;
+                int len = length;
+                ok &= plugin.ProcessSendPacket(ref buf, ref len);
 
-                fixed (byte* ptr = rentBuf)
-                    Buffer.MemoryCopy(ptr, data.ToPointer(), sizeof(byte) * length, sizeof(byte) * length);
+                length = len;
+
+                fixed (byte* ptr = buf)
+                    Buffer.MemoryCopy(ptr, data.ToPointer(), length, length);
             }
             catch (Exception ex)
             {
