@@ -76,6 +76,17 @@ namespace ClassicUO.Renderer.Arts
                     if (idx != 0)
                     {
                         _spriteInfos[idx] = Get(0);
+
+                        if (idx > 0x4000)
+                        {
+                            var placeholder = _artLoader.GetArt(0);
+
+                            if (!placeholder.Pixels.IsEmpty)
+                            {
+                                _picker.Set(idx - 0x4000, placeholder.Width, placeholder.Height, placeholder.Pixels);
+                            }
+                        }
+
                         return ref _spriteInfos[idx];
                     }
 

@@ -1,6 +1,7 @@
 ﻿// SPDX-License-Identifier: BSD-2-Clause
 
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
@@ -113,6 +114,8 @@ namespace ClassicUO.Network
         }
 
         public static List<Plugin> Plugins { get; } = new List<Plugin>();
+
+        private static readonly HashSet<string> _loggedPluginErrors = new HashSet<string>();
 
         public string PluginPath { get; }
 
@@ -514,39 +517,78 @@ namespace ClassicUO.Network
         {
             bool result = Client.Game.PluginHost?.PacketIn(new ArraySegment<byte>(data, 0, length)) ?? true;
 
-            foreach (Plugin plugin in Plugins)
+            int pluginCount = Plugins.Count;
+
+            if (pluginCount == 0)
             {
-                try
+                return result;
+            }
+
+            bool hasRecv = false;
+
+            for (int i = 0; i < pluginCount; i++)
+            {
+                Plugin plugin = Plugins[i];
+
+                if (plugin._onRecv_new != null || plugin._onRecv != null)
                 {
-                    if (plugin._onRecv_new != null)
+                    hasRecv = true;
+                    break;
+                }
+            }
+
+            if (!hasRecv)
+            {
+                return result;
+            }
+
+            byte[] tmp = ArrayPool<byte>.Shared.Rent(length);
+
+            try
+            {
+                for (int i = 0; i < pluginCount; i++)
+                {
+                    Plugin plugin = Plugins[i];
+
+                    if (plugin._onRecv_new == null && plugin._onRecv == null)
                     {
-                        byte[] tmp = new byte[length];
+                        continue;
+                    }
+
+                    try
+                    {
                         Array.Copy(data, tmp, length);
 
-                        if (!plugin._onRecv_new(tmp, ref length))
+                        if (plugin._onRecv_new != null)
                         {
-                            result = false;
-                        }
+                            if (!plugin._onRecv_new(tmp, ref length))
+                            {
+                                result = false;
+                            }
 
-                        Array.Copy(tmp, data, length);
+                            Array.Copy(tmp, data, length);
+                        }
+                        else
+                        {
+                            byte[] pluginBuf = tmp;
+
+                            if (!plugin._onRecv(ref pluginBuf, ref length))
+                            {
+                                result = false;
+                            }
+
+                            Array.Copy(pluginBuf, data, length);
+                        }
                     }
-                    else if (plugin._onRecv != null)
+                    catch (Exception ex)
                     {
-                        byte[] tmp = new byte[length];
-                        Array.Copy(data, tmp, length);
-
-                        if (!plugin._onRecv(ref tmp, ref length))
-                        {
-                            result = false;
-                        }
-
-                        Array.Copy(tmp, data, length);
+                        LogPluginError("ProcessRecvPacket", plugin.PluginPath, ex);
                     }
                 }
-                catch (Exception ex)
-                {
-                    Log.Warn($"[Plugin] ProcessRecvPacket: {ex.Message}");
-                }
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(tmp);
             }
 
             return result;
@@ -556,37 +598,98 @@ namespace ClassicUO.Network
         {
             bool result = Client.Game.PluginHost?.PacketOut(message) ?? true;
 
-            foreach (Plugin plugin in Plugins)
+            int pluginCount = Plugins.Count;
+
+            if (pluginCount == 0)
             {
-                if (plugin._onSend_new != null)
+                return result;
+            }
+
+            bool hasSend = false;
+
+            for (int i = 0; i < pluginCount; i++)
+            {
+                Plugin plugin = Plugins[i];
+
+                if (plugin._onSend_new != null || plugin._onSend != null)
                 {
-                    var tmp = message.ToArray();
-                    var length = tmp.Length;
-
-                    if (!plugin._onSend_new(tmp, ref length))
-                    {
-                        result = false;
-                    }
-
-                    message = message.Slice(0, length);
-                    tmp.AsSpan(0, length).CopyTo(message);
-                }
-                else if (plugin._onSend != null)
-                {
-                    var tmp = message.ToArray();
-                    var length = tmp.Length;
-
-                    if (!plugin._onSend(ref tmp, ref length))
-                    {
-                        result = false;
-                    }
-
-                    message = message.Slice(0, length);
-                    tmp.AsSpan(0, length).CopyTo(message);
+                    hasSend = true;
+                    break;
                 }
             }
 
+            if (!hasSend)
+            {
+                return result;
+            }
+
+            int length = message.Length;
+            byte[] tmp = ArrayPool<byte>.Shared.Rent(length);
+
+            try
+            {
+                for (int i = 0; i < pluginCount; i++)
+                {
+                    Plugin plugin = Plugins[i];
+
+                    if (plugin._onSend_new == null && plugin._onSend == null)
+                    {
+                        continue;
+                    }
+
+                    try
+                    {
+                        message.CopyTo(tmp);
+
+                        if (plugin._onSend_new != null)
+                        {
+                            if (!plugin._onSend_new(tmp, ref length))
+                            {
+                                result = false;
+                            }
+                        }
+                        else
+                        {
+                            byte[] pluginBuf = tmp;
+
+                            if (!plugin._onSend(ref pluginBuf, ref length))
+                            {
+                                result = false;
+                            }
+
+                            if (!ReferenceEquals(pluginBuf, tmp))
+                            {
+                                Array.Copy(pluginBuf, tmp, length);
+                            }
+                        }
+
+                        message = message.Slice(0, length);
+                        tmp.AsSpan(0, length).CopyTo(message);
+                    }
+                    catch (Exception ex)
+                    {
+                        LogPluginError("ProcessSendPacket", plugin.PluginPath, ex);
+                    }
+                }
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(tmp);
+            }
+
             return result;
+        }
+
+        private static void LogPluginError(string handler, string pluginPath, Exception ex)
+        {
+            string key = handler + "|" + pluginPath + "|" + ex.GetType().FullName + "|" + ex.Message;
+
+            if (!_loggedPluginErrors.Add(key))
+            {
+                return;
+            }
+
+            Log.Warn($"[Plugin] {handler}: {ex.Message}");
         }
 
         internal static void OnClosing()
