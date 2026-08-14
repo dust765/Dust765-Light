@@ -149,7 +149,7 @@ namespace ClassicUO.Game.UI.Gumps
         private NiceButton _setAsNewDefault;
 
         // video
-        private Checkbox _use_old_status_gump, _statusGumpBarMutuallyExclusive, _windowBorderless, _enableDeathScreen, _enableBlackWhiteEffect, _altLights, _enableLight, _enableShadows, _enableShadowsStatics, _auraMouse, _runMouseInSeparateThread, _useColoredLights, _darkNights, _partyAura, _hideChatGradient, _animatedWaterEffect, _renderWeather;
+        private Checkbox _use_old_status_gump, _statusGumpBarMutuallyExclusive, _windowBorderless, _enableDeathScreen, _enableBlackWhiteEffect, _altLights, _enableLight, _enableShadows, _enableShadowsStatics, _auraMouse, _runMouseInSeparateThread, _useColoredLights, _darkNights, _partyAura, _hideChatGradient, _animatedWaterEffect, _renderWeather, _enableChunkMesh;
         private Combobox _lightLevelType;
         private Checkbox _use_smooth_boat_movement;
         private HSliderBar _terrainShadowLevel;
@@ -1682,6 +1682,17 @@ namespace ClassicUO.Game.UI.Gumps
             );
 
             startY += _reduceFPSWhenInactive.Height + 2;
+
+            _enableChunkMesh = AddCheckBox
+            (
+                rightArea,
+                "GPU world batching (uncheck if the world lags)",
+                _currentProfile.EnableChunkMesh,
+                startX,
+                startY
+            );
+
+            startY += _enableChunkMesh.Height + 2;
 
             startX = 5;
             startY += 20;
@@ -4074,6 +4085,7 @@ namespace ClassicUO.Game.UI.Gumps
                     _maxScreenEffectSprites.Value = 0;
                     _maxDynamicLights.Value = 0;
                     _renderWeather.IsChecked = true;
+                    _enableChunkMesh.IsChecked = false;
 
                     break;
 
@@ -4202,6 +4214,7 @@ namespace ClassicUO.Game.UI.Gumps
 
             _currentProfile.HighlightGameObjects = _highlightObjects.IsChecked;
             _currentProfile.ReduceFPSWhenInactive = _reduceFPSWhenInactive.IsChecked;
+            _currentProfile.EnableChunkMesh = _enableChunkMesh.IsChecked;
             _currentProfile.EnablePathfind = _enablePathfind.IsChecked;
             _currentProfile.UseShiftToPathfind = _useShiftPathfind.IsChecked;
             _currentProfile.AlwaysRun = _alwaysRun.IsChecked;

@@ -100,7 +100,7 @@ namespace ClassicUO.Game.GameObjects
                 heightScale
             );
 
-            if (ItemData.IsLight && !InChunkMesh)
+            if (ItemData.IsLight && !(InChunkMesh && ProfileManager.CurrentProfile.EnableChunkMesh))
             {
                 Client.Game.GetScene<GameScene>().AddLight(this, this, posX + 22, posY + 22);
             }

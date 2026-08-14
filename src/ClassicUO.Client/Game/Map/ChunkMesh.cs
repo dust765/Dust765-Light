@@ -230,6 +230,28 @@ namespace ClassicUO.Game.Map
             IsDirty = true;
         }
 
+        public void ReleaseObjects(Chunk chunk)
+        {
+            if (Land.Count == 0 && Statics.Count == 0)
+            {
+                return;
+            }
+
+            for (int x = 0; x < 8; x++)
+            {
+                for (int y = 0; y < 8; y++)
+                {
+                    for (var obj = chunk.GetHeadObject(x, y); obj != null; obj = obj.TNext)
+                    {
+                        obj.InChunkMesh = false;
+                        obj.MeshSpriteIndex = -1;
+                    }
+                }
+            }
+
+            SoftClear();
+        }
+
         #region Pass 1: Texture counting
 
         private void CountLand(GameObjects.Land land)
