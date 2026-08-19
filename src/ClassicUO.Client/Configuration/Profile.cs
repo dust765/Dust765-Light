@@ -156,6 +156,7 @@ namespace ClassicUO.Configuration
         public int MaxScreenEffectSprites { get; set; }
         public int MaxDynamicLights { get; set; }
         public bool RenderWeather { get; set; } = true;
+        public bool EnableChunkMesh { get; set; } = false;
 
         // tooltip
         public bool UseTooltip { get; set; } = true;

@@ -210,9 +210,6 @@ namespace ClassicUO.Game.UI.Controls
             }
             else
             {
-                // 3-pixel forgiveness radius so items with sparse opaque pixels (robes, hats,
-                // small icons) are still clickable when the click lands a couple of pixels
-                // off the visible content.
                 if (Client.Game.UO.Arts.PixelCheck(Graphic, x, y, extraRange: 3))
                 {
                     return true;
@@ -226,6 +223,11 @@ namespace ClassicUO.Game.UI.Controls
                     {
                         return true;
                     }
+                }
+
+                if (x >= 0 && y >= 0 && x < spriteInfo.UV.Width && y < spriteInfo.UV.Height)
+                {
+                    return true;
                 }
             }
 

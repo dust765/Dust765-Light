@@ -77,6 +77,7 @@ namespace ClassicUO.Game.Scenes
         // on top, so we have to remember the sprite to restore once the selection moves away.
         private GameObject _prevMeshHighlight;
         private bool _meshAnimatedWater;
+        private bool _chunkMeshEnabled;
         private AnimatedStaticsManager _animatedStaticsManager;
 
         private readonly World _world;
@@ -703,10 +704,17 @@ namespace ClassicUO.Game.Scenes
             bool use_handles = _useObjectHandles;
 
             bool animatedWater = ProfileManager.CurrentProfile.AnimatedWaterEffect;
+            bool useChunkMesh = ProfileManager.CurrentProfile.EnableChunkMesh;
 
             if (_meshAnimatedWater != animatedWater)
             {
                 _meshAnimatedWater = animatedWater;
+                Map.ChunkMesh.InvalidationVersion++;
+            }
+
+            if (_chunkMeshEnabled != useChunkMesh)
+            {
+                _chunkMeshEnabled = useChunkMesh;
                 Map.ChunkMesh.InvalidationVersion++;
             }
 
@@ -721,24 +729,31 @@ namespace ClassicUO.Game.Scenes
                     if (chunk == null || chunk.IsDestroyed)
                         continue;
 
-                    if (chunk.Mesh.NeedsRebuild)
-                    {
-                        chunk.Mesh.Build(chunk, _world, Client.Game.GraphicsDevice);
-                    }
-
-                    chunk.Mesh.Land.ResetVisibility();
-                    chunk.Mesh.Land.ResetAlpha();
-                    chunk.Mesh.Statics.ResetVisibility();
-                    chunk.Mesh.Statics.ResetAlpha();
-
-                    _visibleChunks.Add(chunk);
-
                     int chunkBaseX = chunkX << 3;
                     int chunkBaseY = chunkY << 3;
                     int tileStartX = Math.Max(0, minX - chunkBaseX);
                     int tileEndX = Math.Min(7, maxX - chunkBaseX);
                     int tileStartY = Math.Max(0, minY - chunkBaseY);
                     int tileEndY = Math.Min(7, maxY - chunkBaseY);
+
+                    if (useChunkMesh)
+                    {
+                        if (chunk.Mesh.NeedsRebuild)
+                        {
+                            chunk.Mesh.Build(chunk, _world, Client.Game.GraphicsDevice);
+                        }
+
+                        chunk.Mesh.Land.ResetVisibility();
+                        chunk.Mesh.Land.ResetAlpha();
+                        chunk.Mesh.Statics.ResetVisibility();
+                        chunk.Mesh.Statics.ResetAlpha();
+
+                        _visibleChunks.Add(chunk);
+                    }
+                    else
+                    {
+                        chunk.Mesh.ReleaseObjects(chunk);
+                    }
 
                     for (var x = tileStartX; x <= tileEndX; x++)
                     {
@@ -752,7 +767,7 @@ namespace ClassicUO.Game.Scenes
                                 firstObj,
                                 use_handles,
                                 150,
-                                chunk.Mesh
+                                useChunkMesh ? chunk.Mesh : null
                             );
                         }
                     }
@@ -1201,13 +1216,15 @@ namespace ClassicUO.Game.Scenes
             // https://shawnhargreaves.com/blog/depth-sorting-alpha-blended-objects.html
             batcher.SetStencil(DepthStencilState.Default);
 
-            RenderedObjectsCount = _renderLists.DrawRenderLists(
-                batcher,
-                _maxGroundZ,
-                _visibleChunks,
-                _offset.X,
-                _offset.Y
-            );
+            RenderedObjectsCount = _chunkMeshEnabled
+                ? _renderLists.DrawRenderLists(
+                    batcher,
+                    _maxGroundZ,
+                    _visibleChunks,
+                    _offset.X,
+                    _offset.Y
+                )
+                : _renderLists.DrawRenderLists(batcher, _maxGroundZ);
 
 
             if (

@@ -429,7 +429,9 @@ namespace ClassicUO.Network
 
                 for (int i = Handler._clilocRequests.Count - 1; i >= 0; i--)
                 {
-                    if (ShouldSkipOplRequest(world, Handler._clilocRequests[i]))
+                    uint pending = Handler._clilocRequests[i];
+
+                    if (!IsHoveredOplSerial(pending) && ShouldSkipOplRequest(world, pending))
                     {
                         Handler._clilocRequests.RemoveAt(i);
                     }
@@ -516,8 +518,9 @@ namespace ClassicUO.Network
         public static void AddMegaClilocRequest(uint serial)
         {
             World world = Client.Game.GetScene<GameScene>()?.World;
+            bool hovered = IsHoveredOplSerial(serial);
 
-            if (world != null && ShouldSkipOplRequest(world, serial))
+            if (world != null && !hovered && ShouldSkipOplRequest(world, serial))
             {
                 return;
             }
@@ -528,28 +531,58 @@ namespace ClassicUO.Network
             }
 
             if (
-                Handler._clilocRequestCooldown.TryGetValue(serial, out uint nextAllowed)
+                !hovered
+                && Handler._clilocRequestCooldown.TryGetValue(serial, out uint nextAllowed)
                 && Time.Ticks < nextAllowed
             )
             {
                 return;
             }
 
-            foreach (uint s in Handler._clilocRequests)
+            int existing = Handler._clilocRequests.IndexOf(serial);
+
+            if (existing >= 0)
             {
-                if (s == serial)
+                if (hovered && existing > 0)
                 {
-                    return;
+                    Handler._clilocRequests.RemoveAt(existing);
+                    Handler._clilocRequests.Insert(0, serial);
                 }
+
+                return;
             }
 
             if (Handler._clilocRequests.Count >= MaxMegaClilocQueueSize)
             {
-                return;
+                if (!hovered)
+                {
+                    return;
+                }
+
+                Handler._clilocRequests.RemoveAt(Handler._clilocRequests.Count - 1);
             }
 
             Handler._clilocRequestCooldown[serial] = Time.Ticks + MegaClilocRequestCooldownMs;
-            Handler._clilocRequests.Add(serial);
+
+            if (hovered)
+            {
+                Handler._clilocRequests.Insert(0, serial);
+            }
+            else
+            {
+                Handler._clilocRequests.Add(serial);
+            }
+        }
+
+        private static bool IsHoveredOplSerial(uint serial)
+        {
+            if (SelectedObject.Object is Entity entity && entity.Serial == serial)
+            {
+                return true;
+            }
+
+            return UIManager.MouseOverControl?.Tooltip is uint tooltipSerial
+                && tooltipSerial == serial;
         }
 
         public static bool ShouldSkipOplRequest(World world, uint serial)
@@ -5891,7 +5924,7 @@ namespace ClassicUO.Network
 
                 if (!world.OPL.IsRevisionEquals(serial, revision))
                 {
-                    world.OPL.Remove(serial);
+                    AddMegaClilocRequest(serial);
                 }
             }
         }
