@@ -20,7 +20,7 @@ namespace ClassicUO.Game.UI.Controls
         private static readonly Dictionary<(ushort mobile, ushort item), ushort> _tileArtGumpCache = new(64);
 
         private readonly PaperDollGump _paperDollGump;
-
+        private GumpPicEquipment _talismanOverlay;
         private bool _updateUI;
 
         public PaperDollInteractable(int x, int y, uint serial, PaperDollGump paperDollGump)
@@ -31,6 +31,13 @@ namespace ClassicUO.Game.UI.Controls
             AcceptMouseInput = false;
             LocalSerial = serial;
             _updateUI = true;
+        }
+
+        public override void Dispose()
+        {
+            _talismanOverlay?.Dispose();
+            _talismanOverlay = null;
+            base.Dispose();
         }
 
         public bool HasFakeItem { get; private set; }
@@ -178,6 +185,11 @@ namespace ClassicUO.Game.UI.Controls
             for (int i = 0; i < layerCount; i++)
             {
                 Layer layer = layers[i];
+
+                if (layer == Layer.Talisman)
+                {
+                    continue;
+                }
 
                 equipItem = mobile.FindItemByLayer(layer);
 
@@ -344,6 +356,88 @@ namespace ClassicUO.Game.UI.Controls
                     }
                 );
             }
+
+            AttachTalisman(mobile);
+        }
+
+        private void AttachTalisman(Mobile mobile)
+        {
+            _talismanOverlay?.Dispose();
+            _talismanOverlay = null;
+
+            Item equipItem = mobile.FindItemByLayer(Layer.Talisman);
+            bool fakeTalisman =
+                HasFakeItem
+                && Client.Game.UO.GameCursor.ItemHold.Enabled
+                && !Client.Game.UO.GameCursor.ItemHold.IsFixedPosition
+                && Client.Game.UO.GameCursor.ItemHold.ItemData.Layer == (byte)Layer.Talisman
+                && Client.Game.UO.GameCursor.ItemHold.ItemData.AnimID != 0
+                && equipItem == null;
+
+            ushort id;
+            uint serial;
+            ushort hue;
+            bool partialHue;
+            float alpha = 1f;
+            bool canLift = false;
+
+            if (equipItem != null)
+            {
+                id = GetAnimID(
+                    mobile.Graphic,
+                    equipItem.Graphic,
+                    equipItem.ItemData.AnimID,
+                    mobile.IsFemale
+                );
+                serial = equipItem.Serial;
+                hue = (ushort)(equipItem.Hue & 0x3FFF);
+                partialHue = equipItem.ItemData.IsPartialHue;
+                canLift =
+                    _paperDollGump.World.InGame
+                    && !_paperDollGump.World.Player.IsDead
+                    && (_paperDollGump.CanLift || LocalSerial == _paperDollGump.World.Player);
+            }
+            else if (fakeTalisman)
+            {
+                id = GetAnimID(
+                    mobile.Graphic,
+                    Client.Game.UO.GameCursor.ItemHold.Graphic,
+                    Client.Game.UO.GameCursor.ItemHold.ItemData.AnimID,
+                    mobile.IsFemale
+                );
+                serial = 0;
+                hue = (ushort)(Client.Game.UO.GameCursor.ItemHold.Hue & 0x3FFF);
+                partialHue = Client.Game.UO.GameCursor.ItemHold.IsPartialHue;
+                alpha = 0.5f;
+            }
+            else
+            {
+                return;
+            }
+
+            if (id == 0 || Client.Game.UO.Gumps.GetGump(id).Texture == null)
+            {
+                return;
+            }
+
+            _talismanOverlay = new GumpPicEquipment(
+                _paperDollGump,
+                serial,
+                X - 6,
+                Y - 10,
+                id,
+                hue,
+                Layer.Talisman
+            )
+            {
+                AcceptMouseInput = true,
+                IsPartialHue = partialHue,
+                Alpha = alpha,
+                CanLift = canLift,
+                IsVisible = !_paperDollGump.IsMinimized
+            };
+
+            _paperDollGump.Add(_talismanOverlay);
         }
 
         public void RequestUpdate()
