@@ -1,5 +1,6 @@
 ﻿// SPDX-License-Identifier: BSD-2-Clause
 
+using System;
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -50,7 +51,7 @@ namespace ClassicUO.Configuration
                 var json = JsonSerializer.Serialize(obj, ctx);
                 File.WriteAllText(file, json);
             }
-            catch (IOException e)
+            catch (Exception e)
             {
                 Log.Error(e.ToString());
             }

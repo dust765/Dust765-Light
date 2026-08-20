@@ -56,6 +56,15 @@ namespace ClassicUO
 
             DllMap.Init();
 
+            try
+            {
+                Directory.CreateDirectory(CUOEnviroment.ExecutablePath);
+                Environment.CurrentDirectory = CUOEnviroment.ExecutablePath;
+            }
+            catch
+            {
+            }
+
             CUOEnviroment.GameThread = Thread.CurrentThread;
             CUOEnviroment.GameThread.Name = "CUO_MAIN_THREAD";
 #if !DEBUG
@@ -122,14 +131,16 @@ namespace ClassicUO
             Environment.SetEnvironmentVariable("PATH", Environment.GetEnvironmentVariable("PATH") + ";" + Path.Combine(CUOEnviroment.ExecutablePath, "Data", "Plugins"));
 
             string globalSettingsPath = Settings.GetSettingsFilepath();
+            string settingsDir = Path.GetDirectoryName(globalSettingsPath);
 
-            if (!Directory.Exists(Path.GetDirectoryName(globalSettingsPath)) || !File.Exists(globalSettingsPath))
+            if (!string.IsNullOrEmpty(settingsDir) && !Directory.Exists(settingsDir))
             {
-                // settings specified in path does not exists, make new one
-                {
-                    // TODO:
-                    Settings.GlobalSettings.Save();
-                }
+                Directory.CreateDirectory(settingsDir);
+            }
+
+            if (!File.Exists(globalSettingsPath))
+            {
+                Settings.GlobalSettings.Save();
             }
 
             Settings.GlobalSettings = ConfigurationResolver.Load(globalSettingsPath, SettingsJsonContext.RealDefault.Settings);
@@ -142,6 +153,8 @@ namespace ClassicUO
                 Settings.GlobalSettings = new Settings();
                 Settings.GlobalSettings.Save();
             }
+
+            Log.Trace($"Settings file: {Settings.GetSettingsFilepath()}");
 
             if (string.IsNullOrWhiteSpace(Settings.GlobalSettings.Language))
             {
