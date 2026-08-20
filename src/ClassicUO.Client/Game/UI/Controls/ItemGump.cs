@@ -224,11 +224,6 @@ namespace ClassicUO.Game.UI.Controls
                         return true;
                     }
                 }
-
-                if (x >= 0 && y >= 0 && x < spriteInfo.UV.Width && y < spriteInfo.UV.Height)
-                {
-                    return true;
-                }
             }
 
             return false;
