@@ -29,11 +29,62 @@ namespace ClassicUO
             Assembly.GetExecutingAssembly()?.GetName()?.Version is System.Version ver
                 ? ver.ToString(4)
                 : "1.0.0.0";
-        public static readonly string ExecutablePath =
-#if NETFRAMEWORK
-           AppContext.BaseDirectory; // Path.GetDirectoryName(Assembly.GetEntryAssembly()?.Location);
-#else
-            Environment.CurrentDirectory;
-#endif
+        public static readonly string ExecutablePath = ResolveExecutablePath();
+
+        private static string ResolveExecutablePath()
+        {
+            string dir = NormalizeDir(AppContext.BaseDirectory);
+
+            if (IsUnusableDir(dir))
+            {
+                string loc = Assembly.GetEntryAssembly()?.Location;
+                if (string.IsNullOrWhiteSpace(loc))
+                {
+                    loc = Assembly.GetExecutingAssembly()?.Location;
+                }
+
+                if (!string.IsNullOrWhiteSpace(loc))
+                {
+                    dir = NormalizeDir(Path.GetDirectoryName(loc));
+                }
+            }
+
+            if (IsUnusableDir(dir))
+            {
+                dir = NormalizeDir(Environment.CurrentDirectory);
+            }
+
+            try
+            {
+                dir = Path.GetFullPath(dir);
+            }
+            catch
+            {
+                dir = NormalizeDir(Environment.CurrentDirectory);
+            }
+
+            return dir;
+        }
+
+        private static string NormalizeDir(string dir)
+        {
+            if (string.IsNullOrWhiteSpace(dir))
+            {
+                return dir;
+            }
+
+            return dir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        }
+
+        private static bool IsUnusableDir(string dir)
+        {
+            if (string.IsNullOrWhiteSpace(dir))
+            {
+                return true;
+            }
+
+            string trimmed = dir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            return trimmed.Length == 0 || trimmed == "/" || trimmed == "\\";
+        }
     }
 }

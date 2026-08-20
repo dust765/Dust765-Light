@@ -27,6 +27,7 @@ namespace ClassicUO.Configuration
         public const string SETTINGS_FILENAME = "settings.json";
         public static Settings GlobalSettings = new Settings();
         public static string CustomSettingsFilepath = null;
+        private static string _writableSettingsDirectory;
 
 
         [JsonPropertyName("username")] public string Username { get; set; } = string.Empty;
@@ -110,10 +111,58 @@ namespace ClassicUO.Configuration
                     return CustomSettingsFilepath;
                 }
 
-                return Path.Combine(CUOEnviroment.ExecutablePath, CustomSettingsFilepath);
+                return Path.Combine(GetWritableSettingsDirectory(), CustomSettingsFilepath);
             }
 
-            return Path.Combine(CUOEnviroment.ExecutablePath, SETTINGS_FILENAME);
+            return Path.Combine(GetWritableSettingsDirectory(), SETTINGS_FILENAME);
+        }
+
+        public static string GetWritableSettingsDirectory()
+        {
+            if (!string.IsNullOrEmpty(_writableSettingsDirectory))
+            {
+                return _writableSettingsDirectory;
+            }
+
+            if (CanWriteDirectory(CUOEnviroment.ExecutablePath))
+            {
+                return _writableSettingsDirectory = CUOEnviroment.ExecutablePath;
+            }
+
+            string fallback = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "Dust765-Light"
+            );
+
+            Directory.CreateDirectory(fallback);
+
+            if (CanWriteDirectory(fallback))
+            {
+                return _writableSettingsDirectory = fallback;
+            }
+
+            return _writableSettingsDirectory = CUOEnviroment.ExecutablePath;
+        }
+
+        private static bool CanWriteDirectory(string directory)
+        {
+            if (string.IsNullOrWhiteSpace(directory))
+            {
+                return false;
+            }
+
+            try
+            {
+                Directory.CreateDirectory(directory);
+                string probe = Path.Combine(directory, ".cuo_write_test");
+                File.WriteAllText(probe, "1");
+                File.Delete(probe);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
         }
 
 
