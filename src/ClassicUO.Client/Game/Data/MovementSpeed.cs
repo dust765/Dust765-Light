@@ -35,6 +35,25 @@ namespace ClassicUO.Game.Data
             return run ? STEP_DELAY_RUN : STEP_DELAY_WALK;
         }
 
+        public static bool HasMountSpeedBody(ushort graphic)
+        {
+            switch (graphic)
+            {
+                case 0x0019:
+                case 0x007A:
+                case 0x0084:
+                case 0x00D2:
+                case 0x00DA:
+                case 0x00DB:
+                case 0x00DC:
+                case 0x00E1:
+                case 0x00F6:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
         public static void GetPixelOffset(byte dir, ref float x, ref float y, float framesPerTile)
         {
             float step_NESW_D = 44.0f / framesPerTile;
