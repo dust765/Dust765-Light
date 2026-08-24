@@ -261,16 +261,14 @@ namespace ClassicUO.Game.UI.Gumps
 
         protected override void CloseWithRightClick()
         {
-            // Só permite fechar com botão direito se não estiver fixado
-            if (!ProfileManager.CurrentProfile.NameOverheadPinnedToggled)
+            Entity entity = World.Get(LocalSerial);
+
+            if (entity != null)
             {
-                Entity entity = World.Get(LocalSerial);
-                if (entity != null)
-                {
-                    entity.ObjectHandlesStatus = ObjectHandlesStatus.CLOSED;
-                }
-                base.CloseWithRightClick();
+                entity.ObjectHandlesStatus = ObjectHandlesStatus.CLOSED;
             }
+
+            base.CloseWithRightClick();
         }
 
         private void DoDrag()

@@ -294,9 +294,20 @@ namespace ClassicUO.Game.GameObjects
 
             if (World.Player == null || Serial != World.Player)
             {
+                bool alreadyMounted =
+                    IsMounted
+                    || SpeedMode == CharacterSpeedType.FastUnmount
+                    || SpeedMode == CharacterSpeedType.FastUnmountAndCantRun
+                    || IsFlying;
+
                 uint now = Time.Ticks;
 
-                if (_lastQueuedStepTime != 0)
+                if (alreadyMounted || IsGargoyle)
+                {
+                    _syncedStepDelay = 0;
+                    _appliedMountedStepProgress = false;
+                }
+                else if (_lastQueuedStepTime != 0)
                 {
                     uint dt = now - _lastQueuedStepTime;
                     int jitter = (int)Client.Game.FrameDelay[0];
@@ -766,12 +777,14 @@ namespace ClassicUO.Game.GameObjects
                         || SpeedMode == CharacterSpeedType.FastUnmount
                         || SpeedMode == CharacterSpeedType.FastUnmountAndCantRun
                         || IsFlying;
+                    bool alreadyMounted = mounted;
                     bool isRemote = Serial != World.Player;
+                    bool useAnimalFormSync = isRemote && !alreadyMounted && !IsGargoyle;
                     int frameDelay = (int)Client.Game.FrameDelay[1];
                     int oldMaxDelay =
                         MovementSpeed.TimeToCompleteMovement(run, mounted) - frameDelay;
 
-                    if (isRemote)
+                    if (useAnimalFormSync)
                     {
                         if (MovementSpeed.HasMountSpeedBody(Graphic))
                         {
@@ -804,12 +817,12 @@ namespace ClassicUO.Game.GameObjects
                     }
 
                     int maxDelay =
-                        isRemote && _syncedStepDelay > 0
+                        useAnimalFormSync && _syncedStepDelay > 0
                             ? _syncedStepDelay - frameDelay
                             : MovementSpeed.TimeToCompleteMovement(run, mounted) - frameDelay;
 
                     if (
-                        isRemote
+                        useAnimalFormSync
                         && !_appliedMountedStepProgress
                         && oldMaxDelay > maxDelay
                         && maxDelay > 0
@@ -958,7 +971,7 @@ namespace ClassicUO.Game.GameObjects
                         uint leftover = 0;
 
                         if (
-                            Serial != World.Player
+                            useAnimalFormSync
                             && !directionChange
                             && maxDelay > 0
                             && delay > maxDelay
