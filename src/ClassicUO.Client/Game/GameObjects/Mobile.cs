@@ -97,9 +97,6 @@ namespace ClassicUO.Game.GameObjects
 
         private bool _isDead;
         private bool _isSA_Poisoned;
-        private uint _lastQueuedStepTime;
-        private int _syncedStepDelay;
-        private bool _appliedMountedStepProgress;
 
         //
         internal bool _surfaceOverheadCache;
@@ -290,33 +287,6 @@ namespace ClassicUO.Game.GameObjects
             if (Steps.Count >= Constants.MAX_STEP_COUNT)
             {
                 return false;
-            }
-
-            if (World.Player == null || Serial != World.Player)
-            {
-                uint now = Time.Ticks;
-
-                if (_lastQueuedStepTime != 0)
-                {
-                    uint dt = now - _lastQueuedStepTime;
-                    int jitter = (int)Client.Game.FrameDelay[0];
-
-                    if (dt > 0 && dt <= MovementSpeed.STEP_DELAY_MOUNT_RUN + jitter)
-                    {
-                        _syncedStepDelay = MovementSpeed.STEP_DELAY_MOUNT_RUN;
-                    }
-                    else if (dt > 0 && dt <= MovementSpeed.STEP_DELAY_MOUNT_WALK + jitter)
-                    {
-                        _syncedStepDelay = MovementSpeed.STEP_DELAY_MOUNT_WALK;
-                    }
-                    else if (dt > MovementSpeed.STEP_DELAY_WALK)
-                    {
-                        _syncedStepDelay = 0;
-                        _appliedMountedStepProgress = false;
-                    }
-                }
-
-                _lastQueuedStepTime = now;
             }
 
             GetEndPosition(out int endX, out int endY, out sbyte endZ, out Direction endDir);
@@ -760,78 +730,35 @@ namespace ClassicUO.Game.GameObjects
                     }
 
                     int delay = (int)Time.Ticks - (int)LastStepTime;
-                    bool run = step.Run;
                     bool mounted =
                         IsMounted
                         || SpeedMode == CharacterSpeedType.FastUnmount
                         || SpeedMode == CharacterSpeedType.FastUnmountAndCantRun
                         || IsFlying;
-                    bool isRemote = Serial != World.Player;
-                    int frameDelay = (int)Client.Game.FrameDelay[1];
-                    int oldMaxDelay =
-                        MovementSpeed.TimeToCompleteMovement(run, mounted) - frameDelay;
+                    bool run = step.Run;
 
-                    if (isRemote)
+                    if (!mounted && Serial != World.Player)
                     {
                         if (MovementSpeed.HasMountSpeedBody(Graphic))
                         {
                             mounted = true;
+                            run = step.Run || IsRunning;
                         }
-
-                        if (_syncedStepDelay == MovementSpeed.STEP_DELAY_MOUNT_RUN)
+                        else if (Steps.Count > 1 && delay > 0)
                         {
-                            mounted = true;
-                            run = true;
-                        }
-                        else if (_syncedStepDelay == MovementSpeed.STEP_DELAY_MOUNT_WALK)
-                        {
-                            mounted = true;
-                        }
-                        else if (!mounted && Steps.Count > 1 && delay > 0)
-                        {
-                            if (delay <= MovementSpeed.STEP_DELAY_MOUNT_RUN)
-                            {
-                                mounted = true;
-                                run = true;
-                                _syncedStepDelay = MovementSpeed.STEP_DELAY_MOUNT_RUN;
-                            }
-                            else if (delay <= MovementSpeed.STEP_DELAY_MOUNT_WALK)
-                            {
-                                mounted = true;
-                                _syncedStepDelay = MovementSpeed.STEP_DELAY_MOUNT_WALK;
-                            }
+                            mounted =
+                                delay
+                                <= (
+                                    run
+                                        ? MovementSpeed.STEP_DELAY_MOUNT_RUN
+                                        : MovementSpeed.STEP_DELAY_MOUNT_WALK
+                                );
                         }
                     }
 
                     int maxDelay =
-                        isRemote && _syncedStepDelay > 0
-                            ? _syncedStepDelay - frameDelay
-                            : MovementSpeed.TimeToCompleteMovement(run, mounted) - frameDelay;
-
-                    if (
-                        isRemote
-                        && !_appliedMountedStepProgress
-                        && oldMaxDelay > maxDelay
-                        && maxDelay > 0
-                        && delay > 0
-                        && (X != step.X || Y != step.Y)
-                    )
-                    {
-                        float progress = delay / (float)oldMaxDelay;
-
-                        if (progress > 1f)
-                        {
-                            progress = 1f;
-                        }
-
-                        LastStepTime = Time.Ticks - (uint)(progress * maxDelay);
-                        delay = (int)Time.Ticks - (int)LastStepTime;
-                        _appliedMountedStepProgress = true;
-                    }
-                    else if (maxDelay >= oldMaxDelay)
-                    {
-                        _appliedMountedStepProgress = false;
-                    }
+                        MovementSpeed.TimeToCompleteMovement(run, mounted)
+                        - (int)Client.Game.FrameDelay[1];
 
                     bool removeStep = delay >= maxDelay;
                     bool directionChange = false;
@@ -867,10 +794,10 @@ namespace ClassicUO.Game.GameObjects
                             float steps = maxDelay / (float)Constants.CHARACTER_ANIMATION_DELAY;
                             float x = delay / (float)Constants.CHARACTER_ANIMATION_DELAY;
                             float y = x;
-                            Offset.Z = (sbyte)((step.Z - Z) * x * (4.0f / steps));
+                            Offset.Z = (step.Z - Z) * x * (4.0f / steps);
                             MovementSpeed.GetPixelOffset(step.Direction, ref x, ref y, steps);
-                            Offset.X = (sbyte)x;
-                            Offset.Y = (sbyte)y;
+                            Offset.X = x;
+                            Offset.Y = y;
                         }
                     }
                     else
@@ -955,19 +882,7 @@ namespace ClassicUO.Game.GameObjects
                             World.Player.CloseRangedGumps();
                         }
 
-                        uint leftover = 0;
-
-                        if (
-                            Serial != World.Player
-                            && !directionChange
-                            && maxDelay > 0
-                            && delay > maxDelay
-                        )
-                        {
-                            leftover = (uint)Math.Min(delay - maxDelay, maxDelay - 1);
-                        }
-
-                        LastStepTime = Time.Ticks - leftover;
+                        LastStepTime = Time.Ticks;
                     }
 
                     UpdateTextCoordsV();
