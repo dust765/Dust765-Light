@@ -1142,6 +1142,9 @@ Min. Skill: {1}</value>
   <data name="Map" xml:space="preserve">
     <value>Map</value>
   </data>
+  <data name="Maps" xml:space="preserve">
+    <value>Maps</value>
+  </data>
   <data name="Paperdoll" xml:space="preserve">
     <value>Paperdoll</value>
   </data>

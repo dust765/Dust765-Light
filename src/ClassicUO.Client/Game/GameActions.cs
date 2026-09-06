@@ -181,6 +181,22 @@ namespace ClassicUO.Game
             }
         }
 
+        public static void ToggleWorldMapFreeView(World world)
+        {
+            WorldMapGump worldMap = UIManager.GetGump<WorldMapGump>();
+
+            if (worldMap != null && !worldMap.IsDisposed)
+            {
+                worldMap.FreeView = !worldMap.FreeView;
+                return;
+            }
+
+            if (ProfileManager.CurrentProfile != null)
+            {
+                ProfileManager.CurrentProfile.WorldMapFreeView = !ProfileManager.CurrentProfile.WorldMapFreeView;
+            }
+        }
+
         public static void OpenChat(World world)
         {
             if (world.ChatManager.ChatIsEnabled == ChatStatus.Enabled)
