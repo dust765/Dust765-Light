@@ -1823,6 +1823,9 @@ namespace ClassicUO.Game.Managers
                     ProfileManager.CurrentProfile.ForceGargoyleWalk = !ProfileManager.CurrentProfile.ForceGargoyleWalk;
                     _world.Player?.SetAnimation(0xFF);
                     break;
+                case MacroType.ToggleWorldMapFreeView:
+                    GameActions.ToggleWorldMapFreeView(_world);
+                    break;
             }
 
 
@@ -2372,7 +2375,8 @@ namespace ClassicUO.Game.Managers
         UseCounterBarSlot,
         ToggleInvisibleHouses, // Dust765
         ToggleAvoidObstacles, // Dust765
-        ToggleGargoyleWalk // Dust765
+        ToggleGargoyleWalk, // Dust765
+        ToggleWorldMapFreeView
     }
 
     internal enum MacroSubType
