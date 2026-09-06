@@ -161,6 +161,11 @@ namespace ClassicUO.Game.UI.Gumps
                     _freeView = value;
                     SaveSettings();
 
+                    if (_options.TryGetValue("free_view", out ContextMenuItemEntry entry))
+                    {
+                        entry.IsSelected = _freeView;
+                    }
+
                     if (!_freeView)
                     {
                         _isScrolling = false;
@@ -534,13 +539,14 @@ namespace ClassicUO.Game.UI.Gumps
             ContextMenu.Add(_options["flip_map"]);
             ContextMenu.Add(_options["top_most"]);
 
-            ContextMenuItemEntry freeView = new ContextMenuItemEntry(ResGumps.FreeView);
-            freeView.Add(_options["free_view"]);
+            ContextMenuItemEntry maps = new ContextMenuItemEntry(ResGumps.Maps);
 
             for (int i = 0; i < MapLoader.MAPS_COUNT; i++)
-                freeView.Add(_options[$"free_view_map_{i}"]);
+                maps.Add(_options[$"free_view_map_{i}"]);
 
-            ContextMenu.Add(freeView);
+            maps.Add(_options["free_view"]);
+
+            ContextMenu.Add(maps);
 
             ContextMenu.Add("", null);
             ContextMenu.Add(_options["show_party_members"]);
