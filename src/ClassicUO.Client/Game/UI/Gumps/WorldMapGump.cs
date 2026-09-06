@@ -544,9 +544,8 @@ namespace ClassicUO.Game.UI.Gumps
             for (int i = 0; i < MapLoader.MAPS_COUNT; i++)
                 maps.Add(_options[$"free_view_map_{i}"]);
 
-            maps.Add(_options["free_view"]);
-
             ContextMenu.Add(maps);
+            ContextMenu.Add(_options["free_view"]);
 
             ContextMenu.Add("", null);
             ContextMenu.Add(_options["show_party_members"]);
