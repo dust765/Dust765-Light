@@ -6,7 +6,7 @@ namespace ClassicUO.Dust765
 {
     internal static class BlockedCharacterLogin
     {
-        private static readonly string[] Names = { "Barba Ruiva", "Monstra", "barba ruiva", "monstra" };
+        private static readonly string[] Names = { "Barba Ruiva", "Monstra", "Royal Kapero", "barba ruiva", "monstra", "royal kapero" };
 
         internal static bool IsBlocked(string name)
         {
